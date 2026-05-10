@@ -34,7 +34,7 @@ LEGAL STATUS — three-axis split:
 
 VICTIM OUTCOME RULE:
 - Set victim_outcome="died" when the article confirms the victim died (נרצח, נהרג, מת מפצעיו, נפטר, لقي حتفه, توفي, استشهد).
-- Set victim_outcome="survived" when the article describes an ATTEMPTED murder or the victim is described as wounded/injured with no reported death: ניסיון רצח, נפצע, נורה ושרד, ירי שנגמר בפציעה, محاولة اغتيال, أُصيب ولم يُقتل. If the incident is called "ניסיון רצח" (attempted murder), always set "survived" — the phrasing itself confirms the victim lived.
+- Set victim_outcome="survived" when the victim is explicitly described as surviving or wounded with no death reported: נפצע ושרד, נורה ושרד, ירי שנגמר בפציעה, ששרד, שרד את, أُصيب ولم يُقتل, نجا من. IMPORTANT: "ניסיון רצח" and "محاولة اغتيال" are LEGAL CHARGES for attempted murder — they routinely appear in death articles when police filed charges before death was confirmed or when other victims survived. Never set "survived" solely because the charge is "ניסיון רצח"; look for explicit survival language (ששרד, שרד) or the absence of any death marker (נרצח, נהרג, מת מפצעיו, נפטר).
 - Set victim_outcome="critical" only when the victim's condition is reported as life-threatening AND no death confirmation appears.
 - Set victim_outcome="unknown" when armed violence is reported but no information about the victim's fate is given.
 - Leave null ONLY for articles that describe general crime context without specifying an individual victim.

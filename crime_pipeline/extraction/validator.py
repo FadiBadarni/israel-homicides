@@ -73,15 +73,13 @@ def validate_extraction(
 # victim survived. LLMs reliably miss these when the article is not written from
 # the victim's lethality perspective (e.g. arrest-report articles).
 _SURVIVED_PATTERNS = [
-    "ניסיון רצח",        # attempted murder (Hebrew)
-    "ניסיון ההתנקשות",   # assassination attempt
-    "ששרד",              # who survived
+    "ששרד",              # who survived (Hebrew)
     "שרד את",            # survived the
     "נפצע ושרד",         # wounded and survived
-    "محاولة اغتيال",     # assassination attempt (Arabic)
-    "محاولة الاغتيال",
-    "نجا من",            # survived (Arabic)
+    "נורה ושרד",         # shot and survived
+    "نجا من",            # survived from (Arabic)
     "لم يُقتل",          # was not killed
+    "أُصيب ولم يُقتل",   # injured but not killed
 ]
 
 
