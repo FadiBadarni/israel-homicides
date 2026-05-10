@@ -59,6 +59,7 @@ class Pipeline:
             "review_pairs": 0,
             "extraction_drop_in_merge": 0,
             "cases_exported": 0,
+            "non_fatal_excluded": 0,
             "media_canonical": 0,
             "media_evidence_canonical": 0,
             "total_input_tokens": 0,
@@ -558,6 +559,25 @@ class Pipeline:
         / per-category ``confidence``, so this single file is the complete
         ground-truth artifact for the run.
         """
+        # Filter non-fatal incidents (attempted killings where the victim survived).
+        # These are persisted to the DB with a "non_fatal" flag for audit but must
+        # not appear in a homicides dataset.
+        fatal_cases = []
+        non_fatal_cases = []
+        for case in cases:
+            if case.victim_outcome == "survived":
+                non_fatal_cases.append(case)
+                log.info(
+                    "non_fatal_excluded",
+                    victim_name=case.victim_name,
+                    city=case.city,
+                    sources=len(case.sources),
+                )
+            else:
+                fatal_cases.append(case)
+        self.stats["non_fatal_excluded"] = len(non_fatal_cases)
+        cases = fatal_cases
+
         exporter = JSONExporter(self.settings.output_dir)
 
         # Build a simple human-readable summary embedded in the JSON.
@@ -577,6 +597,7 @@ class Pipeline:
             f"Singletons:        {self.stats.get('singletons', 0)}",
             f"Review pairs:      {self.stats.get('review_pairs', 0)}",
             f"Cases exported:    {self.stats.get('cases_exported', 0)}",
+            f"Non-fatal excl.:   {self.stats.get('non_fatal_excluded', 0)}",
             f"Media (decorative):{self.stats.get('media_canonical', 0)}",
             f"Media (evidence):  {self.stats.get('media_evidence_canonical', 0)}",
             f"Input tokens:      {self.stats.get('total_input_tokens', 0)}",

@@ -121,6 +121,38 @@ def resolve_boolean_or(
     return False, None
 
 
+VICTIM_OUTCOME_ORDER: dict[str, int] = {
+    "survived": 0,
+    "critical": 1,
+    "unknown": 2,
+    "died": 3,
+}
+
+
+def resolve_victim_outcome(
+    values: list[tuple[Any, str, float]],
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Resolve victim_outcome using fatal-first semantics.
+
+    If any source confirms "died", the incident is a homicide — that wins.
+    Otherwise the most severe reported outcome is returned.
+    Returns "outcome_conflict" flag when sources disagree.
+    """
+    outcomes = [v for v, _, _ in values if v is not None]
+    if not outcomes:
+        return None, None
+
+    distinct = set(outcomes)
+    if "died" in distinct:
+        flag = "outcome_conflict" if len(distinct) > 1 else None
+        return "died", flag
+
+    chosen = max(outcomes, key=lambda o: VICTIM_OUTCOME_ORDER.get(o, -1))
+    flag = "outcome_conflict" if len(distinct) > 1 else None
+    return chosen, flag
+
+
 def resolve_count(
     values: list[tuple[Any, str, float]],
 ) -> tuple[int, Optional[str]]:

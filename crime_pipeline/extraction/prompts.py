@@ -93,6 +93,7 @@ JSON Schema you must follow:
     }
   ],
 
+  "victim_outcome": "died" | "survived" | "critical" | "unknown" | null,  // lethality: "died"=confirmed dead, "survived"=victim alive, "critical"=life-threatening but outcome unknown, null=not stated
   "motive": string | null,
   "organized_crime": boolean | null,
   "family_dispute": boolean | null,

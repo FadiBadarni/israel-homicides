@@ -20,6 +20,7 @@ from crime_pipeline.merging.conflict_resolver import (
     resolve_by_priority,
     resolve_count,
     resolve_status,
+    resolve_victim_outcome,
 )
 from crime_pipeline.models import (
     CanonicalCaseSchema,
@@ -174,6 +175,15 @@ class CaseMerger:
             flags.append(f"suspect_status:{status_flag}")
             collect_conflict("suspect_status", status_vals)
 
+        # ---- Lethality ----
+
+        outcome_vals = field_values("victim_outcome")
+        victim_outcome, outcome_flag = resolve_victim_outcome(outcome_vals)
+        if outcome_flag:
+            flags.append(f"victim_outcome:{outcome_flag}")
+        if victim_outcome == "survived":
+            flags.append("non_fatal")
+
         # ---- Context ----
 
         motive_vals = field_values("motive")
@@ -231,6 +241,7 @@ class CaseMerger:
             victim_name=victim_name,
             victim_age=victim_age,
             victim_gender=victim_gender,
+            victim_outcome=victim_outcome,
             incident_date=incident_date,
             incident_time=incident_time,
             city=city,

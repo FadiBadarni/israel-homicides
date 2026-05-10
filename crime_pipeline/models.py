@@ -272,6 +272,11 @@ class ExtractedArticleData(BaseModel):
     family_dispute: Optional[bool] = None
     community_context: Optional[str] = None  # e.g. "3rd Arab-society murder of 2026"
 
+    # Lethality — critical for filtering non-fatal incidents from the homicides pipeline.
+    # "died"=victim confirmed dead, "survived"=victim survived (attempted homicide),
+    # "critical"=victim in critical condition (outcome unknown at press time), "unknown"=not stated.
+    victim_outcome: Optional[Literal["died", "survived", "critical", "unknown"]] = None
+
     # Article-level metadata (defaults so json-repaired outputs validate even
     # when Gemini omits these fields)
     source_language: Literal["ar", "he", "en"] = "he"
@@ -362,6 +367,11 @@ class CanonicalCaseSchema(BaseModel):
     evidence: list[dict[str, Any]] = Field(default_factory=list)
     media: list[dict[str, Any]] = Field(default_factory=list)
     media_evidence: list[dict[str, Any]] = Field(default_factory=list)
+
+    # Lethality — "died" | "survived" | "critical" | "unknown" | None
+    # Populated by merger from per-source victim_outcome fields. Cases where
+    # outcome resolves to "survived" are flagged "non_fatal" and excluded from export.
+    victim_outcome: Optional[Literal["died", "survived", "critical", "unknown"]] = None
 
     # Context
     motive: Optional[str] = None
