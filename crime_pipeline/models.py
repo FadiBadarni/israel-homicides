@@ -253,6 +253,30 @@ class ExtractedArticleData(BaseModel):
     incident_date: Optional[date] = None  # When the act occurred (may differ from death_date)
     incident_time: Optional[str] = None  # HH:MM 24-hour format
 
+    @field_validator("death_date", "incident_date", mode="before")
+    @classmethod
+    def _coerce_partial_date(cls, v: Any) -> Any:
+        """The LLM sometimes emits partial dates like ``"2026-01-XX"`` when
+        the article says e.g. "last month" without a specific day.
+
+        Pre-fix: Pydantic rejected the WHOLE extraction over the bad date,
+        which silently lost real homicide records (e.g. the Bakr Yassin
+        homicide where the LLM correctly extracted everything else but
+        emitted ``"incident_date": "2026-01-XX"`` based on "last month").
+
+        Coerce any string containing non-digit positional placeholders to
+        None — we lose date precision but keep the rest of the case alive.
+        """
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return None
+            # Detect placeholder characters in date positions
+            # e.g. "2026-01-XX", "2026-XX-XX", "????-??-??", "2026-01-??"
+            if any(ch in s.upper() for ch in ("X", "?")):
+                return None
+        return v
+
     # Granular location
     city: Optional[str] = None
     neighborhood: Optional[str] = None  # e.g. "וואדי אל-עין" / "Wadi al-Ein"
@@ -372,6 +396,22 @@ class CanonicalCaseSchema(BaseModel):
     incident_date: Optional[date] = None
     incident_date_possible: Optional[date] = None  # If sources disagree
     incident_time: Optional[str] = None
+
+    @field_validator(
+        "death_date", "incident_date", "incident_date_possible", mode="before"
+    )
+    @classmethod
+    def _coerce_partial_date(cls, v: Any) -> Any:
+        """Same coercion as ExtractedArticleData — protects the round-trip
+        through dict in the inline cleanup stages from a stale partial date
+        in legacy data."""
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return None
+            if any(ch in s.upper() for ch in ("X", "?")):
+                return None
+        return v
 
     # Granular location
     city: Optional[str] = None
