@@ -10,14 +10,14 @@ from crime_pipeline.media.settings import MediaSettings
 
 
 @pytest.mark.asyncio
-async def test_clip_classifier_uses_cached_bytes_and_records_embedding():
+async def test_clip_classifier_uses_cached_bytes_and_records_embedding(tmp_path):
     settings = MediaSettings(
         enable_clip_classifier=True,
         enable_face_detection=False,
         keyword_confidence_threshold=0.95,
         clip_confidence_threshold=0.25,
     )
-    image_path = Path(r"C:\Users\fadi_\AppData\Local\Temp\crime-clip-image.bin")
+    image_path = tmp_path / "crime-clip-image.bin"
     image_path.write_bytes(b"fake-image-bytes")
 
     cand = MediaCandidate(
@@ -55,6 +55,66 @@ async def test_clip_classifier_uses_cached_bytes_and_records_embedding():
     assert cand.classification_confidence == pytest.approx(0.81)
     assert cand.clip_embedding == [0.1, 0.2, 0.3]
     assert "clip:crime_scene:0.81" in cand.classification_evidence
+
+
+@pytest.mark.asyncio
+async def test_clip_classifier_graceful_degrade_when_open_clip_missing(tmp_path):
+    """When open_clip isn't installed, the classifier MUST NOT raise — it
+    appends 'clip:not_installed' evidence and lets the keyword tier own
+    the classification. This is the protection that lets the [vision]
+    extras stay optional."""
+    settings = MediaSettings(
+        enable_clip_classifier=True,
+        enable_face_detection=False,
+        keyword_confidence_threshold=0.95,
+        clip_confidence_threshold=0.25,
+    )
+    image_path = tmp_path / "img.bin"
+    image_path.write_bytes(b"x")
+
+    cand = MediaCandidate(
+        source_article_url="https://x.com/a",
+        source_url="https://x.com/clip.jpg",
+        discovery_selector="img:src",
+        download_status="ok",
+        bytes_ref=str(image_path),
+        sha256="f" * 64,
+        phash="0123456789abcdef",
+    )
+    ctx = ArticleContext(article_url="https://x.com/a")
+
+    c = MediaClassifier(settings)
+    # Simulate the actual graceful-degrade trigger — open_clip not importable.
+    def _raise_not_installed():
+        raise ModuleNotFoundError("No module named 'open_clip'")
+    c._load_clip_runtime = _raise_not_installed
+
+    # Must not raise.
+    await c.classify(cand, ctx)
+
+    # Evidence trail records the missing dep, candidate stays keyword-typed.
+    assert "clip:not_installed" in cand.classification_evidence
+    assert cand.classifier_tier == "keyword"
+    assert cand.clip_embedding is None
+
+    # And on a SECOND call, the classifier MUST NOT retry the import — caching
+    # the failure prevents per-image retry storms when torch isn't installed.
+    cand2 = MediaCandidate(
+        source_article_url="https://x.com/a",
+        source_url="https://x.com/clip2.jpg",
+        discovery_selector="img:src",
+        download_status="ok",
+        bytes_ref=str(image_path),
+        sha256="g" * 64,
+        phash="fedcba9876543210",
+    )
+    # Replace the loader with a tripwire — if it gets called, the cache broke.
+    def _tripwire():
+        raise AssertionError("loader retried after first failure — caching is broken")
+    c._load_clip_runtime = _tripwire
+
+    await c.classify(cand2, ctx)
+    assert "clip:unavailable" in cand2.classification_evidence
 
 
 @pytest.mark.asyncio
