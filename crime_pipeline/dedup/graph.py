@@ -79,14 +79,15 @@ class DeduplicationGraph:
             else:
                 blocks["__no_block__"].append(idx)
 
-            # Secondary: name-prefix block so null-city/null-date records
-            # still get compared against named-block records that share the name.
+            # Secondary: per-token name blocks so partial names (e.g. surname-only
+            # "Yasin") are paired with full names ("Bakr Yasin") that share any token.
             name = rec.get("victim_name") or ""
             if name and _romanize is not None:
                 try:
-                    prefix = _romanize(name)[:6].lower().replace(" ", "")
-                    if len(prefix) >= 3:
-                        blocks[f"name|{prefix}"].append(idx)
+                    romanized = _romanize(name).lower()
+                    for token in romanized.split():
+                        if len(token) >= 3:
+                            blocks[f"nametok|{token[:8]}"].append(idx)
                 except Exception:
                     pass
 
