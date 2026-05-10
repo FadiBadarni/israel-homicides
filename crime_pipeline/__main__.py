@@ -108,7 +108,7 @@ def configure_logging(level: str) -> None:
     "--sources",
     default="ynet,panet",
     show_default=True,
-    help="Comma-separated source names for normal runs. Default available requested sources: ynet, panet.",
+    help="Comma-separated source names. Available: ynet, panet.",
 )
 @click.option(
     "--date-from",
