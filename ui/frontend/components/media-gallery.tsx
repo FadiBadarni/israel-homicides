@@ -26,26 +26,26 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
       <div className="flex flex-wrap gap-2">
         {items.map((item, i) => (
           <button
-            key={item.sha256 ?? item.url ?? i}
+            key={item.sha256 ?? item.primary_url ?? i}
             onClick={() => setEnlarged(item)}
             className={cn(
               "relative group rounded-md overflow-hidden border bg-muted",
               "w-24 h-24 flex-shrink-0 hover:ring-2 hover:ring-primary transition-all"
             )}
-            title={item.classification ?? undefined}
+            title={item.type ?? undefined}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={item.url}
-              alt={item.classification ?? "media"}
+              src={item.primary_url}
+              alt={item.type ?? "media"}
               className="w-full h-full object-cover"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
-            {item.classification && (
+            {item.type && (
               <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 py-0.5 truncate">
-                {item.classification}
+                {item.type}
               </span>
             )}
           </button>
@@ -64,13 +64,16 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={enlarged.url}
-              alt={enlarged.classification ?? "media"}
+              src={enlarged.primary_url}
+              alt={enlarged.type ?? "media"}
               className="w-full rounded-lg object-contain max-h-[60vh]"
             />
             <div className="text-sm space-y-1">
-              {enlarged.classification && (
-                <p><span className="font-medium">Class:</span> {enlarged.classification}</p>
+              {enlarged.type && (
+                <p><span className="font-medium">Type:</span> {enlarged.type}</p>
+              )}
+              {enlarged.classifier_tier && (
+                <p><span className="font-medium">Tier:</span> {enlarged.classifier_tier}</p>
               )}
               {enlarged.confidence !== null && enlarged.confidence !== undefined && (
                 <p><span className="font-medium">Confidence:</span> {Math.round(enlarged.confidence * 100)}%</p>
@@ -78,16 +81,19 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
               {enlarged.width && enlarged.height && (
                 <p><span className="font-medium">Dims:</span> {enlarged.width}×{enlarged.height}</p>
               )}
-              {enlarged.evidence?.length ? (
-                <p><span className="font-medium">Evidence:</span> {enlarged.evidence.join(", ")}</p>
+              {enlarged.appearance_count > 1 && (
+                <p><span className="font-medium">Seen in:</span> {enlarged.appearance_count} articles</p>
+              )}
+              {enlarged.classification_evidence?.length ? (
+                <p><span className="font-medium">Evidence:</span> {enlarged.classification_evidence.join(", ")}</p>
               ) : null}
               <a
-                href={enlarged.url}
+                href={enlarged.primary_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 underline break-all block"
               >
-                {enlarged.url}
+                {enlarged.primary_url}
               </a>
             </div>
             <button

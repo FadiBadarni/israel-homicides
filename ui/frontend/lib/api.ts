@@ -41,15 +41,23 @@ export interface Source {
 }
 
 export interface MediaItem {
-  url: string;
+  media_id: string | null;
+  type: string | null;
+  primary_url: string;
+  mirror_urls: string[];
   sha256: string | null;
   phash: string | null;
   width: number | null;
   height: number | null;
-  classification: string | null;
+  classifier_tier: string | null;
   confidence: number | null;
-  evidence: string[] | null;
-  source_url: string | null;
+  classification_evidence: string[] | null;
+  is_evidence: boolean;
+  is_stock_photo: boolean;
+  appearance_count: number;
+  caption: string | null;
+  alt_text: string | null;
+  source_article_urls: string[];
 }
 
 export interface CaseDetail extends CaseSummary {
