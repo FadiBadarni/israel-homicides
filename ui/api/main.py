@@ -116,20 +116,15 @@ def list_runs() -> list[dict]:
 
 
 @app.get("/api/filters")
-def get_filters(run_id: Optional[str] = Query(None)) -> dict:
-    """Return distinct values for all filterable fields."""
+def get_filters() -> dict:
+    """Return distinct values for all filterable fields from the most recent run."""
     cities: set[str] = set()
     weapon_types: set[str] = set()
     outcomes: set[str] = set()
     review_statuses: set[str] = set()
     districts: set[str] = set()
 
-    run_files = _list_runs()
-    if run_id:
-        run_files = [
-            p for p in run_files
-            if p.stem == run_id or _load_run(p).get("pipeline_run_id") == run_id
-        ]
+    run_files = _list_runs()[:1]  # most recent run only
 
     for path in run_files:
         try:
@@ -159,7 +154,6 @@ def get_filters(run_id: Optional[str] = Query(None)) -> dict:
 
 @app.get("/api/cases")
 def list_cases(
-    run_id: Optional[str] = Query(None),
     city: Optional[str] = Query(None),
     district: Optional[str] = Query(None),
     outcome: Optional[str] = Query(None),
@@ -179,14 +173,7 @@ def list_cases(
     """Return a paginated, filtered, sorted list of case summaries."""
     all_cases: list[dict] = []
 
-    run_files = _list_runs()
-    if run_id:
-        run_files = [
-            p for p in run_files
-            if p.stem == run_id or _load_run(p).get("pipeline_run_id") == run_id
-        ]
-
-    for path in run_files:
+    for path in _list_runs()[:1]:  # most recent run only
         try:
             data = _load_run(path)
             rid = data.get("pipeline_run_id", path.stem)

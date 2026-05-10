@@ -105,7 +105,6 @@ export interface StatsResponse {
 export interface CasesParams {
   page?: number;
   limit?: number;
-  run_id?: string;
   city?: string;
   district?: string;
   outcome?: string;
@@ -154,9 +153,8 @@ export async function fetchRuns(): Promise<RunMeta[]> {
   return res.json();
 }
 
-export async function fetchFilters(runId?: string): Promise<FiltersResponse> {
-  const q = runId ? `?run_id=${runId}` : "";
-  const res = await fetch(`${API_BASE}/api/filters${q}`, { cache: "no-store" });
+export async function fetchFilters(): Promise<FiltersResponse> {
+  const res = await fetch(`${API_BASE}/api/filters`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }

@@ -2,15 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
-import type { FiltersResponse, RunMeta } from "@/lib/api";
+import type { FiltersResponse } from "@/lib/api";
 
 interface CaseFiltersProps {
   filters: FiltersResponse;
-  runs: RunMeta[];
-  activeRunId: string;
 }
 
-export function CaseFilters({ filters, runs, activeRunId }: CaseFiltersProps) {
+export function CaseFilters({ filters }: CaseFiltersProps) {
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
@@ -37,7 +35,7 @@ export function CaseFilters({ filters, runs, activeRunId }: CaseFiltersProps) {
     });
   }, [router]);
 
-  const hasFilters = ["run_id", "city", "outcome", "weapon_type", "review_status", "min_confidence", "search", "date_from", "date_to", "flagged"].some(
+  const hasFilters = ["city", "outcome", "weapon_type", "review_status", "min_confidence", "search", "date_from", "date_to", "flagged"].some(
     (k) => params.has(k)
   );
 
@@ -54,24 +52,6 @@ export function CaseFilters({ filters, runs, activeRunId }: CaseFiltersProps) {
           </button>
         )}
       </div>
-
-      {/* Run selector */}
-      {runs.length > 0 && (
-        <FilterSection label="Run">
-          <select
-            value={activeRunId}
-            onChange={(e) => update("run_id", e.target.value)}
-            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="">All runs</option>
-            {runs.map((r) => (
-              <option key={r.run_id} value={r.run_id}>
-                {r.run_id} ({r.case_count})
-              </option>
-            ))}
-          </select>
-        </FilterSection>
-      )}
 
       {/* Search */}
       <FilterSection label="Name search">

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchCases, fetchFilters, fetchRuns } from "@/lib/api";
+import { fetchCases, fetchFilters } from "@/lib/api";
 import { CaseFilters } from "@/components/case-filters";
 import { CasesTable } from "@/components/cases-table";
 
@@ -10,12 +10,6 @@ interface PageProps {
 export default async function CasesPage({ searchParams }: PageProps) {
   const sp = await searchParams;
 
-  // Default to the latest run to avoid cross-run duplicates.
-  // User can switch via the run selector or clear to see all.
-  const runs = await fetchRuns();
-  const latestRunId = runs[0]?.run_id ?? undefined;
-  const activeRunId = sp.run_id !== undefined ? (sp.run_id || undefined) : latestRunId;
-
   const page = Number(sp.page ?? 1);
   const limit = Number(sp.limit ?? 50);
 
@@ -23,7 +17,6 @@ export default async function CasesPage({ searchParams }: PageProps) {
     fetchCases({
       page,
       limit,
-      run_id: activeRunId,
       city: sp.city,
       district: sp.district,
       outcome: sp.outcome,
@@ -38,13 +31,13 @@ export default async function CasesPage({ searchParams }: PageProps) {
       sort_by: sp.sort_by ?? "incident_date",
       sort_dir: (sp.sort_dir as "asc" | "desc") ?? "desc",
     }),
-    fetchFilters(activeRunId),
+    fetchFilters(),
   ]);
 
   return (
     <div className="flex gap-6">
       <Suspense>
-        <CaseFilters filters={filters} runs={runs} activeRunId={activeRunId ?? ""} />
+        <CaseFilters filters={filters} />
       </Suspense>
 
       <div className="flex-1 min-w-0">
