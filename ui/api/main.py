@@ -86,14 +86,19 @@ def _case_summary(case: dict, run_id: str, case_index: int) -> dict:
 
 @app.get("/api/runs")
 def list_runs() -> list[dict]:
-    """Return metadata for all available pipeline runs."""
+    """Return metadata for all available pipeline runs, deduplicated by run_id."""
+    seen: set[str] = set()
     result = []
     for path in _list_runs():
         try:
             data = _load_run(path)
+            run_id = data.get("pipeline_run_id", path.stem)
+            if run_id in seen:
+                continue
+            seen.add(run_id)
             stats = data.get("stats", {})
             result.append({
-                "run_id": data.get("pipeline_run_id", path.stem),
+                "run_id": run_id,
                 "file": path.name,
                 "case_count": data.get("case_count", len(data.get("cases", []))),
                 "exported_at": data.get("exported_at"),
