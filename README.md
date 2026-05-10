@@ -17,7 +17,7 @@ Discover → Fetch → Extract → Dedup → Merge → Export
 | Extract   | Gemini structured extraction → `ExtractedArticleData`                      |
 | Dedup     | Blocking on `(city, YYYY-MM)` → Jaro-Winkler name pre-filter → multilingual cosine gate |
 | Merge     | Fold cluster of articles into one `CanonicalCaseSchema` with conflict tracking |
-| Export    | JSON canonical cases + manifest + human summary                            |
+| Export    | Schema 2.0 single-run JSON (`output/{run_id}.json`) + backward-compat manifest + summary |
 
 Side subsystems:
 
@@ -40,7 +40,7 @@ Source priority is used both as a tie-breaker when selecting a canonical record 
 Two main schemas (Pydantic v2, in [`crime_pipeline/models.py`](crime_pipeline/models.py)):
 
 - **`ExtractedArticleData`** — per-article LLM output. Multilingual victim names (`victim_name_ar`/`he`/`en` + `aliases`), three-axis suspect status (`suspect_status` physical / `legal_status` / `police_investigation_status`), evidence and media inventories.
-- **`CanonicalCaseSchema`** — merged case across sources. Per-category `confidence` dict, `conflicts` map (field → {source_url: value}), `flags` for non-fatal disagreements.
+- **`CanonicalCaseSchema`** — merged case across sources. `conflicts` map (field → {source_url: value}); `flags` audit trail (e.g. `date_year_corrected`, `mixed_script_name_quarantined`, `single_source`, `needs_tier_2`); `confidence` per-category dict (`case_identity` 25%, `victim_identity` 20%, `timeline` 15%, `legal_status` 15%, `location_detail` 15%, `media` 10%) rolled up into `confidence_score`; `media[*].mirror_urls` (other publishers hosting the same perceptual-hash-matched image) and `media[*].appearance_count` (cross-publisher corroboration count).
 
 ORM tables (`RawArticle`, `ExtractedRecord`, `CanonicalCase`) checkpoint each stage to SQLite at `data/pipeline.db`.
 
@@ -62,6 +62,9 @@ python -m venv .venv
 . .venv/Scripts/activate          # Windows
 # . .venv/bin/activate              # Linux/macOS
 pip install -e .
+
+# Optional: CLIP vision classifier (~1 GB: torch + ViT-B-32 weights)
+pip install -e ".[vision]"
 
 # 3. Install Playwright browsers
 playwright install chromium
@@ -128,6 +131,15 @@ Enrichment is **additive** — it never overwrites high-confidence existing data
 --run-id                         Custom run ID (auto-generated when omitted)
 ```
 
+## Post-processing passes
+
+Two cleanup passes run automatically after enrichment, inside the enricher:
+
+- **`sanity_pass`** — fixes systemic extraction bugs: clamps dates to publication-year ± 2, enforces script purity (Arabic/Hebrew/Latin fields), normalises `googlenews` discovery sources to real publishers + tier, splits the legacy single-axis `police_status` into the three-axis model, and computes per-category confidence scores.
+- **`quality_pass`** — semantic cleanup: collapses status synonyms (`arrested` ≡ `in_custody`), promotes name conflicts that are just script variants to `aliases`, deduplicates evidence items reported in two languages into one multilingual record, and generates a phonetic `canonical_case_id` via romanization.
+
+Neither pass discards data — they correct field placement and improve signal clarity.
+
 ## Configuration
 
 All settings live in `.env` (loaded via `pydantic-settings`). Defaults in [`crime_pipeline/config.py`](crime_pipeline/config.py).
@@ -177,20 +189,24 @@ tests/
 ## Development
 
 ```bash
-# Install with dev dependencies (none defined yet — pin manually)
+# Install with dev tools
 pip install -e . pytest ruff mypy
 
 # Run tests
 pytest
+pytest tests/test_media_pipeline.py -v   # media subsystem only
 
 # Lint
 ruff check crime_pipeline
 
 # Type check
 mypy crime_pipeline
+
+# Media demo (real Channel 13 + Mako + Ynet HTML — no DB or API key needed)
+python scripts/demo_media_real.py
 ```
 
-Test fixtures live under `tests/fixtures/`. Media pipeline tests are in `tests/test_media_pipeline.py`.
+`tests/test_media_pipeline.py` contains 30+ unit and integration tests covering Harvester, Classifier, Dedup, Splitter, and the Pipeline orchestrator end-to-end. No network I/O — `MediaDownloader` is monkeypatched with deterministic hashes. No `pytest-asyncio` required; `tests/conftest.py` wraps async tests with an `asyncio.run` fallback.
 
 ## License
 
