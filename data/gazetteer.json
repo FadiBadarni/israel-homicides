@@ -360,5 +360,24 @@
     "district": "Southern",
     "aliases_ar": ["بئر سبع"],
     "aliases_he": ["באר-שבע"]
+  },
+  {
+    "name_en": "Kawkab Abu al-Hija",
+    "name_ar": "كوكب أبو الهيجاء",
+    "name_he": "כאוכב אבו אל-היג'א",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_he": ["כאוכב", "כוכב אבו אל-היג'א", "כאוכב אבו אל-הג'ה", "כאוכב אבו-אל-היג'א"],
+    "aliases_ar": ["كوكب", "كوكب ابو الهيجاء", "كوكب ابو الهيجا", "كوكب أبو الهيجا"],
+    "aliases_en": ["Kawkab", "Kawkab Abu al-Heija", "Kawkab Abu-al-Hija", "Kaukab Abu al-Hija"]
+  },
+  {
+    "name_en": "Pardes Hanna-Karkur",
+    "name_ar": "برديس حنا-كركور",
+    "name_he": "פרדס חנה-כרכור",
+    "district": "Haifa",
+    "aliases_he": ["פרדס חנה", "פרדס-חנה", "פרדס חנה כרכור", "פרדס-חנה-כרכור", "פרדס חנה־כרכור"],
+    "aliases_ar": ["برديس حنا", "برديس كركور", "برديس حنا كركور"],
+    "aliases_en": ["Pardes Hanna", "Pardes Hana", "Pardes-Hanna", "Pardes Hana Karkur"]
   }
 ]

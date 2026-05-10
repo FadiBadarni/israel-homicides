@@ -458,6 +458,35 @@ def disambiguate_legal_status(case: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 5b. City flag resolution
+# ---------------------------------------------------------------------------
+
+
+def resolve_city_flag(case: dict[str, Any]) -> dict[str, Any]:
+    """
+    Re-evaluate city:unknown_locality after enrichment.
+
+    The flag is set at merge time when the city string is not in the gazetteer.
+    After a new gazetteer entry is added, re-running this pass should clear the
+    flag and populate city_normalized so confidence and location_detail reflect
+    the improvement.
+    """
+    flags: list[str] = case.setdefault("flags", [])
+    city = case.get("city")
+    if not city:
+        return case
+    from crime_pipeline.utils.gazetteer import normalize_city
+    record = normalize_city(city)
+    if record is not None:
+        if "city:unknown_locality" in flags:
+            flags.remove("city:unknown_locality")
+        # Populate city_normalized if missing or stale
+        if not case.get("city_normalized") or not case["city_normalized"].get("name_en"):
+            case["city_normalized"] = {k: v for k, v in dict(record).items() if v}
+    return case
+
+
+# ---------------------------------------------------------------------------
 # 6. Multi-dimensional confidence
 # ---------------------------------------------------------------------------
 
@@ -743,6 +772,7 @@ def run_sanity_pass(case: dict[str, Any]) -> dict[str, Any]:
     case = enforce_script_purity(case)
     case = split_district_and_region(case)
     case = disambiguate_legal_status(case)
+    case = resolve_city_flag(case)
     case = apply_timeline(case)
     case = apply_confidence(case)
     return case
