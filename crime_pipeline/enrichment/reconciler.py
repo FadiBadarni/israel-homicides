@@ -260,12 +260,13 @@ def reconcile_cases(
                     )
                     continue
 
-            # Rule 2: one case has no name at all but shares city + YYYY-MM date
-            # with the other — almost certainly the same event, different article quality
+            # Rule 2: one case has no name at all but shares city + exact
+            # incident date with the other. Month-level matching is too broad
+            # for default runs because one city can have multiple incidents.
             city_a = (a.get("city") or "").strip().lower()
             city_b = (b.get("city") or "").strip().lower()
-            date_a = str(a.get("incident_date") or "")[:7]
-            date_b = str(b.get("incident_date") or "")[:7]
+            date_a = str(a.get("incident_date") or "")[:10]
+            date_b = str(b.get("incident_date") or "")[:10]
             neither_has_name = not names_a and not names_b
             one_nameless = (not names_a) != (not names_b)
             if one_nameless and not neither_has_name:

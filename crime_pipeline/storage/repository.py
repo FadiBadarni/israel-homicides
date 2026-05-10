@@ -145,7 +145,7 @@ def get_extractions_for_article(session: Session, article_id: str) -> list[Extra
 
 def save_canonical_case(session: Session, case_data: dict[str, Any]) -> CanonicalCase:
     """
-    Insert a new CanonicalCase row from a dict produced by the Merger stage.
+    Insert a new CanonicalCase row from a finalized canonical case dict.
 
     If a ``pipeline_run_id`` + ``id`` collision occurs the existing record is
     updated; otherwise a fresh row is created.

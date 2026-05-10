@@ -147,6 +147,11 @@ class Pipeline:
         if any(s in stages for s in ("sanity", "quality", "reconcile")):
             cases = await asyncio.to_thread(self._run_cleanup, cases, stages)
 
+        # Persist the final canonical representation after deterministic cleanup
+        # so SQLite and exported JSON describe the same cases.
+        if cases and any(s in stages for s in ("dedup", "merge", "sanity", "quality", "reconcile")):
+            await asyncio.to_thread(self._persist_canonical_cases, cases)
+
         # Stamp finished_at BEFORE export so the consolidated JSON's run
         # block carries an accurate end timestamp + duration_seconds.
         self.stats["finished_at"] = datetime.now(timezone.utc).isoformat()
@@ -492,20 +497,6 @@ class Pipeline:
                 except Exception as e:
                     log.warning("media_pipeline_error", error=str(e))
                 cases.append(case)
-                # Persist canonical case row.
-                with db_module.SessionLocal() as session:  # type: ignore[misc]
-                    save_canonical_case(
-                        session,
-                        {
-                            "case_json": case.model_dump(mode="json"),
-                            "sources_merged": [s.url for s in case.sources],
-                            "confidence_score": case.confidence_score,
-                            "flags": case.flags,
-                            "review_status": case.review_status,
-                            "pipeline_run_id": self.run_id,
-                        },
-                    )
-                    session.commit()
             except Exception as e:
                 log.error("merge_error", error=str(e))
 
@@ -518,6 +509,26 @@ class Pipeline:
             review_pairs=self.stats["review_pairs"],
         )
         return cases
+
+    def _persist_canonical_cases(self, cases: list) -> None:
+        """Persist final canonical cases after merge/cleanup transforms."""
+        if not cases:
+            return
+        with db_module.SessionLocal() as session:  # type: ignore[misc]
+            for case in cases:
+                save_canonical_case(
+                    session,
+                    {
+                        "case_json": case.model_dump(mode="json"),
+                        "sources_merged": [s.url for s in case.sources],
+                        "confidence_score": case.confidence_score,
+                        "flags": case.flags,
+                        "review_status": case.review_status,
+                        "pipeline_run_id": self.run_id,
+                    },
+                )
+            session.commit()
+        log.info("canonical_cases_persisted", cases=len(cases))
 
     # ------------------------------------------------------------------
     # Media pass (per merged case)

@@ -17,6 +17,8 @@ from crime_pipeline.enrichment.reconciler import (
     reconcile_file,
 )
 from crime_pipeline.models import CanonicalCaseSchema
+from crime_pipeline.storage import db as db_module
+from crime_pipeline.storage.repository import get_canonical_cases_by_run
 
 # ---------------------------------------------------------------------------
 # Schema honesty
@@ -174,6 +176,26 @@ def test_reconcile_cases_resolves_victim_outcome_fatal_first() -> None:
     assert "outcome_conflict" in canonical["flags"]
 
 
+def test_reconcile_cases_merges_nameless_only_on_exact_date() -> None:
+    cases = [
+        _case("Bakr Yassin", "Arraba", incident_date="2026-01-04"),
+        _case(None, "Arraba", incident_date="2026-01-04"),
+    ]
+    result = reconcile_cases(cases)
+    assert result.cases_after == 1
+    assert result.merged_pairs[0]["rule"] == "city_date_match"
+
+
+def test_reconcile_cases_does_not_merge_nameless_same_month_different_day() -> None:
+    cases = [
+        _case("Bakr Yassin", "Arraba", incident_date="2026-01-04"),
+        _case(None, "Arraba", incident_date="2026-01-28"),
+    ]
+    result = reconcile_cases(cases)
+    assert result.cases_after == 2
+    assert result.merged_pairs == []
+
+
 # ---------------------------------------------------------------------------
 # Reconciler — backward-compat wrapper
 # ---------------------------------------------------------------------------
@@ -282,6 +304,34 @@ def test_run_cleanup_writes_audit_jsonl_only_when_merges_happen(tmp_path: Path) 
         line = audit_path.read_text(encoding="utf-8").strip().splitlines()[0]
         record = json.loads(line)
         assert "rule" in record and "jaro" in record
+
+
+def test_persist_canonical_cases_writes_post_cleanup_shape(tmp_path: Path) -> None:
+    """SQLite canonical rows should match the cleaned/exportable case shape."""
+    from crime_pipeline.config import Settings
+    from crime_pipeline.pipeline import Pipeline
+
+    settings = Settings(
+        gemini_api_key="test-key",
+        db_path=tmp_path / "pipeline.db",
+        output_dir=tmp_path,
+    )
+    pipe = Pipeline(settings, run_id="cleanup_db_test")
+    cleaned = pipe._run_cleanup(
+        [_minimal_canonical_case("Bakr Yassin")],
+        {"sanity", "quality"},
+    )
+
+    pipe._persist_canonical_cases(cleaned)
+
+    with db_module.SessionLocal() as session:  # type: ignore[misc]
+        rows = get_canonical_cases_by_run(session, "cleanup_db_test")
+
+    assert len(rows) == 1
+    stored = rows[0].case_json
+    assert stored["tier_coverage"] == cleaned[0].tier_coverage
+    assert "timeline" in stored
+    assert rows[0].confidence_score == cleaned[0].confidence_score
 
 
 # ---------------------------------------------------------------------------
