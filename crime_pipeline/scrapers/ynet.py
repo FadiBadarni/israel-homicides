@@ -9,11 +9,15 @@ Tenacity exponential back-off on HTTP 429 / 5xx errors.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
-from datetime import datetime, timezone
+import xml.etree.ElementTree as ET
+from collections import deque
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from typing import Optional
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote, quote_plus, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -40,16 +44,19 @@ _YNET_HEADERS = {
     "Connection": "keep-alive",
 }
 
-_SEARCH_URL = "https://www.ynet.co.il/category/3340"
-_SEARCH_PARAMS = (
-    "cx=partner-pub-4207657971126930:3067011121"
-    "&cof=GIMP:009900;T:000000;ALC:FF9900;GFNT:B0B0B0;LC:0000FF;"
-    "BRC:FFFFFF;BGC:FFFFFF;VLC:666666;GALT:36A200;LBGC:FF0000;"
-    "DIV:FFFFEE;FORID:9"
-    "&as_qdr=all"
-    "&hq=more:recent4"
-    "&ynet_search_type=ynet"
-)
+_GOOGLE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/129.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Referer": "https://news.google.com/",
+}
+
+_GNEWS_RSS_BASE = "https://news.google.com/rss/search"
+_YNET_RSS_URL = "https://www.ynet.co.il/Integration/StoryRss2.xml"
 _BASE_URL = "https://www.ynet.co.il"
 
 # Selectors tried in order — first match wins
@@ -80,6 +87,10 @@ class _RetryableHTTPError(Exception):
     """Raised for status codes that warrant a retry (429, 5xx)."""
 
 
+class _RateLimitStop(Exception):
+    """Raised when Google returns 429 — stop issuing further windows."""
+
+
 def _make_client(timeout: float = 20.0) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         headers=_YNET_HEADERS,
@@ -87,6 +98,18 @@ def _make_client(timeout: float = 20.0) -> httpx.AsyncClient:
         follow_redirects=True,
         http2=True,
     )
+
+
+def _parse_pubdate(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        dt = parsedate_to_datetime(raw.strip())
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return None
 
 
 def _parse_ynet_date(raw: str) -> Optional[datetime]:
@@ -109,7 +132,6 @@ def _parse_ynet_date(raw: str) -> Optional[datetime]:
 
 def _extract_date_from_soup(soup: BeautifulSoup) -> Optional[datetime]:
     """Pull publication date from common Ynet date elements."""
-    # 1. <time> element with datetime attribute
     time_el = soup.find("time")
     if time_el:
         dt_attr = time_el.get("datetime", "")
@@ -121,7 +143,6 @@ def _extract_date_from_soup(soup: BeautifulSoup) -> Optional[datetime]:
         if parsed:
             return parsed
 
-    # 2. Meta tags
     for name in ("article:published_time", "date", "pubdate", "DC.date"):
         meta = soup.find("meta", {"property": name}) or soup.find(
             "meta", {"name": name}
@@ -131,7 +152,6 @@ def _extract_date_from_soup(soup: BeautifulSoup) -> Optional[datetime]:
             if parsed:
                 return parsed
 
-    # 3. Known class-based spans
     for cls in ("date", "art-publishing-date", "article-date"):
         el = soup.find(class_=cls)
         if el:
@@ -140,6 +160,186 @@ def _extract_date_from_soup(soup: BeautifulSoup) -> Optional[datetime]:
                 return parsed
 
     return None
+
+
+def _build_windows(date_from: str, date_to: str) -> list[tuple[datetime, datetime]]:
+    start = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1)
+    windows: list[tuple[datetime, datetime]] = []
+    cursor = start
+    while cursor < end:
+        nxt = min(cursor + timedelta(hours=48), end)
+        windows.append((cursor, nxt))
+        cursor = nxt
+    return windows
+
+
+def _matches_query(title: str, tags: str, query: str) -> bool:
+    terms = [t.lower() for t in query.split() if t.strip()]
+    haystack = (title + " " + tags).lower()
+    return all(term in haystack for term in terms)
+
+
+async def _resolve_google_url(
+    client: httpx.AsyncClient, google_url: str
+) -> str | None:
+    """Resolve a Google News redirect URL to its canonical ynet.co.il URL.
+
+    Uses the two-round-trip batchexecute approach since follow_redirects=True
+    is unreliable for Google News redirect URLs as of 2025/2026.
+    """
+    parsed = urlparse(google_url)
+    path_parts = parsed.path.strip("/").split("/")
+    if parsed.netloc != "news.google.com" or "articles" not in path_parts:
+        return None
+    base64_id = path_parts[-1]
+
+    try:
+        html_resp = await client.get(
+            f"https://news.google.com/articles/{base64_id}",
+            headers=_GOOGLE_HEADERS,
+            timeout=20.0,
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("gnews redirect: GET failed for %s — %s", base64_id, exc)
+        return None
+
+    if html_resp.status_code != 200:
+        logger.warning("gnews redirect: GET returned %d for %s", html_resp.status_code, base64_id)
+        return None
+
+    html = html_resp.text
+    lowered = html.lower()
+    if (
+        "consent.google.com" in lowered
+        or "before you continue" in lowered
+        or "our systems have detected unusual traffic" in lowered
+        or "/sorry/" in lowered
+    ):
+        logger.warning("gnews redirect: consent/block page for %s", base64_id)
+        return None
+
+    soup = BeautifulSoup(html, "html.parser")
+    data_el = soup.select_one("c-wiz div[jscontroller][data-n-a-sg][data-n-a-ts]")
+    if data_el is None:
+        logger.warning("gnews redirect: data element not found for %s", base64_id)
+        return None
+
+    signature = data_el.get("data-n-a-sg")
+    timestamp = data_el.get("data-n-a-ts")
+    if not signature or not timestamp:
+        logger.warning("gnews redirect: missing signature/timestamp for %s", base64_id)
+        return None
+
+    payload = ["Fbv4je", (
+        '["garturlreq",'
+        '[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
+        '"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+        f'"{base64_id}",{timestamp},"{signature}"]'
+    )]
+    post_data = f"f.req={quote(json.dumps([[payload]]))}"
+
+    try:
+        batch_resp = await client.post(
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+            headers={
+                **_GOOGLE_HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "Accept": "*/*",
+            },
+            content=post_data.encode(),
+            timeout=20.0,
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("gnews redirect: POST failed for %s — %s", base64_id, exc)
+        return None
+
+    if batch_resp.status_code != 200:
+        logger.warning("gnews redirect: POST returned %d for %s", batch_resp.status_code, base64_id)
+        return None
+
+    text = batch_resp.text
+    if "garturlres" not in text:
+        logger.warning("gnews redirect: garturlres not in response for %s", base64_id)
+        return None
+
+    try:
+        parts = text.split("\n\n", 1)
+        if len(parts) < 2:
+            return None
+        parsed_batch = json.loads(parts[1])
+        decoded_url = json.loads(parsed_batch[0][2])[1]
+    except (IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        logger.warning("gnews redirect: parse error for %s — %s", base64_id, exc)
+        return None
+
+    if not decoded_url.startswith(("https://www.ynet.co.il/", "https://ynet.co.il/")):
+        logger.warning("gnews redirect: unexpected domain in %s", decoded_url)
+        return None
+
+    return decoded_url
+
+
+async def _fetch_gnews_window(
+    client: httpx.AsyncClient, query: str, start: datetime, end: datetime
+) -> list[tuple[str, str | None, datetime | None]]:
+    """Fetch one Google News RSS window. Returns list of (google_url, title, pubdate)."""
+    q = (
+        f"{query} site:ynet.co.il"
+        f" after:{start.strftime('%Y-%m-%d')}"
+        f" before:{end.strftime('%Y-%m-%d')}"
+    )
+    url = f"{_GNEWS_RSS_BASE}?q={quote_plus(q)}&hl=he&gl=IL&ceid=IL:he"
+
+    try:
+        resp = await client.get(url, headers=_GOOGLE_HEADERS, timeout=30.0, follow_redirects=True)
+    except httpx.HTTPError as exc:
+        logger.warning("gnews window fetch error: %s", exc)
+        return []
+
+    if resp.status_code == 429:
+        raise _RateLimitStop("Google returned 429")
+    if resp.status_code != 200:
+        logger.warning("gnews window: HTTP %d for window %s-%s", resp.status_code, start.date(), end.date())
+        return []
+
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as exc:
+        logger.warning("gnews window: XML parse error — %s", exc)
+        return []
+
+    items: list[tuple[str, str | None, datetime | None]] = []
+    ns = {"media": "http://search.yahoo.com/mrss/"}
+    channel = root.find("channel")
+    if channel is None:
+        return []
+
+    for item in channel.findall("item"):
+        link_el = item.find("link")
+        if link_el is None or not link_el.text:
+            continue
+        link = link_el.text.strip()
+        if "news.google.com" not in link:
+            continue
+
+        title_el = item.find("title")
+        title = title_el.text.strip() if title_el is not None and title_el.text else None
+
+        pubdate_el = item.find("pubDate")
+        pubdate = _parse_pubdate(pubdate_el.text if pubdate_el is not None else None)
+
+        items.append((link, title, pubdate))
+
+    logger.debug(
+        "gnews window %s-%s: %d items",
+        start.strftime("%Y-%m-%d"),
+        end.strftime("%Y-%m-%d"),
+        len(items),
+    )
+    return items
 
 
 class YnetScraper(BaseScraper):
@@ -190,94 +390,184 @@ class YnetScraper(BaseScraper):
         max_results: int = 50,
     ) -> list[DiscoveredUrl]:
         """
-        Search Ynet for *query* and return up to *max_results* DiscoveredUrl.
+        Discover Ynet articles via Google News RSS (primary) + Ynet RSS (supplement).
 
-        date_from / date_to: "YYYY-MM-DD" strings used to filter results.
+        Primary: Google News RSS with 48h window sharding and iterative bisection.
+        Supplement: Ynet native RSS when date_to is within 72h of now.
         """
-        from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
-        to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+        results: list[DiscoveredUrl] = []
+        seen: set[str] = set()
 
-        search_url = f"{_SEARCH_URL}?q={quote_plus(query)}&{_SEARCH_PARAMS}"
-        discovered: list[DiscoveredUrl] = []
+        gnews_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0),
+            follow_redirects=True,
+            http2=True,
+        )
 
-        async with _make_client() as client:
+        try:
+            # --- Phase 1: Google News RSS ---
+            initial_windows = _build_windows(date_from, date_to)
+            queue: deque[tuple[datetime, datetime, int]] = deque(
+                (s, e, 0) for s, e in initial_windows
+            )
+
             try:
-                resp = await self._get(client, search_url)
-                resp.raise_for_status()
-            except _RetryableHTTPError as exc:
-                logger.error("Ynet discover: retries exhausted — %s", exc)
-                return discovered
-            except httpx.HTTPError as exc:
-                logger.error("Ynet discover: HTTP error — %s", exc)
-                return discovered
+                while queue:
+                    if len(results) >= max_results:
+                        break
 
-            soup = BeautifulSoup(resp.text, "lxml")
+                    win_start, win_end, depth = queue.popleft()
 
-            # Gather candidate <a> tags using multiple selector strategies
-            links: list[BeautifulSoup] = []
-            for sel in _LINK_SELECTORS:
-                links = soup.select(sel)
-                if links:
-                    break
+                    await asyncio.sleep(10)  # 10s between Google News requests
+                    raw_items = await _fetch_gnews_window(gnews_client, query, win_start, win_end)
 
-            # Fallback: any anchor pointing to an internal article path
-            if not links:
-                links = [
-                    a
-                    for a in soup.find_all("a", href=True)
-                    if "/article/" in a["href"] or "/news/" in a["href"]
-                ]
-
-            seen: set[str] = set()
-            for a_tag in links:
-                if len(discovered) >= max_results:
-                    break
-
-                href = a_tag.get("href", "")
-                if not href:
-                    continue
-                full_url = urljoin(_BASE_URL, href)
-                parsed = urlparse(full_url)
-                if parsed.netloc and self.base_domain not in parsed.netloc:
-                    continue
-                if full_url in seen:
-                    continue
-                seen.add(full_url)
-
-                if not self.can_fetch(full_url):
-                    logger.debug("Ynet: robots.txt blocks %s", full_url)
-                    continue
-
-                # Try to extract a date from the surrounding container
-                container = a_tag.find_parent(
-                    ["article", "div", "li", "section"]
-                )
-                pub_date: Optional[datetime] = None
-                if container:
-                    date_el = container.find(class_=lambda c: c and "date" in c.lower())
-                    if date_el:
-                        pub_date = _parse_ynet_date(date_el.get_text(strip=True))
-
-                # Apply date filter when a date is available
-                if pub_date:
-                    if not (from_dt <= pub_date <= to_dt):
+                    if len(raw_items) >= 90 and depth < 4 and (win_end - win_start) > timedelta(hours=3):
+                        mid = win_start + (win_end - win_start) / 2
+                        queue.appendleft((mid, win_end, depth + 1))
+                        queue.appendleft((win_start, mid, depth + 1))
+                        logger.debug(
+                            "gnews_window_saturated: %d items in %s-%s, bisecting",
+                            len(raw_items),
+                            win_start.date(),
+                            win_end.date(),
+                        )
                         continue
 
-                title_text = a_tag.get_text(strip=True) or None
+                    if len(raw_items) == 0:
+                        logger.warning(
+                            "gnews window %s-%s returned 0 items (possible silent empty)",
+                            win_start.date(),
+                            win_end.date(),
+                        )
 
-                discovered.append(
-                    DiscoveredUrl(
-                        url=full_url,
-                        source=self.source_name,
-                        language=self.language,
-                        title=title_text,
-                        published_at=pub_date,
-                        discovered_at=datetime.now(tz=timezone.utc),
-                    )
+                    for google_url, title, pubdate in raw_items:
+                        if len(results) >= max_results:
+                            break
+
+                        canonical = await _resolve_google_url(gnews_client, google_url)
+                        if canonical is None:
+                            logger.warning("google_redirect_unresolved: %s", google_url)
+                            continue
+
+                        if canonical in seen:
+                            continue
+                        seen.add(canonical)
+
+                        results.append(
+                            DiscoveredUrl(
+                                url=canonical,
+                                source=self.source_name,
+                                language=self.language,
+                                title=title,
+                                published_at=pubdate,
+                                discovered_at=datetime.now(tz=timezone.utc),
+                            )
+                        )
+
+                        if len(results) >= max_results:
+                            break
+
+            except _RateLimitStop:
+                logger.warning(
+                    "gnews: 429 received — stopping window iteration, returning %d partial results",
+                    len(results),
                 )
 
-        logger.info("Ynet discover: found %d URLs for query=%r", len(discovered), query)
-        return discovered
+            # --- Phase 2: Ynet RSS supplement ---
+            date_to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+            if date_to_dt >= datetime.now(timezone.utc) - timedelta(hours=72):
+                if len(results) < max_results:
+                    await self._fetch_ynet_rss_supplement(
+                        gnews_client, query, date_from, date_to, results, seen, max_results
+                    )
+
+        except Exception as exc:
+            logger.error("Ynet discover: unexpected error — %s", exc, exc_info=True)
+
+        finally:
+            await gnews_client.aclose()
+
+        logger.info("Ynet discover: found %d URLs for query=%r", len(results), query)
+        return results[:max_results]
+
+    async def _fetch_ynet_rss_supplement(
+        self,
+        client: httpx.AsyncClient,
+        query: str,
+        date_from: str,
+        date_to: str,
+        results: list[DiscoveredUrl],
+        seen: set[str],
+        max_results: int,
+    ) -> None:
+        """Fetch Ynet's native RSS feed and merge matching recent articles."""
+        from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+        to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1)
+
+        try:
+            await asyncio.sleep(5)
+            resp = await client.get(_YNET_RSS_URL, headers=_GOOGLE_HEADERS, timeout=20.0)
+        except httpx.HTTPError as exc:
+            logger.warning("ynet rss supplement: fetch failed — %s", exc)
+            return
+
+        if resp.status_code != 200:
+            logger.warning("ynet rss supplement: HTTP %d", resp.status_code)
+            return
+
+        try:
+            root = ET.fromstring(resp.text)
+        except ET.ParseError as exc:
+            logger.warning("ynet rss supplement: XML parse error — %s", exc)
+            return
+
+        channel = root.find("channel")
+        if channel is None:
+            return
+
+        added = 0
+        for item in channel.findall("item"):
+            if len(results) >= max_results:
+                break
+
+            link_el = item.find("link")
+            if link_el is None or not link_el.text:
+                continue
+            canonical = link_el.text.strip()
+            if not canonical.startswith(("https://www.ynet.co.il/", "https://ynet.co.il/")):
+                continue
+            if canonical in seen:
+                continue
+
+            title_el = item.find("title")
+            title_raw = title_el.text.strip() if title_el is not None and title_el.text else ""
+
+            tags_el = item.find("tags")
+            tags_raw = tags_el.text.strip() if tags_el is not None and tags_el.text else ""
+
+            if not _matches_query(title_raw, tags_raw, query):
+                continue
+
+            pubdate_el = item.find("pubDate")
+            pubdate = _parse_pubdate(pubdate_el.text if pubdate_el is not None else None)
+
+            if pubdate and not (from_dt <= pubdate <= to_dt):
+                continue
+
+            seen.add(canonical)
+            results.append(
+                DiscoveredUrl(
+                    url=canonical,
+                    source=self.source_name,
+                    language=self.language,
+                    title=title_raw or None,
+                    published_at=pubdate,
+                    discovered_at=datetime.now(tz=timezone.utc),
+                )
+            )
+            added += 1
+
+        logger.info("ynet rss supplement: added %d articles", added)
 
     # ------------------------------------------------------------------ #
     #  fetch                                                               #
