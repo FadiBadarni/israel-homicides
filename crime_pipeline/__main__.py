@@ -112,15 +112,24 @@ def configure_logging(level: str) -> None:
 )
 @click.option(
     "--date-from",
-    default="2026-01-01",
-    show_default=True,
-    help="Start date YYYY-MM-DD.",
+    default=None,
+    help="Start date YYYY-MM-DD. Overrides --date-window-days when set.",
 )
 @click.option(
     "--date-to",
-    default="2026-12-31",
+    default=None,
+    help="End date YYYY-MM-DD. Defaults to today.",
+)
+@click.option(
+    "--date-window-days",
+    default=30,
     show_default=True,
-    help="End date YYYY-MM-DD.",
+    type=int,
+    help=(
+        "Look back N days from --date-to (default: today). Default 30 "
+        "balances news rhythm vs historical-retrospective pollution. "
+        "Ignored when --date-from is set."
+    ),
 )
 @click.option(
     "--max-per-source",
@@ -135,14 +144,14 @@ def configure_logging(level: str) -> None:
     multiple=True,
     type=click.Choice(
         [
-            "discover", "fetch", "extract", "dedup", "merge",
+            "discover", "fetch", "triage", "extract", "dedup", "merge",
             "sanity", "quality", "reconcile", "export",
         ],
         case_sensitive=False,
     ),
     help=(
-        "Run only specific stages (repeatable). Default: all nine stages "
-        "(discover, fetch, extract, dedup, merge, sanity, quality, "
+        "Run only specific stages (repeatable). Default: all ten stages "
+        "(discover, fetch, triage, extract, dedup, merge, sanity, quality, "
         "reconcile, export)."
     ),
 )
@@ -182,8 +191,9 @@ def cli(
     arabic_only: bool,
     tier: str | None,
     sources: str,
-    date_from: str,
-    date_to: str,
+    date_from: str | None,
+    date_to: str | None,
+    date_window_days: int,
     max_per_source: int,
     stages: tuple[str, ...],
     jaro_threshold: float | None,
@@ -286,12 +296,28 @@ def cli(
         click.echo("ERROR: --query is required (unless --enrich-case is set).", err=True)
         sys.exit(2)
 
+    # Resolve date window. --date-from explicit always wins; otherwise look back
+    # --date-window-days from --date-to (default: today). Default 30-day window
+    # balances news rhythm against historical-retrospective pollution
+    # (see search-noise-strategy debate synthesis).
+    from datetime import date, timedelta
+    resolved_to = date_to or date.today().isoformat()
+    if date_from is None:
+        try:
+            anchor = date.fromisoformat(resolved_to)
+        except ValueError:
+            click.echo(f"ERROR: invalid --date-to: {resolved_to!r}", err=True)
+            sys.exit(2)
+        resolved_from = (anchor - timedelta(days=date_window_days)).isoformat()
+    else:
+        resolved_from = date_from
+
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
     stage_set: set[str] = (
         {s.lower() for s in stages}
         if stages
         else {
-            "discover", "fetch", "extract", "dedup", "merge",
+            "discover", "fetch", "triage", "extract", "dedup", "merge",
             "sanity", "quality", "reconcile", "export",
         }
     )
@@ -326,7 +352,7 @@ def cli(
     click.echo(f"Pipeline starting | run_id={pipeline.run_id}")
     click.echo(f"  Query:       {query}")
     click.echo(f"  Sources:     {source_list}")
-    click.echo(f"  Date range:  {date_from} to {date_to}")
+    click.echo(f"  Date range:  {resolved_from} to {resolved_to}")
     click.echo(f"  Stages:      {sorted(stage_set)}")
     click.echo(f"  DB path:     {settings.db_path}")
     click.echo(f"  Output dir:  {settings.output_dir}")
@@ -337,8 +363,8 @@ def cli(
             pipeline.run(
                 query=query,
                 sources=source_list,
-                date_from=date_from,
-                date_to=date_to,
+                date_from=resolved_from,
+                date_to=resolved_to,
                 max_per_source=max_per_source,
                 stages=stage_set,
             )

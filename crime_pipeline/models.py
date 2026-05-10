@@ -61,6 +61,21 @@ class RawArticle(Base):
     fetch_status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Triage stage metadata. Populated by the C-stage classifier between
+    # fetch and extract. Used to skip full LLM extraction on articles whose
+    # title+lede don't look like a homicide. Persisted so we can audit
+    # rejections + replay on prompt changes without re-fetching.
+    #   triage_status: "yes" | "maybe" | "no" | None (None = not yet triaged)
+    #   triage_incident_type: the LLM's incident_type label (hint, not authoritative)
+    #   triage_reason: short string for stats (e.g. "non_crime", "accident")
+    #   triage_model_version: which model + prompt version produced the verdict
+    triage_status: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, index=True)
+    triage_incident_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    triage_reason: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    triage_model_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    triage_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    triage_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     extractions: Mapped[list["ExtractedRecord"]] = relationship(
         "ExtractedRecord", back_populates="article", cascade="all, delete-orphan"
     )

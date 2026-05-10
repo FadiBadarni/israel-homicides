@@ -68,6 +68,9 @@ class Pipeline:
             "singletons": 0,
             "review_pairs": 0,
             "extraction_drop_in_merge": 0,
+            "triage_kept": 0,
+            "triage_dropped": 0,
+            "triage_reasons": {},
             "relevance_kept": 0,
             "relevance_dropped": 0,
             "relevance_drop_reasons": {},
@@ -102,7 +105,7 @@ class Pipeline:
     ) -> dict[str, Any]:
         """Execute the full pipeline (or a subset of stages) and return stats."""
         stages = stages or {
-            "discover", "fetch", "extract", "dedup", "merge",
+            "discover", "fetch", "triage", "extract", "dedup", "merge",
             "sanity", "quality", "reconcile", "export",
         }
         log.info(
@@ -132,6 +135,14 @@ class Pipeline:
         else:
             with db_module.SessionLocal() as session:  # type: ignore[misc]
                 articles = list(get_articles_by_status(session, "success"))
+
+        # ── Stage 2.5: Triage (cheap classifier, drops most articles) ──
+        # Sends title + first 600 chars to Gemini-flash with thinking off.
+        # Cuts ~80% of full-extraction tokens by dropping non-homicide
+        # articles before the expensive extract stage. Persists every
+        # decision to raw_articles for audit + replay.
+        if articles and "triage" in stages:
+            articles = await self._triage(articles)
 
         # ── Stage 3: Extract ──────────────────────────────────────────
         if "extract" in stages:
@@ -280,6 +291,91 @@ class Pipeline:
             failed=self.stats["fetch_failed"],
         )
         return articles
+
+    # ------------------------------------------------------------------
+    # Stage 2.5: Triage (cheap classifier between fetch and extract)
+    # ------------------------------------------------------------------
+
+    async def _triage(self, articles: list) -> list:
+        """Run the C-stage triage classifier; persist verdicts; return only
+        articles that should proceed to full extraction.
+
+        Decision distribution is recorded in ``self.stats``:
+          triage_kept       — articles that proceed to extract
+          triage_dropped    — articles dropped pre-extract
+          triage_reasons    — count of each incident_type drop reason
+        """
+        from crime_pipeline.extraction.triage import Triager
+
+        triager = Triager(
+            api_key=self.settings.gemini_api_key,
+            model=self.settings.llm_model,
+            concurrency=self.settings.llm_concurrency,
+        )
+
+        triage_inputs = [
+            {
+                "article_id": a.id,
+                "title": a.title,
+                "lede": (a.article_text or "")[:600],
+            }
+            for a in articles
+            if a.fetch_status == "success" and a.article_text
+        ]
+        if not triage_inputs:
+            log.warning("no_articles_to_triage")
+            return []
+
+        results = await triager.triage_batch(triage_inputs)
+        result_by_id = {r.article_id: r for r in results}
+
+        # Persist every triage decision to raw_articles for audit + replay.
+        with db_module.SessionLocal() as session:  # type: ignore[misc]
+            from crime_pipeline.models import RawArticle
+            for r in results:
+                row = session.get(RawArticle, r.article_id)
+                if row is None:
+                    continue
+                row.triage_status = r.status
+                row.triage_incident_type = r.incident_type
+                row.triage_reason = r.reason
+                row.triage_model_version = r.model_version
+                row.triage_input_tokens = r.input_tokens
+                row.triage_output_tokens = r.output_tokens
+            session.commit()
+
+        # Stats + filtering
+        kept = []
+        reasons: dict[str, int] = {}
+        in_tok = 0
+        out_tok = 0
+        for a in articles:
+            r = result_by_id.get(a.id)
+            if r is None:
+                # No triage decision (e.g. article had no text) — pass through
+                kept.append(a)
+                continue
+            in_tok += r.input_tokens
+            out_tok += r.output_tokens
+            if r.status in ("yes", "maybe"):
+                kept.append(a)
+            else:
+                reasons[r.reason] = reasons.get(r.reason, 0) + 1
+
+        self.stats["triage_kept"] = len(kept)
+        self.stats["triage_dropped"] = len(articles) - len(kept)
+        self.stats["triage_reasons"] = reasons
+        self.stats["total_input_tokens"] += in_tok
+        self.stats["total_output_tokens"] += out_tok
+        log.info(
+            "triage_complete",
+            kept=len(kept),
+            dropped=len(articles) - len(kept),
+            reasons=reasons,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+        )
+        return kept
 
     # ------------------------------------------------------------------
     # Stage 3: Extract

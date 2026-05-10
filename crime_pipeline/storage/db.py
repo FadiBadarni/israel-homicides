@@ -34,7 +34,39 @@ def get_engine(db_path: str) -> Engine:
     )
     event.listen(engine, "connect", _enable_wal_mode)
     Base.metadata.create_all(engine)
+    _apply_additive_migrations(engine)
     return engine
+
+
+def _apply_additive_migrations(engine: Engine) -> None:
+    """Add new columns to existing tables when the model evolves.
+
+    SQLAlchemy's ``create_all`` only creates *missing tables*, never adds
+    columns to tables that already exist. For purely-additive changes
+    (new nullable columns) we ALTER TABLE inline so existing SQLite DBs
+    keep working without a separate Alembic migration step.
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if "raw_articles" not in insp.get_table_names():
+        return  # fresh DB — create_all just made it with all columns
+
+    existing_cols = {c["name"] for c in insp.get_columns("raw_articles")}
+    triage_cols = [
+        ("triage_status", "VARCHAR(8)"),
+        ("triage_incident_type", "VARCHAR(32)"),
+        ("triage_reason", "VARCHAR(64)"),
+        ("triage_model_version", "VARCHAR(64)"),
+        ("triage_input_tokens", "INTEGER NOT NULL DEFAULT 0"),
+        ("triage_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
+    ]
+    with engine.begin() as conn:
+        for col_name, col_def in triage_cols:
+            if col_name not in existing_cols:
+                conn.execute(
+                    text(f"ALTER TABLE raw_articles ADD COLUMN {col_name} {col_def}")
+                )
 
 
 def init_db(db_path: str) -> Engine:

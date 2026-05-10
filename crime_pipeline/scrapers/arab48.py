@@ -42,6 +42,31 @@ _HEADERS = {
 
 _ARTICLE_LINK_MARKERS = tuple(f"/{year}/" for year in range(2020, 2028))
 
+# First-path-segment blocklist. Articles whose URL begins with one of these
+# editorial categories are guaranteed not to be homicide news, so we drop
+# them pre-fetch — saves bandwidth + LLM triage cost.
+#
+# Conservative by design: we only list categories where the editorial intent
+# is unambiguous. Borderline cases stay in:
+#   /محليات/* (Local) — KEEP, where homicides live
+#   /الأخبار/* (Breaking news) — KEEP
+#   /إسرائيليات/* (Israeli affairs) — KEEP
+#   /أخبار-عربية-ودولية/* (Arab & World) — KEEP, may carry regional crimes
+#   /فيديو/* (Video) — KEEP, crime reports may live here
+#   /محليات/دراسات-وتقارير/* (Studies/Reports) — KEEP, may carry analysis
+_NON_HOMICIDE_PATH_SEGMENTS = frozenset({
+    "رياضة",          # Sports
+    "ثقافة-وفنون",    # Culture & Arts
+    "علوم-وتكنولوجيا",  # Science & Tech
+    "مقالات-وآراء",   # Opinion / Op-eds
+})
+
+
+def _is_non_homicide_path(parsed_path: str) -> bool:
+    """True if the URL's first non-empty path segment is in the blocklist."""
+    parts = [p for p in parsed_path.split("/") if p]
+    return bool(parts) and parts[0] in _NON_HOMICIDE_PATH_SEGMENTS
+
 _BODY_SELECTORS = [
     ".article-content p",
     ".article-content",
@@ -164,6 +189,12 @@ class Arab48Scraper(BaseScraper):
                 if full_url in seen:
                     continue
                 seen.add(full_url)
+
+                # Path-segment blocklist (B-stage cheap pre-fetch reject).
+                # Drops sports/culture/tech/opinion articles before we spend
+                # bandwidth fetching them or LLM tokens triaging them.
+                if _is_non_homicide_path(parsed.path):
+                    continue
 
                 title_text = a_tag.get_text(" ", strip=True) or None
                 pub_date: Optional[datetime] = None
