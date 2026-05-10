@@ -99,7 +99,136 @@ def test_drops_survived_victim_even_with_full_data() -> None:
 
 
 # ---------------------------------------------------------------------------
-# is_homicide_extraction — keep rules
+# incident_type discriminator — drop non-homicide categories
+# ---------------------------------------------------------------------------
+
+def test_drops_accident_even_with_full_data() -> None:
+    """The Arraba tractor case: outcome=died, city, date, but NOT a homicide."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "accident",
+        "victim_name": "Ibrahim Khaled Ghazal",
+        "city": "Arraba",
+        "incident_date": "2026-03-10",
+        "victim_outcome": "died",
+        "weapon_type": "vehicle",
+    })
+    assert keep is False
+    assert reason == "incident_type:accident"
+
+
+def test_drops_historical_retrospective() -> None:
+    """The Land Day case: LLM extracted outcome=died with num_victims=6 from
+    a 1976 anniversary article. Not a current incident."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "historical",
+        "victim_name": None,
+        "city": "Arraba",
+        "incident_date": "2026-03-30",
+        "victim_outcome": "died",
+        "num_victims": 6,
+    })
+    assert keep is False
+    assert reason == "incident_type:historical"
+
+
+def test_drops_other_crime_arrest() -> None:
+    """The Tel Aviv cheating-arrest case: suspect_status=arrested, no victim."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "other_crime",
+        "city": "Tel Aviv",
+        "suspect_status": "arrested",
+    })
+    assert keep is False
+    assert reason == "incident_type:other_crime"
+
+
+def test_drops_suicide() -> None:
+    keep, reason = is_homicide_extraction({
+        "incident_type": "suicide",
+        "victim_name": "X",
+        "city": "Y",
+        "victim_outcome": "died",
+    })
+    assert keep is False
+    assert reason == "incident_type:suicide"
+
+
+def test_drops_non_crime() -> None:
+    """Protest article with 'crime victims' rhetoric — non-crime."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "non_crime",
+        "city": "Arraba",
+    })
+    assert keep is False
+    assert reason == "incident_type:non_crime"
+
+
+def test_keeps_attempted_homicide() -> None:
+    """Mayor-shooting case: shot, in critical condition. Keep so reconcile
+    can promote outcome later if a follow-up confirms death."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "attempted_homicide",
+        "victim_name": "Ahmed Nasser",
+        "city": "Arraba",
+        "incident_date": "2026-03-09",
+        "victim_outcome": "critical",
+    })
+    assert keep is True
+    assert reason == "kept"
+
+
+def test_keeps_homicide() -> None:
+    """The Magdi Atef case after the thinking-budget fix."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "homicide",
+        "victim_name": "مجدي عاطف شلاعطة",
+        "city": "عرابة",
+        "incident_date": "2026-03-20",
+        "victim_outcome": "died",
+        "weapon_type": "firearm",
+    })
+    assert keep is True
+    assert reason == "kept"
+
+
+def test_unknown_type_falls_through_to_field_check() -> None:
+    """incident_type='unknown' should not auto-drop — fall back to legacy
+    signal-presence check so we don't lose ambiguous-but-real cases."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "unknown",
+        "victim_name": "Some Name",
+        "city": "Arraba",
+    })
+    assert keep is True
+
+
+def test_legacy_extraction_without_incident_type() -> None:
+    """Backward compat: pre-discriminator extractions (incident_type=None)
+    use the legacy signal-presence rules."""
+    keep, reason = is_homicide_extraction({
+        # No incident_type field at all (legacy DB row)
+        "victim_name": "Bakr Yassin",
+        "city": "Arraba",
+        "victim_outcome": "died",
+    })
+    assert keep is True
+
+
+def test_survived_overrides_homicide_type() -> None:
+    """Even if incident_type='homicide', if outcome=survived, drop it.
+    The article likely mis-categorised; the export filter would drop it
+    anyway, but doing it here saves dedup/merge work."""
+    keep, reason = is_homicide_extraction({
+        "incident_type": "homicide",
+        "victim_name": "X",
+        "victim_outcome": "survived",
+    })
+    assert keep is False
+    assert reason == "victim_survived"
+
+
+# ---------------------------------------------------------------------------
+# is_homicide_extraction — keep rules (legacy fallback)
 # ---------------------------------------------------------------------------
 
 def test_keeps_named_victim_only() -> None:
