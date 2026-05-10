@@ -595,6 +595,11 @@ class Pipeline:
                 fatal_cases.append(case)
         self.stats["non_fatal_excluded"] = len(non_fatal_cases)
         cases = fatal_cases
+        self.stats["cases_exported"] = len(cases)
+        self.stats["media_canonical"] = sum(len(case.media or []) for case in cases)
+        self.stats["media_evidence_canonical"] = sum(
+            len(case.media_evidence or []) for case in cases
+        )
 
         exporter = JSONExporter(self.settings.output_dir)
 

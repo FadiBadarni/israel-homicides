@@ -683,6 +683,37 @@ async def test_pipeline_demotes_single_publisher_og_image(monkeypatch, settings)
 
 
 @pytest.mark.asyncio
+async def test_pipeline_drops_failed_downloads(monkeypatch, settings):
+    article = """
+    <html><head>
+      <meta property="og:image" content="https://cdn.com/missing.jpg" />
+    </head><body>
+      <article>
+        <figure>
+          <img src="https://cdn.com/scene.jpg" />
+          <figcaption>Crime scene in Arraba</figcaption>
+        </figure>
+      </article>
+    </body></html>
+    """
+    _patch_downloader(monkeypatch, {
+        "https://cdn.com/scene.jpg": ("s_sha", "ffffffffffffffff"),
+    })
+    pipe = MediaPipeline(settings)
+    ctx = ArticleContext(article_url="https://x.com/", city_names=["Arraba"])
+
+    media, evidence = await pipe.run_for_case(
+        [{"raw_html": article, "url": "https://news.example.com/a"}],
+        ctx,
+    )
+
+    all_items = media + evidence
+    assert len(all_items) == 1
+    assert all_items[0].status == "available"
+    assert all_items[0].primary_url == "https://cdn.com/scene.jpg"
+
+
+@pytest.mark.asyncio
 async def test_pipeline_disabled_returns_empty(settings):
     settings.enabled = False
     pipe = MediaPipeline(settings)

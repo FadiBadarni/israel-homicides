@@ -95,6 +95,20 @@ class MediaPipeline:
         except Exception as e:
             log.warning("media_download_batch_error", error=str(e))
 
+        # Only downloaded, hashable images are useful for the canonical media
+        # gallery. Keeping failed URLs here creates broken UI tiles and noisy
+        # singleton media records.
+        failed_downloads = [c for c in all_cands if c.download_status != "ok"]
+        if failed_downloads:
+            log.info(
+                "media_downloads_dropped",
+                count=len(failed_downloads),
+                statuses=sorted({c.download_status for c in failed_downloads}),
+            )
+        all_cands = [c for c in all_cands if c.download_status == "ok"]
+        if not all_cands:
+            return [], []
+
         # ── 4. Classify ───────────────────────────────────────────────
         for cand in all_cands:
             try:
