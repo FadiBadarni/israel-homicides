@@ -304,12 +304,12 @@ def generate_tier2_arabic_local_queries(case: dict[str, Any], max_queries: int =
     city_ar = norm.get("name_ar") or ""
 
     if ar_name:
-        for site in ("arab48.com", "panet.co.il", "kul-alarab.com",
+        for site in ("arab48.com", "panet.com", "kul-alarab.com",
                      "bokra.net", "alarab.com"):
             add(f'site:{site} "{ar_name}"')
     if city_ar:
         add(f'site:arab48.com "{city_ar}" قتل')
-        add(f'site:panet.co.il "{city_ar}" جريمة')
+        add(f'site:panet.com "{city_ar}" جريمة')
         if ar_name:
             add(f'site:kul-alarab.com {ar_name} {city_ar}')
             add(f'site:arab48.com {ar_name} جنازة')
@@ -401,7 +401,7 @@ def _infer_publisher(url: str) -> str:
         "calcalist.co.il": "calcalist",
         "inn.co.il": "arutz7",
         "police.gov.il": "police",
-        "panet.co.il": "panet",
+        "panet.com": "panet",
         "bokra.net": "bokra",
         "arab48.com": "arab48",
         "alarab.com": "alarab",

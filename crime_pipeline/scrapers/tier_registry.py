@@ -55,7 +55,7 @@ TIER_1_DOMAINS = {
 # Tier 2: Arabic / local press — richest for victim detail, neighborhood, family
 TIER_2_DOMAINS = {
     "arab48.com": "Arab48",
-    "panet.co.il": "Panet",
+    "panet.com": "Panet",
     "kul-alarab.com": "Kul al-Arab",
     "bokra.net": "Bokra",
     "alarab.com": "Al-Arab",

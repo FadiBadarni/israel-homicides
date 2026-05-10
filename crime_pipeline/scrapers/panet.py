@@ -36,8 +36,8 @@ from .base import ArticleResult, BaseScraper, DiscoveredUrl
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://www.panet.co.il"
-_SEARCH_URL_TPL = "https://www.panet.co.il/search?q={query}"
+_BASE_URL = "https://panet.com"
+_SEARCH_URL_TPL = "https://panet.com/search?q={query}"
 
 # Viewport that looks like a real desktop browser
 _VIEWPORT = {"width": 1280, "height": 900}
@@ -122,7 +122,7 @@ def _is_cloudflare_challenge(title: str, content: str) -> bool:
 class PanetScraper(BaseScraper):
     source_name = "panet"
     language = "ar"
-    base_domain = "www.panet.co.il"
+    base_domain = "panet.com"
 
     # Class-level shared browser / playwright handle
     _playwright: Optional[Playwright] = None

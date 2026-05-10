@@ -226,7 +226,7 @@ _DOMAIN_TO_PUBLISHER = {
     "calcalist.co.il": "Calcalist",
     "inn.co.il": "Arutz Sheva",
     "police.gov.il": "Israel Police",
-    "panet.co.il": "Panet",
+    "panet.com": "Panet",
     "bokra.net": "Bokra",
     "arab48.com": "Arab48",
     "alarab.com": "Al-Arab",
