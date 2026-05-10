@@ -46,8 +46,26 @@ These are NOT contradictions — Arraba is in BOTH Northern District AND Galilee
 
 When the article references the SAME PERSON in multiple scripts, capture each spelling in its own field. Capture additional variants in victim_aliases.
 
+INCIDENT TYPE — pick one (this drives whether the case enters the dataset):
+- "homicide": confirmed deliberate killing — current case (e.g. נרצח / قُتل / مقتل with named victim, criminal investigation)
+- "attempted_homicide": deliberate attempt that did NOT kill (yet) — wounded, critical, in hospital after a shooting/stabbing/assault. ניסיון רצח / محاولة قتل / إطلاق نار / طعن without confirmed death.
+- "accident": non-criminal death — workplace accident (תאונת עבודה / حادث عمل), traffic crash (תאונת דרכים / حادث طرق), fall (سقوط), drowning, electrocution, etc.
+- "suicide": self-inflicted death (התאבדות / انتحار / أقدم على الانتحار).
+- "historical": retrospective, anniversary, year-end statistics, "since the start of the year N people have been killed", commemorations of past killings (e.g. יום האדמה / يوم الأرض). The deaths described are NOT a current incident.
+- "other_crime": criminal but not homicide — fraud (احتيال), theft (سرقة), arrest for cheating (شبهة الغش), drug bust, traffic violation arrest, etc.
+- "non_crime": not about a crime at all — protests (احتجاج), political news, opinion pieces, tech, sports, weather, commemorations.
+- "unknown": cannot tell from the article (paywall snippet only, ambiguous wording).
+
+Rules of thumb:
+- If the article describes a SPECIFIC current incident where someone deliberately killed someone else → "homicide".
+- If a victim was shot/stabbed/assaulted but the article does NOT confirm death → "attempted_homicide".
+- An accidental death where there is no perpetrator (fell off a tractor, traffic crash) → "accident", NEVER "homicide".
+- Background statistics in a current homicide article ("this is the 67th victim this year") do NOT make the article "historical" — pick the type that matches the SPECIFIC incident the article reports on.
+- A retrospective article whose primary subject is past killings (e.g. "the 50th anniversary of Land Day where 6 were killed in 1976") → "historical".
+
 JSON Schema you must follow:
 {
+  "incident_type": "homicide" | "attempted_homicide" | "accident" | "suicide" | "historical" | "other_crime" | "non_crime" | "unknown",
   "victim_name": string | null,                           // primary spelling as it appears
   "victim_name_ar": string | null,                        // Arabic-script form if present
   "victim_name_he": string | null,                        // Hebrew-script form if present

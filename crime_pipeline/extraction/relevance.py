@@ -46,6 +46,24 @@ def _is_present(value: Any) -> bool:
     return True
 
 
+# Incident-type labels the LLM emits that we keep in the homicide pipeline.
+# "attempted_homicide" stays in so reconcile can later promote it to a
+# confirmed homicide if a follow-up source confirms death; the export
+# filter (``victim_outcome=="survived"``) catches genuine non-fatal cases.
+_HOMICIDE_TYPES = frozenset({"homicide", "attempted_homicide"})
+
+# Types that are explicit non-homicide categories. We drop these by name so
+# stats show *why* (e.g. ``incident_type:accident``) instead of the catch-all
+# "no_homicide_signal" reason.
+_NON_HOMICIDE_TYPES = frozenset({
+    "accident",
+    "suicide",
+    "historical",
+    "other_crime",
+    "non_crime",
+})
+
+
 def is_homicide_extraction(
     extraction: Mapping[str, Any] | None,
 ) -> tuple[bool, str]:
@@ -55,25 +73,42 @@ def is_homicide_extraction(
     Returns ``(keep, reason)`` where ``reason`` is a stable machine-readable
     label suitable for stats aggregation.
 
-    Drop rules (conservative — only obvious junk):
-    1. ``no_extraction_data`` — input is None or not a mapping (parse-failed
-       safety net; should not normally happen because parse-failed extractions
-       aren't added to the list, but defensive).
-    2. ``no_homicide_signal`` — every signal field is null/empty/placeholder.
-       The LLM found nothing identifying the article as a specific incident.
-    3. ``victim_survived`` — the LLM (or the lethality fixup) determined
-       the victim survived. These are not homicides; the export stage
-       already drops them but filtering here saves dedup/merge work.
+    Decision order:
+    1. ``no_extraction_data`` — None / non-mapping input (parse-failed safety).
+    2. ``incident_type:<X>`` — LLM tagged a non-homicide category (accident,
+       suicide, historical retrospective, other_crime, non_crime). These are
+       the precision wins — they wouldn't pass the field-level filter
+       otherwise because they often have city/date/even outcome=died.
+    3. ``no_homicide_signal`` — incident_type is missing/unknown AND every
+       signal field is null/empty/placeholder. Fallback for legacy extractions
+       made before the discriminator existed and for ambiguous "unknown" types.
+    4. ``victim_survived`` — explicit non-fatal outcome. Export filter would
+       drop this anyway; filtering here saves dedup/merge work.
 
-    Keep rules: anything else, including ``victim_outcome=="critical"`` (the
-    victim may die later — let merge/reconcile promote the outcome) and
-    ``victim_outcome==None`` with at least one identifying field (the LLM
-    sometimes leaves outcome null in arrest-report articles whose underlying
-    incident is fatal).
+    Keep rules: ``incident_type`` in {"homicide", "attempted_homicide"} OR
+    (legacy: incident_type missing/"unknown" AND any signal field present).
     """
     if not isinstance(extraction, Mapping):
         return False, "no_extraction_data"
 
+    incident_type = extraction.get("incident_type")
+
+    # Rule 2: explicit non-homicide category from the LLM. Drop with a
+    # machine-readable reason so operators can see precision wins by class.
+    if incident_type in _NON_HOMICIDE_TYPES:
+        return False, f"incident_type:{incident_type}"
+
+    # Survived victims are explicitly non-fatal — drop early.
+    if extraction.get("victim_outcome") == "survived":
+        return False, "victim_survived"
+
+    # Rule 4: explicit homicide category — keep, no further checks needed.
+    if incident_type in _HOMICIDE_TYPES:
+        return True, "kept"
+
+    # Legacy / "unknown" path: fall back to field-level signal check so we
+    # don't break old extractions and don't silently drop articles the LLM
+    # couldn't categorise.
     has_victim = any(
         _is_present(extraction.get(field))
         for field in (
@@ -85,16 +120,9 @@ def is_homicide_extraction(
     has_date = _is_present(extraction.get("incident_date")) or _is_present(
         extraction.get("death_date")
     )
-    outcome = extraction.get("victim_outcome")
-    has_death_signal = outcome in ("died", "critical")
+    has_death_signal = extraction.get("victim_outcome") in ("died", "critical")
 
-    # Rule 1: zero signal across every dimension.
     if not (has_victim or has_city or has_date or has_death_signal):
         return False, "no_homicide_signal"
-
-    # Rule 2: explicitly non-fatal. Export already drops this; filtering here
-    # avoids dedup/merge/media/cleanup work for articles that won't ship.
-    if outcome == "survived":
-        return False, "victim_survived"
 
     return True, "kept"

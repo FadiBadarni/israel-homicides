@@ -204,6 +204,23 @@ class EvidenceItem(BaseModel):
 class ExtractedArticleData(BaseModel):
     """Structured data extracted from a single crime news article by the LLM."""
 
+    # What KIND of incident the article is about. Drives the relevance filter:
+    # only "homicide" and "attempted_homicide" enter the dedup pipeline.
+    # Optional for backward compat with extractions made before this field
+    # existed; None means "legacy / pre-discriminator extraction".
+    incident_type: Optional[
+        Literal[
+            "homicide",
+            "attempted_homicide",
+            "accident",
+            "suicide",
+            "historical",
+            "other_crime",
+            "non_crime",
+            "unknown",
+        ]
+    ] = None
+
     # Multilingual victim names — capture all variants present in the article
     victim_name: Optional[str] = None  # Primary name as it appears in article
     victim_name_ar: Optional[str] = None  # Arabic spelling if present
