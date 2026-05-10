@@ -40,7 +40,16 @@ _YNET_HEADERS = {
     "Connection": "keep-alive",
 }
 
-_SEARCH_URL = "https://www.ynet.co.il/search-results"
+_SEARCH_URL = "https://www.ynet.co.il/category/3340"
+_SEARCH_PARAMS = (
+    "cx=partner-pub-4207657971126930:3067011121"
+    "&cof=GIMP:009900;T:000000;ALC:FF9900;GFNT:B0B0B0;LC:0000FF;"
+    "BRC:FFFFFF;BGC:FFFFFF;VLC:666666;GALT:36A200;LBGC:FF0000;"
+    "DIV:FFFFEE;FORID:9"
+    "&as_qdr=all"
+    "&hq=more:recent4"
+    "&ynet_search_type=ynet"
+)
 _BASE_URL = "https://www.ynet.co.il"
 
 # Selectors tried in order — first match wins
@@ -188,7 +197,7 @@ class YnetScraper(BaseScraper):
         from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
         to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
 
-        search_url = f"{_SEARCH_URL}?term={quote_plus(query)}"
+        search_url = f"{_SEARCH_URL}?q={quote_plus(query)}&{_SEARCH_PARAMS}"
         discovered: list[DiscoveredUrl] = []
 
         async with _make_client() as client:
