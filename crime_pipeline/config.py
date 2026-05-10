@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         default=0.88, ge=0.0, le=1.0, description="Jaro-Winkler similarity threshold for name dedup"
     )
     cosine_threshold: float = Field(
-        default=0.82, ge=0.0, le=1.0, description="Cosine similarity threshold for embedding dedup"
+        default=0.72, ge=0.0, le=1.0, description="Cosine similarity threshold for embedding dedup"
     )
     robots_txt_respect: bool = Field(default=True, description="Whether to respect robots.txt rules")
     request_delay_seconds: float = Field(
