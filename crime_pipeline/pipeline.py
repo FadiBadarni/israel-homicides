@@ -120,11 +120,15 @@ class Pipeline:
         if "dedup" in stages or "merge" in stages:
             cases = await self._dedup_and_merge(extractions, articles)
 
+        # Stamp finished_at BEFORE export so the consolidated JSON's run
+        # block carries an accurate end timestamp + duration_seconds.
+        self.stats["finished_at"] = datetime.now(timezone.utc).isoformat()
+        self.stats["stages_executed"] = sorted(stages)
+
         # ── Stage 6: Export ───────────────────────────────────────────
         if "export" in stages:
             await self._export(cases)
 
-        self.stats["finished_at"] = datetime.now(timezone.utc).isoformat()
         log.info("pipeline_complete", **self.stats)
         return self.stats
 
@@ -544,16 +548,17 @@ class Pipeline:
     # ------------------------------------------------------------------
 
     async def _export(self, cases: list) -> None:
-        """Write canonical-case JSON, manifest, and a human-readable summary."""
+        """Write a single rich JSON containing run metadata + stats + cases.
+
+        Schema 2.0 — one self-describing file per run at
+        ``{output_dir}/{run_id}.json``. Each case in the file already carries
+        its own ``media`` / ``media_evidence`` / ``sources`` / ``conflicts``
+        / per-category ``confidence``, so this single file is the complete
+        ground-truth artifact for the run.
+        """
         exporter = JSONExporter(self.settings.output_dir)
 
-        # Always write the manifest, even if no cases were produced — it's
-        # useful for diagnosing empty runs.
-        if cases:
-            exporter.export_cases(cases, self.run_id)
-        exporter.export_manifest(self.run_id, self.stats)
-
-        # Build a simple human-readable summary.
+        # Build a simple human-readable summary embedded in the JSON.
         summary_lines: list[str] = [
             f"Pipeline Run: {self.run_id}",
             "=" * 60,
@@ -593,7 +598,12 @@ class Pipeline:
             )
             summary_lines.append("")
 
-        exporter.export_summary(self.run_id, "\n".join(summary_lines))
+        exporter.export_run(
+            run_id=self.run_id,
+            cases=cases,
+            stats=self.stats,
+            human_summary="\n".join(summary_lines),
+        )
         log.info(
             "export_complete",
             cases=len(cases),

@@ -4,16 +4,21 @@ Export canonical case records to JSON files plus a per-run manifest.
 Outputs are written under a configurable output directory. File names are namespaced
 by pipeline run id so concurrent runs do not overwrite each other:
 
-    {output_dir}/{run_id}_canonical.json   - case data (single or envelope of many)
-    {output_dir}/{run_id}_manifest.json    - run statistics
-    {output_dir}/{run_id}_summary.txt      - optional human-readable summary
+    {output_dir}/{run_id}.json             - SINGLE consolidated rich JSON
+                                             (run metadata + stats + cases with
+                                              media/media_evidence + human summary)
+
+Schema 2.0 (current): one self-describing JSON per run.
+Schema 1.0 helpers (export_case / export_cases / export_manifest /
+export_summary) are retained for backward compat with any external callers
+but are no longer invoked by the main Pipeline.
 """
 from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
@@ -21,7 +26,7 @@ from crime_pipeline.models import CanonicalCaseSchema
 
 log = structlog.get_logger()
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
 
 
 def _json_default(obj: Any) -> str:
@@ -43,6 +48,117 @@ class JSONExporter:
     def __init__(self, output_dir: Path | str):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Schema 2.0 — single consolidated rich JSON
+    # ------------------------------------------------------------------
+
+    def export_run(
+        self,
+        run_id: str,
+        cases: list[CanonicalCaseSchema],
+        stats: dict[str, Any],
+        human_summary: Optional[str] = None,
+    ) -> Path:
+        """Write ONE rich JSON containing everything for this run.
+
+        Output: ``{output_dir}/{run_id}.json``
+
+        Top-level shape::
+
+            {
+              "schema_version": "2.0",
+              "kind": "crime_pipeline.run",
+              "pipeline_run_id": "...",
+              "exported_at": "...",
+              "run": { "started_at", "finished_at", "duration_seconds",
+                       "stages_executed" },
+              "stats": { discovered, fetched, extracted, clusters, singletons,
+                         cases_exported, media_canonical,
+                         media_evidence_canonical, total_input_tokens,
+                         total_output_tokens, ... },
+              "case_count": N,
+              "cases": [ <CanonicalCaseSchema dict with media + media_evidence
+                          + sources + conflicts + confidence per category> ],
+              "human_summary": "..."   (optional plain-text)
+            }
+
+        Each case in ``cases`` carries its own ``media`` (decorative),
+        ``media_evidence`` (evidentiary), ``sources``, ``conflicts``, and
+        per-category ``confidence`` — the case is already self-contained.
+        This wrapper adds the run-level provenance so the file is fully
+        self-describing without needing the database.
+        """
+        path = self.output_dir / f"{run_id}.json"
+
+        # Pull run-level timing out of stats, leave the rest in stats.
+        started_at = stats.get("started_at")
+        finished_at = stats.get("finished_at")
+        duration_seconds = self._duration_seconds(started_at, finished_at)
+
+        # The "run" block is provenance only; "stats" is everything else.
+        run_block: dict[str, Any] = {
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "duration_seconds": duration_seconds,
+        }
+        if "stages_executed" in stats:
+            run_block["stages_executed"] = stats["stages_executed"]
+
+        # Strip from stats the keys we promoted to the run block to avoid
+        # duplication; preserve everything else.
+        stats_block = {
+            k: v for k, v in stats.items()
+            if k not in ("started_at", "finished_at", "stages_executed", "run_id")
+        }
+
+        envelope: dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": "crime_pipeline.run",
+            "pipeline_run_id": run_id,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "run": run_block,
+            "stats": stats_block,
+            "case_count": len(cases),
+            "cases": [c.model_dump(mode="json") for c in cases],
+        }
+        if human_summary is not None:
+            envelope["human_summary"] = human_summary
+
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(
+                envelope,
+                f,
+                ensure_ascii=False,
+                indent=2,
+                default=_json_default,
+            )
+
+        log.info(
+            "run_exported",
+            path=str(path),
+            cases=len(cases),
+            schema_version=SCHEMA_VERSION,
+        )
+        return path
+
+    @staticmethod
+    def _duration_seconds(
+        started_at: Optional[str], finished_at: Optional[str]
+    ) -> Optional[float]:
+        """ISO-8601 strings → elapsed seconds, or None if either is missing."""
+        if not started_at or not finished_at:
+            return None
+        try:
+            t0 = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
+            return (t1 - t0).total_seconds()
+        except (ValueError, AttributeError):
+            return None
+
+    # ------------------------------------------------------------------
+    # Schema 1.0 helpers — retained for backward compat
+    # ------------------------------------------------------------------
 
     def export_case(self, case: CanonicalCaseSchema, run_id: str) -> Path:
         """Write a single canonical case to {output_dir}/{run_id}_canonical.json."""
