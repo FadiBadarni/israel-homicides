@@ -7,8 +7,10 @@ Per-case Gemini budget enforced by `MediaPipeline._gemini_calls_used`.
 """
 from __future__ import annotations
 
+import importlib
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -17,6 +19,39 @@ from crime_pipeline.media.models import MediaCandidate, MediaCategory
 from crime_pipeline.media.settings import MediaSettings
 
 log = structlog.get_logger()
+
+
+@dataclass
+class _ClipRuntime:
+    model: object
+    preprocess: object
+    tokenizer: object
+
+    def classify(
+        self,
+        image_path: str,
+        prompts: dict[MediaCategory, str],
+    ) -> tuple[MediaCategory, float, list[float]]:
+        pil_image = importlib.import_module("PIL.Image")
+        torch = importlib.import_module("torch")
+
+        with pil_image.open(image_path) as img:
+            image = img.convert("RGB")
+            image_tensor = self.preprocess(image).unsqueeze(0)
+        text_tensor = self.tokenizer(list(prompts.values()))
+
+        with torch.no_grad():
+            image_features = self.model.encode_image(image_tensor)
+            text_features = self.model.encode_text(text_tensor)
+
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        similarities = (image_features @ text_features.T)[0]
+        best_index = int(similarities.argmax().item())
+        best_label = list(prompts.keys())[best_index]
+        best_score = float(similarities[best_index].item())
+        embedding = image_features[0].tolist()
+        return best_label, best_score, embedding
 
 
 # Bilingual keyword maps. Matches via case-insensitive substring.
@@ -206,6 +241,13 @@ class MediaClassifier:
     # ------------------------------------------------------------------
 
     def _classify_clip(self, cand: MediaCandidate, ctx: ArticleContext) -> None:
+        if not cand.bytes_ref:
+            cand.classification_evidence.append("clip:no_bytes_ref")
+            return
+        if not Path(cand.bytes_ref).exists():
+            cand.classification_evidence.append("clip:missing_bytes_ref")
+            return
+
         # Lazy import — CLIP is in the optional [vision] extra
         if self._clip_attempted and self._clip_model is None:
             cand.classification_evidence.append("clip:unavailable")
@@ -213,16 +255,58 @@ class MediaClassifier:
         if self._clip_model is None:
             self._clip_attempted = True
             try:
-                # Production would use open_clip_torch + ViT-B-32 here.
-                # We leave a hook so the classifier graceful-degrades when
-                # the extra isn't installed.
+                self._clip_model = self._load_clip_runtime()
+            except ModuleNotFoundError:
                 self._clip_model = None
                 cand.classification_evidence.append("clip:not_installed")
                 return
-            except Exception:
+            except Exception as exc:
                 self._clip_model = None
+                log.warning("clip_load_failed", error=str(exc)[:200])
                 cand.classification_evidence.append("clip:load_failed")
                 return
-        # When implemented: encode image, compare against per-category prompts,
-        # pick argmax cosine, set classification + confidence + evidence.
-        cand.classification_evidence.append("clip:stub")
+
+        label, score, embedding = self._clip_model.classify(
+            cand.bytes_ref,
+            self._clip_prompts(ctx),
+        )
+        cand.clip_embedding = embedding
+        cand.classification_evidence.append(f"clip:{label}:{score:.2f}")
+        if score > cand.classification_confidence:
+            cand.classification = label
+            cand.classifier_tier = "clip"
+            cand.classification_confidence = score
+
+    def _load_clip_runtime(self) -> _ClipRuntime:
+        open_clip = importlib.import_module("open_clip")
+        model_name = "ViT-B-32"
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            model_name,
+            pretrained="laion2b_s34b_b79k",
+        )
+        tokenizer = open_clip.get_tokenizer(model_name)
+        return _ClipRuntime(model=model, preprocess=preprocess, tokenizer=tokenizer)
+
+    def _clip_prompts(self, ctx: ArticleContext) -> dict[MediaCategory, str]:
+        victim_name = next((name for name in ctx.victim_names if name), "").strip()
+        suspect_name = next((name for name in ctx.suspect_names if name), "").strip()
+        city_name = next((name for name in ctx.city_names if name), "").strip()
+
+        victim_suffix = f" featuring {victim_name}" if victim_name else ""
+        suspect_suffix = f" featuring {suspect_name}" if suspect_name else ""
+        city_suffix = f" in {city_name}" if city_name else ""
+
+        return {
+            "victim_portrait": f"news portrait photo of a homicide victim{victim_suffix}",
+            "suspect_portrait": f"news portrait photo of a crime suspect{suspect_suffix}",
+            "crime_scene": f"news photo of a crime scene{city_suffix}",
+            "weapon": "news photo of a weapon used in a violent crime",
+            "court": "news photo from a courtroom or remand hearing",
+            "funeral": "news photo of a funeral, burial, or memorial gathering",
+            "cctv": "security camera or surveillance footage still image",
+            "police_activity": "police officers investigating or securing a scene",
+            "generic_stock": "generic stock photo or illustration for a crime news story",
+            "infographic": "news infographic, diagram, or map graphic",
+            "video": "video thumbnail or still frame from footage",
+            "other": "unclear or unrelated news image",
+        }

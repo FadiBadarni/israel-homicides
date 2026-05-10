@@ -1,22 +1,17 @@
-"""Article media-extraction subsystem.
+"""Article media-extraction subsystem."""
+from __future__ import annotations
 
-Public API:
-    MediaPipeline          — per-case orchestrator (harvest → download → classify → dedup → split)
-    MediaHarvester         — HTML → MediaCandidate
-    MediaDownloader        — async image fetch + hashing
-    MediaClassifier        — keyword/CLIP/Vision cascade
-    ArticleContext         — case-level priors (victim/suspect/city names)
-    MediaCandidate         — in-flight working object
-    MediaSettings          — config block
-    CanonicalMedia         — persisted record (re-exported from main models)
-"""
+from typing import TYPE_CHECKING, Any
+
 from crime_pipeline.media.classifier import ArticleContext, MediaClassifier
 from crime_pipeline.media.downloader import MediaDownloader
 from crime_pipeline.media.harvester import MediaHarvester
 from crime_pipeline.media.models import MediaCandidate
-from crime_pipeline.media.pipeline import MediaPipeline
 from crime_pipeline.media.settings import MediaSettings
-from crime_pipeline.models import CanonicalMedia
+
+if TYPE_CHECKING:
+    from crime_pipeline.media.pipeline import MediaPipeline
+    from crime_pipeline.models import CanonicalMedia
 
 __all__ = [
     "MediaPipeline",
@@ -28,3 +23,15 @@ __all__ = [
     "MediaSettings",
     "CanonicalMedia",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "MediaPipeline":
+        from crime_pipeline.media.pipeline import MediaPipeline
+
+        return MediaPipeline
+    if name == "CanonicalMedia":
+        from crime_pipeline.models import CanonicalMedia
+
+        return CanonicalMedia
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

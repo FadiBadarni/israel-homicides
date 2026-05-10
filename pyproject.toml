@@ -30,6 +30,12 @@ dependencies = [
     "structlog",
 ]
 
+[project.optional-dependencies]
+vision = [
+    "open-clip-torch>=2.24.0",
+    "pillow>=10.0.0",
+]
+
 [project.scripts]
 crime-pipeline = "crime_pipeline.__main__:cli"
 
