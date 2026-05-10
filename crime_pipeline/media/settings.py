@@ -42,6 +42,8 @@ class MediaSettings(BaseModel):
     # Hebrew/Arabic illustration markers — caption containing these → likely stock
     stock_caption_markers: list[str] = Field(default_factory=lambda: [
         "אילוסטרציה", "ארכיון", "צילום אילוסטרציה",
+        "אין קשר לכתבה", "למצולמים אין קשר לכתבה", "לצילום אין קשר לכתבה",
         "للتوضيح", "أرشيف", "صورة من الأرشيف",
+        "لا علاقة للصورة", "لا علاقة لهم بالخبر", "الصورة للتوضيح",
         "illustration", "file photo", "stock photo", "for illustration",
     ])

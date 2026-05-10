@@ -291,6 +291,26 @@ class TestClassifier:
         assert any(e.startswith("stock:domain:") for e in cand.classification_evidence)
 
     @pytest.mark.asyncio
+    async def test_unrelated_to_article_caption_is_stock_signal(self, settings):
+        cand = MediaCandidate(
+            source_article_url="https://x.com/a",
+            source_url="https://x.com/scene.jpg",
+            discovery_selector="figure",
+            figcaption="חיסול בעראבה (למצולמים אין קשר לכתבה)",
+            download_status="ok",
+            sha256="b" * 64,
+            phash="fedcba9876543210",
+        )
+        ctx = ArticleContext(article_url="https://x.com/a", city_names=["עראבה"])
+        c = MediaClassifier(settings)
+
+        await c.classify(cand, ctx)
+
+        assert cand.is_stock_photo is True
+        assert cand.is_stock_confidence >= 0.8
+        assert any("stock:caption:" in e for e in cand.classification_evidence)
+
+    @pytest.mark.asyncio
     async def test_no_text_signal_returns_other_low_confidence(self, settings):
         cand = MediaCandidate(
             source_article_url="https://x.com/a",

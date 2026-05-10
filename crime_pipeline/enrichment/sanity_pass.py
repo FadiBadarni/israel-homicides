@@ -37,23 +37,27 @@ _LATIN_RE = re.compile(_LATIN_LETTER)
 
 
 def _published_year(case: dict[str, Any]) -> int | None:
-    """Return the most authoritative published_at year across sources."""
+    """Return the modal published_at year across sources (most common wins)."""
+    from collections import Counter
+    years: list[int] = []
     for s in case.get("sources") or []:
         ts = s.get("published_at")
         if not ts:
             continue
         try:
             if isinstance(ts, str):
-                # Parse ISO 8601, tolerating trailing Z
                 dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
             elif isinstance(ts, datetime):
                 dt = ts
             else:
                 continue
-            return dt.year
+            years.append(dt.year)
         except Exception:
             continue
-    return None
+    if not years:
+        return None
+    # Most common year; ties broken by the earliest (min)
+    return min(Counter(years), key=lambda y: (-Counter(years)[y], y))
 
 
 def _coerce_date(d: Any) -> date | None:
@@ -483,6 +487,11 @@ def resolve_city_flag(case: dict[str, Any]) -> dict[str, Any]:
         # Populate city_normalized if missing or stale
         if not case.get("city_normalized") or not case["city_normalized"].get("name_en"):
             case["city_normalized"] = {k: v for k, v in dict(record).items() if v}
+        # Backfill district and region from gazetteer when null on the case itself
+        if not case.get("district") and record.get("district"):
+            case["district"] = _DISTRICTS.get(record["district"], record["district"])
+        if not case.get("region") and record.get("region"):
+            case["region"] = _REGIONS.get(record["region"], record["region"])
     return case
 
 
