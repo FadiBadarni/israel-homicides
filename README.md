@@ -1,6 +1,6 @@
 # israel-homicides
 
-Multi-source Arabic/Hebrew crime news scraping and AI extraction pipeline. Discovers homicide news articles across Israeli mainstream, Arabic-language, and official police sources, runs LLM-based structured extraction, deduplicates across sources, and produces one canonical case record per incident.
+Multi-source Arabic/Hebrew crime news scraping and AI extraction pipeline. Discovers homicide news articles across the currently enabled Hebrew and Arabic news sources, runs LLM-based structured extraction, deduplicates across sources, and produces one canonical case record per incident.
 
 ## Overview
 
@@ -28,10 +28,8 @@ Side subsystems:
 
 | Source       | Language | Priority | Notes                                  |
 | ------------ | -------- | -------- | -------------------------------------- |
-| `police`     | Hebrew   | 0 (top)  | Official police.gov.il announcements   |
 | `ynet`       | Hebrew   | 1        | Mainstream Israeli news                |
 | `panet`      | Arabic   | 2        | Arabic local press (Playwright-rendered) |
-| `googlenews` | mixed    | —        | Discovery aggregator                    |
 
 Source priority is used both as a tie-breaker when selecting a canonical record within a cluster and as a confidence weight during merge.
 
@@ -81,7 +79,7 @@ cp .env.example .env
 ```bash
 python -m crime_pipeline \
     --query "Arraba 2026" \
-    --sources ynet,police,panet \
+    --sources ynet,panet \
     --date-from 2026-01-01 \
     --date-to 2026-12-31
 ```
@@ -119,7 +117,7 @@ Enrichment is **additive** — it never overwrites high-confidence existing data
 ```
 --query                          Search query (required unless --enrich-case)
 --enrich-case <path>             Run enricher against an existing canonical JSON
---sources                        Comma-separated: ynet,police,panet (default: all three)
+--sources                        Comma-separated: ynet,panet (default)
 --date-from / --date-to          ISO dates
 --max-per-source                 Per-source discovery cap (default: 50)
 --stage <name>                   Repeatable. Limits run to listed stages.

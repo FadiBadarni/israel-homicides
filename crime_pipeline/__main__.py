@@ -1,7 +1,7 @@
 """CLI entry point for the homicide-news AI pipeline.
 
 Usage:
-    python -m crime_pipeline --query "Arraba 2026" --sources ynet,police,panet \\
+    python -m crime_pipeline --query "Arraba 2026" --sources ynet,panet \\
         --date-from 2026-01-01 --date-to 2026-12-31
 
 Run only specific stages (resume after a partial run):
@@ -106,9 +106,9 @@ def configure_logging(level: str) -> None:
 )
 @click.option(
     "--sources",
-    default="ynet,police,panet",
+    default="ynet,panet",
     show_default=True,
-    help="Comma-separated source names. Available: ynet, police, panet.",
+    help="Comma-separated source names for normal runs. Default available requested sources: ynet, panet.",
 )
 @click.option(
     "--date-from",
