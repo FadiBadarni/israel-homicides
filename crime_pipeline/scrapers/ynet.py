@@ -67,12 +67,47 @@ _TITLE_SELECTORS = [
     "h1",
 ]
 _BODY_SELECTORS = [
+    # Modern Ynet (2024+) — React component class names
+    ".ArticleBodyComponent .text_editor_paragraph",
+    ".ArticleBodyComponent p",
+    ".ArticleBodyComponent",
+    ".PremiumArticleBody",
+    # Legacy selectors retained as fallback
     "div.article-body p",
     "div.art-body p",
     "div[data-testid='article-body'] p",
     "div.text p",
     "article p",
 ]
+
+
+def _extract_body_from_jsonld(html: str) -> str:
+    """Extract articleBody from schema.org JSON-LD blocks.
+
+    Modern Ynet (and most news sites) embed the full article in a
+    ``<script type="application/ld+json">`` block whose JSON has an
+    ``articleBody`` field. This is the canonical extraction path —
+    immune to CSS-class churn and not blocked by JS rendering.
+    Returns empty string if no JSON-LD block carries an articleBody.
+    """
+    import re
+    blocks = re.findall(
+        r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.+?)</script>',
+        html, re.S,
+    )
+    for raw in blocks:
+        try:
+            data = json.loads(raw.strip())
+        except (ValueError, TypeError):
+            continue
+        # JSON-LD can be a single object or a list. Walk both.
+        candidates = data if isinstance(data, list) else [data]
+        for obj in candidates:
+            if isinstance(obj, dict) and obj.get("articleBody"):
+                body = obj["articleBody"]
+                if isinstance(body, str) and body.strip():
+                    return body.strip()
+    return ""
 _LINK_SELECTORS = [
     "a.item-link",
     "a.art-l-item-title",
@@ -650,18 +685,24 @@ class YnetScraper(BaseScraper):
                     break
 
             # --- Body text ---
-            body_parts: list[str] = []
-            for sel in _BODY_SELECTORS:
-                elements = soup.select(sel)
-                if elements:
-                    for el in elements:
-                        text = el.get_text(separator=" ", strip=True)
-                        if text:
-                            body_parts.append(text)
-                    if body_parts:
-                        break
+            # Try JSON-LD articleBody first — canonical, immune to CSS churn,
+            # works even when modern Ynet React components rename their classes.
+            article_text = _extract_body_from_jsonld(raw_html)
 
-            article_text = "\n\n".join(body_parts)
+            # Fall back to CSS selectors (modern + legacy) when JSON-LD is
+            # absent or empty (e.g. on liveblog/category pages).
+            if not article_text:
+                body_parts: list[str] = []
+                for sel in _BODY_SELECTORS:
+                    elements = soup.select(sel)
+                    if elements:
+                        for el in elements:
+                            text = el.get_text(separator=" ", strip=True)
+                            if text:
+                                body_parts.append(text)
+                        if body_parts:
+                            break
+                article_text = "\n\n".join(body_parts)
 
             # --- Publication date ---
             published_at = _extract_date_from_soup(soup)
