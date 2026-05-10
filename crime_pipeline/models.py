@@ -418,6 +418,11 @@ class CanonicalCaseSchema(BaseModel):
         default_factory=list,
         description="Sources demoted by quality_pass (e.g. invalid Tier-3 paths).",
     )
+    rejected_unrelated_articles: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Articles that quality_pass dropped as not actually about this case "
+                    "(false-positive scrape hits). Kept for operator audit.",
+    )
     reconciliation_provenance: list[dict[str, Any]] = Field(
         default_factory=list,
         description="If non-empty, this case absorbed others during the reconcile stage. "

@@ -579,10 +579,6 @@ class Pipeline:
         self.stats["media_evidence_canonical"] += len(evidence_canon)
 
     # ------------------------------------------------------------------
-    # Stage 6: Export
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
     # Stages 6-8: Sanity → Quality → Reconcile (deterministic cleanup)
     # ------------------------------------------------------------------
 
@@ -647,6 +643,10 @@ class Pipeline:
 
         # Re-validate as models so the export stage's attribute access works.
         return [CanonicalCaseSchema(**d) for d in case_dicts]
+
+    # ------------------------------------------------------------------
+    # Stage 9: Export
+    # ------------------------------------------------------------------
 
     async def _export(self, cases: list) -> None:
         """Write a single rich JSON containing run metadata + stats + cases.

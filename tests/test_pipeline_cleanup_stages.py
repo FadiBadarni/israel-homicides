@@ -56,7 +56,20 @@ def test_canonical_case_schema_defaults_match_legacy_jsons() -> None:
     assert legacy_min.timeline == []
     assert legacy_min.motive_translations is None
     assert legacy_min.dropped_invalid_sources == []
+    assert legacy_min.rejected_unrelated_articles == []
     assert legacy_min.reconciliation_provenance == []
+
+
+def test_schema_covers_every_field_quality_pass_writes() -> None:
+    """Regression: quality_pass writes `rejected_unrelated_articles` —
+    Pydantic would silently drop it on rehydration if the schema lacks it.
+    Same trap the original work was meant to fix.
+    """
+    case = CanonicalCaseSchema(
+        rejected_unrelated_articles=[{"url": "https://x", "reason": "off_topic"}],
+    )
+    dumped = case.model_dump(mode="json")
+    assert dumped["rejected_unrelated_articles"][0]["url"] == "https://x"
 
 
 def test_round_trip_preserves_new_fields_no_extra_allow_needed() -> None:
