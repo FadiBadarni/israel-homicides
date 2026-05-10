@@ -45,6 +45,10 @@ _URL_FRAGMENT_BLOCKLIST = (
     "1x1.gif", "pixel.png", "spacer.gif", "blank.gif",
     "/social-icons/", "/share-icons/", "/tracking/",
     "/ads/", "/sponsor/",
+    # Author / journalist profile images (prevent harvesting byline headshots)
+    "/author/", "/authors/", "/reporter/", "/reporters/",
+    "/staff/", "/journalist/", "/journalists/",
+    "/contributor/", "/contributors/",
     # Tracking pixels / analytics beacons
     "trc.taboola.com",
     "/cdn-cgi/l/email-protection",
@@ -69,6 +73,13 @@ _URL_FRAGMENT_BLOCKLIST = (
 _BG_IMAGE_RE = re.compile(r"background-image:\s*url\(\s*['\"]?([^'\")]+)['\"]?\s*\)", re.I)
 _YT_ID_RE = re.compile(r"(?:youtube\.com/(?:watch\?v=|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})")
 _VIMEO_ID_RE = re.compile(r"vimeo\.com/(?:video/)?(\d+)")
+
+# Class/id patterns that identify author/byline DOM containers.
+# Images nested inside these nodes are journalist headshots, not case media.
+_AUTHOR_CONTAINER_RE = re.compile(
+    r"\b(?:author|byline|reporter|journalist|contributor|writer|correspondent)\b",
+    re.I,
+)
 
 
 class MediaHarvester:
@@ -250,6 +261,9 @@ class MediaHarvester:
             "data-hi-res-src", "data-image-src",
         )
         for img in soup.find_all("img"):
+            # Skip journalist/author headshots embedded in byline containers.
+            if self._is_author_container(img):
+                continue
             url = None
             # Prefer high-res lazy-load attrs over visible src
             for attr in lazy_attrs:
@@ -290,6 +304,8 @@ class MediaHarvester:
 
     def _extract_figures(self, soup: BeautifulSoup, base_url: str) -> Iterable[MediaCandidate]:
         for figure in soup.find_all("figure"):
+            if self._is_author_container(figure):
+                continue
             img = figure.find("img")
             if not img:
                 continue
@@ -403,6 +419,25 @@ class MediaHarvester:
     def _is_blocklisted(url: str) -> bool:
         u = url.lower()
         return any(frag in u for frag in _URL_FRAGMENT_BLOCKLIST)
+
+    @staticmethod
+    def _is_author_container(tag: Tag) -> bool:
+        """Return True when tag is nested inside an author/byline DOM container.
+
+        Walks up to 8 parent levels — enough to catch typical byline structures
+        (img → span → div.author-info → article) without scanning the whole
+        document tree on every image.
+        """
+        for depth, parent in enumerate(tag.parents):
+            if depth >= 8:
+                break
+            if not isinstance(parent, Tag):
+                continue
+            classes = " ".join(parent.get("class") or [])
+            tag_id = parent.get("id") or ""
+            if _AUTHOR_CONTAINER_RE.search(classes) or _AUTHOR_CONTAINER_RE.search(tag_id):
+                return True
+        return False
 
     @staticmethod
     def _mk_candidate(**kwargs: Any) -> MediaCandidate:
