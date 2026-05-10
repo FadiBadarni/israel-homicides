@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,19 @@ from crime_pipeline.media.models import MediaCandidate, MediaCategory
 from crime_pipeline.media.settings import MediaSettings
 
 log = structlog.get_logger()
+
+
+# Image bytes arrive from untrusted news sources. PIL is a frequent target of
+# decompression-bomb and parser CVEs (CVE-2023-50447 class). We cap pixel
+# count and restrict to a small allow-list of common web image formats — the
+# downloader already bounds file size, but a 5 MB PNG can still decode to
+# gigapixels without this guard.
+_CLIP_MAX_IMAGE_PIXELS = 50_000_000
+_CLIP_ALLOWED_FORMATS = ("JPEG", "PNG", "WEBP", "GIF")
+
+
+class _ClipImageDecodeError(Exception):
+    """Raised by _ClipRuntime.classify when image bytes can't be safely decoded."""
 
 
 @dataclass
@@ -35,12 +49,29 @@ class _ClipRuntime:
         pil_image = importlib.import_module("PIL.Image")
         torch = importlib.import_module("torch")
 
-        with pil_image.open(image_path) as img:
-            image = img.convert("RGB")
-            image_tensor = self.preprocess(image).unsqueeze(0)
+        # Apply pixel-count cap — module-level setting on PIL.Image, idempotent.
+        pil_image.MAX_IMAGE_PIXELS = _CLIP_MAX_IMAGE_PIXELS
+        try:
+            with pil_image.open(image_path) as img:
+                if img.format not in _CLIP_ALLOWED_FORMATS:
+                    raise _ClipImageDecodeError(f"unsupported_format:{img.format}")
+                image = img.convert("RGB")
+                image_tensor = self.preprocess(image).unsqueeze(0)
+        except _ClipImageDecodeError:
+            raise
+        except (
+            pil_image.DecompressionBombError,
+            pil_image.UnidentifiedImageError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise _ClipImageDecodeError(f"{type(exc).__name__}:{str(exc)[:64]}") from exc
+
         text_tensor = self.tokenizer(list(prompts.values()))
 
-        with torch.no_grad():
+        # inference_mode is stricter than no_grad — disables both autograd
+        # tracking AND view-tracking, eliminating accidental gradient retention.
+        with torch.inference_mode():
             image_features = self.model.encode_image(image_tensor)
             text_features = self.model.encode_text(text_tensor)
 
@@ -122,8 +153,12 @@ class MediaClassifier:
     def __init__(self, settings: MediaSettings) -> None:
         self.settings = settings
         self._gemini_calls_used = 0
-        self._clip_model = None  # lazy loaded
+        self._clip_model: Optional[_ClipRuntime] = None  # lazy loaded
         self._clip_attempted = False
+        # Guards lazy CLIP-runtime init against concurrent first-use. Even if
+        # MediaPipeline currently classifies sequentially per case, a future
+        # batch-encoder path could load the ~600MB model twice without this.
+        self._clip_load_lock = threading.Lock()
 
     def reset_case_budget(self) -> None:
         self._gemini_calls_used = 0
@@ -248,30 +283,47 @@ class MediaClassifier:
             cand.classification_evidence.append("clip:missing_bytes_ref")
             return
 
-        # Lazy import — CLIP is in the optional [vision] extra
+        # Lazy import — CLIP is in the optional [vision] extra. Lock guards
+        # against a future concurrent first-use loading the model twice.
         if self._clip_attempted and self._clip_model is None:
             cand.classification_evidence.append("clip:unavailable")
             return
         if self._clip_model is None:
-            self._clip_attempted = True
-            try:
-                self._clip_model = self._load_clip_runtime()
-            except ModuleNotFoundError:
-                self._clip_model = None
-                cand.classification_evidence.append("clip:not_installed")
-                return
-            except Exception as exc:
-                self._clip_model = None
-                log.warning("clip_load_failed", error=str(exc)[:200])
-                cand.classification_evidence.append("clip:load_failed")
-                return
+            with self._clip_load_lock:
+                # Re-check inside the lock — another thread may have raced us.
+                if self._clip_model is None and not self._clip_attempted:
+                    self._clip_attempted = True
+                    try:
+                        self._clip_model = self._load_clip_runtime()
+                    except ModuleNotFoundError:
+                        self._clip_model = None
+                        cand.classification_evidence.append("clip:not_installed")
+                        return
+                    except Exception as exc:
+                        self._clip_model = None
+                        log.warning("clip_load_failed", error=str(exc)[:200])
+                        cand.classification_evidence.append("clip:load_failed")
+                        return
+                elif self._clip_model is None:
+                    cand.classification_evidence.append("clip:unavailable")
+                    return
 
-        label, score, embedding = self._clip_model.classify(
-            cand.bytes_ref,
-            self._clip_prompts(ctx),
-        )
+        try:
+            label, score, embedding = self._clip_model.classify(
+                cand.bytes_ref,
+                self._clip_prompts(ctx),
+            )
+        except _ClipImageDecodeError as exc:
+            # Untrusted bytes from a news site — corrupt, truncated, or a
+            # decompression bomb. Degrade gracefully, keep the audit trail.
+            cand.classification_evidence.append(f"clip:image_decode_failed:{str(exc)[:48]}")
+            return
         cand.clip_embedding = embedding
         cand.classification_evidence.append(f"clip:{label}:{score:.2f}")
+        # CLIP only overrides when more confident than the keyword tier.
+        # Caption-name match (keyword tier 0.92) should beat CLIP's typical
+        # softmax cosines (0.20–0.40) — that's intentional. CLIP's role is
+        # to fire when keyword evidence is weak (no caption / no name match).
         if score > cand.classification_confidence:
             cand.classification = label
             cand.classifier_tier = "clip"
@@ -284,6 +336,11 @@ class MediaClassifier:
             model_name,
             pretrained="laion2b_s34b_b79k",
         )
+        # eval mode disables dropout/batchnorm-train behavior — matters for
+        # embedding stability across runs (otherwise the same image can yield
+        # slightly different vectors, breaking phash-style dedup invariants).
+        if hasattr(model, "eval"):
+            model.eval()
         tokenizer = open_clip.get_tokenizer(model_name)
         return _ClipRuntime(model=model, preprocess=preprocess, tokenizer=tokenizer)
 
