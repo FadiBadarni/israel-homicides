@@ -89,6 +89,14 @@ class ArticleExtractor:
             temperature=0,
             max_output_tokens=self.max_tokens,
             response_mime_type="application/json",
+            # Disable Gemini 2.5's "thinking" mode for extraction. With it on
+            # the model burns ~95% of max_output_tokens on hidden reasoning
+            # and emits a truncated JSON that json-repair then salvages into
+            # a mostly-empty dict that validate_extraction accepts as valid
+            # — every extracted field except victim_name silently becomes
+            # null. Extraction is a structured task; thinking adds cost and
+            # subtracts correctness.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
         async with self._semaphore:
@@ -108,6 +116,30 @@ class ArticleExtractor:
                 output_tokens = getattr(usage, "candidates_token_count", 0) or 0
                 cached_tokens = getattr(usage, "cached_content_token_count", 0) or 0
                 cache_hit = cached_tokens > 0
+
+                # Defensive: detect truncation. A truncated JSON often gets
+                # silently "repaired" into a tiny valid dict by json-repair,
+                # which validate_extraction would then accept as success even
+                # though the data is mostly null. Log a clear warning so
+                # operators see this in stats.
+                finish_reason = None
+                if response.candidates:
+                    finish_reason = getattr(
+                        response.candidates[0], "finish_reason", None
+                    )
+                if finish_reason is not None and str(finish_reason).endswith(
+                    "MAX_TOKENS"
+                ):
+                    log.warning(
+                        "extraction_truncated_at_max_tokens",
+                        source=source,
+                        model=self.model,
+                        max_tokens=self.max_tokens,
+                        output_tokens=output_tokens,
+                        thoughts_tokens=getattr(
+                            usage, "thoughts_token_count", None
+                        ),
+                    )
 
                 validated, error = validate_extraction(raw_response)
 
