@@ -750,3 +750,175 @@ async def test_pipeline_no_articles_returns_empty(settings):
     ctx = ArticleContext(article_url="x")
     media, evidence = await pipe.run_for_case([], ctx)
     assert media == [] and evidence == []
+
+
+# ---------------------------------------------------------------------------
+# New regression tests — author-image filtering & photo-credit classification
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorContainerExclusion:
+    """Harvester must skip images nested inside author/byline DOM containers."""
+
+    def test_author_class_container_excluded(self, settings):
+        html = """
+        <html><body>
+          <article>
+            <div class="author-info">
+              <img src="https://example.com/journalist.jpg" alt="Jane Reporter" />
+            </div>
+            <figure>
+              <img src="https://example.com/scene.jpg" alt="crime scene" />
+            </figure>
+          </article>
+        </body></html>
+        """
+        h = MediaHarvester(settings)
+        cands = h.harvest(html, "https://news.example.com/story/1")
+        urls = {c.source_url for c in cands}
+        assert "https://example.com/scene.jpg" in urls
+        assert "https://example.com/journalist.jpg" not in urls
+
+    def test_byline_id_container_excluded(self, settings):
+        html = """
+        <html><body>
+          <article>
+            <div id="reporter-byline">
+              <img src="https://example.com/reporter.jpg" alt="reporter" />
+            </div>
+            <img src="https://example.com/victim.jpg" alt="victim" />
+          </article>
+        </body></html>
+        """
+        h = MediaHarvester(settings)
+        cands = h.harvest(html, "https://news.example.com/story/1")
+        urls = {c.source_url for c in cands}
+        assert "https://example.com/victim.jpg" in urls
+        assert "https://example.com/reporter.jpg" not in urls
+
+    def test_author_url_path_blocked(self, settings):
+        html = """
+        <html><body>
+          <article>
+            <img src="https://example.com/authors/john-smith.jpg" alt="John Smith" />
+            <img src="https://example.com/reporters/ali.jpg" alt="Ali" />
+            <img src="https://example.com/news/scene.jpg" alt="scene" />
+          </article>
+        </body></html>
+        """
+        h = MediaHarvester(settings)
+        cands = h.harvest(html, "https://news.example.com/story/1")
+        urls = {c.source_url for c in cands}
+        assert "https://example.com/news/scene.jpg" in urls
+        assert "https://example.com/authors/john-smith.jpg" not in urls
+        assert "https://example.com/reporters/ali.jpg" not in urls
+
+    def test_figure_in_byline_excluded(self, settings):
+        html = """
+        <html><body>
+          <article>
+            <div class="byline">
+              <figure>
+                <img src="https://example.com/byline-face.jpg" />
+                <figcaption>Reporter Jane</figcaption>
+              </figure>
+            </div>
+            <figure>
+              <img src="https://example.com/evidence.jpg" />
+              <figcaption>Suspect at court</figcaption>
+            </figure>
+          </article>
+        </body></html>
+        """
+        h = MediaHarvester(settings)
+        cands = h.harvest(html, "https://news.example.com/story/1")
+        urls = {c.source_url for c in cands}
+        assert "https://example.com/evidence.jpg" in urls
+        assert "https://example.com/byline-face.jpg" not in urls
+
+
+class TestPhotoCreditFiltering:
+    """Classifier must not match victim/suspect names that appear only after
+    photo-credit markers (צילום:, Photo by, ©, כתב:, …)."""
+
+    @pytest.mark.asyncio
+    async def test_hebrew_credit_prefix_skips_name_match(self, settings):
+        cand = MediaCandidate(
+            source_article_url="https://x.com/a",
+            source_url="https://x.com/journalist.jpg",
+            discovery_selector="img:src",
+            figcaption="צילום: בכר יאסין",  # "Photo: Bakr Yassin" — photographer credit
+            download_status="ok",
+            sha256="d" * 64,
+            phash="1234567890abcdef",
+        )
+        ctx = ArticleContext(
+            article_url="https://x.com/a",
+            victim_names=["בכר יאסין"],
+        )
+        c = MediaClassifier(settings)
+        await c.classify(cand, ctx)
+        # Must NOT be classified as victim_portrait — this is a photo credit
+        assert cand.classification != "victim_portrait"
+        assert any("caption_credit_skip" in e for e in cand.classification_evidence)
+
+    @pytest.mark.asyncio
+    async def test_english_photo_by_skips_name_match(self, settings):
+        cand = MediaCandidate(
+            source_article_url="https://x.com/a",
+            source_url="https://x.com/journalist.jpg",
+            discovery_selector="img:src",
+            alt_text="Photo by Bakr Yassin",  # journalist byline, not subject
+            download_status="ok",
+            sha256="e" * 64,
+            phash="fedcba9876543210",
+        )
+        ctx = ArticleContext(
+            article_url="https://x.com/a",
+            victim_names=["Bakr Yassin"],
+        )
+        c = MediaClassifier(settings)
+        await c.classify(cand, ctx)
+        assert cand.classification != "victim_portrait"
+        assert any("caption_credit_skip" in e for e in cand.classification_evidence)
+
+    @pytest.mark.asyncio
+    async def test_name_as_subject_still_matches(self, settings):
+        """Caption 'The late Bakr Yassin' is a subject mention, not a credit."""
+        cand = MediaCandidate(
+            source_article_url="https://x.com/a",
+            source_url="https://x.com/img.jpg",
+            discovery_selector="figure",
+            figcaption="The late Bakr Yassin in an undated family photo",
+            download_status="ok",
+            sha256="f" * 64,
+            phash="0123456789abcdef",
+        )
+        ctx = ArticleContext(
+            article_url="https://x.com/a",
+            victim_names=["Bakr Yassin"],
+        )
+        c = MediaClassifier(settings)
+        await c.classify(cand, ctx)
+        assert cand.classification == "victim_portrait"
+        assert cand.classification_confidence >= 0.9
+
+    @pytest.mark.asyncio
+    async def test_arabic_credit_prefix_skips_name_match(self, settings):
+        cand = MediaCandidate(
+            source_article_url="https://x.com/a",
+            source_url="https://x.com/journalist_ar.jpg",
+            discovery_selector="img:src",
+            figcaption="تصوير: سمير حسن",  # "Photography: Samir Hassan"
+            download_status="ok",
+            sha256="a1" * 32,
+            phash="abcd1234abcd1234",
+        )
+        ctx = ArticleContext(
+            article_url="https://x.com/a",
+            victim_names=["سمير حسن"],
+        )
+        c = MediaClassifier(settings)
+        await c.classify(cand, ctx)
+        assert cand.classification != "victim_portrait"
+        assert any("caption_credit_skip" in e for e in cand.classification_evidence)
