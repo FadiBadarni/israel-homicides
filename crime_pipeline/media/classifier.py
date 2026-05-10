@@ -241,9 +241,16 @@ class MediaClassifier:
             cand.classification_evidence.append("keyword:no_text_signal")
             return
 
-        # Caption-name match → strongest signal
+        # Caption-name match → strongest signal.
+        # Guard: skip names that appear ONLY in photo-credit / byline context
+        # (e.g. "צילום: סמיר" = photographer credit, not subject caption).
         for name in ctx.victim_names:
             if name and name.lower() in text:
+                if self._name_only_in_credit(name, text):
+                    cand.classification_evidence.append(
+                        f"caption_credit_skip:victim:{name[:24]}"
+                    )
+                    continue
                 cand.classification = "victim_portrait"
                 cand.classifier_tier = "keyword"
                 cand.classification_confidence = 0.92
@@ -252,6 +259,11 @@ class MediaClassifier:
                 return
         for name in ctx.suspect_names:
             if name and name.lower() in text:
+                if self._name_only_in_credit(name, text):
+                    cand.classification_evidence.append(
+                        f"caption_credit_skip:suspect:{name[:24]}"
+                    )
+                    continue
                 cand.classification = "suspect_portrait"
                 cand.classifier_tier = "keyword"
                 cand.classification_confidence = 0.88
@@ -282,6 +294,30 @@ class MediaClassifier:
             cand.classification_evidence.append("keyword:no_match")
 
         self._mark_stock_signals(cand, text)
+
+    @staticmethod
+    def _name_only_in_credit(name: str, text: str) -> bool:
+        """Return True when every occurrence of *name* in *text* is preceded by a
+        photo-credit / byline attribution marker (צילום:, Photo by, ©, כתב:, …).
+
+        This guards against classifying journalist headshots as victim/suspect
+        portraits when the journalist's name happens to match the case subject.
+        If the name does not appear in text at all, returns False.
+        """
+        name_l = name.lower()
+        pos = 0
+        found = False
+        while True:
+            idx = text.find(name_l, pos)
+            if idx == -1:
+                break
+            found = True
+            # Check the 50-character window immediately before this occurrence.
+            window = text[max(0, idx - 50):idx]
+            if not _PHOTO_CREDIT_RE.search(window):
+                return False  # At least one occurrence is NOT a credit → subject mention
+            pos = idx + 1
+        return found  # True only if found AND every occurrence was a credit
 
     def _mark_stock_signals(self, cand: MediaCandidate, text: str) -> None:
         # URL-host stock signal
