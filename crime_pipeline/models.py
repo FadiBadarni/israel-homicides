@@ -396,6 +396,34 @@ class CanonicalCaseSchema(BaseModel):
     )
     confidence_score: float = Field(ge=0.0, le=1.0, default=0.0)
 
+    # Cleanup-pass outputs. Populated by the inline sanity / quality / reconcile
+    # stages between merge and export. Optional with sane defaults so legacy
+    # output JSON files (written before these stages existed) still validate.
+    tier_coverage: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Per-tier source publisher breakdown, e.g. "
+                    "{'tier_1': ['ynet'], 'tier_2': ['arab48'], 'tier_3': [], 'untiered': []}",
+    )
+    timeline: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Chronological event list synthesized by sanity_pass.build_timeline. "
+                    "Entries: {date, event, confidence, source_url?}",
+    )
+    motive_translations: Optional[list[str]] = Field(
+        default=None,
+        description="Translations of motive into other scripts; quality_pass omits when empty.",
+    )
+    arrest_location_translations: Optional[list[str]] = Field(default=None)
+    dropped_invalid_sources: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Sources demoted by quality_pass (e.g. invalid Tier-3 paths).",
+    )
+    reconciliation_provenance: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="If non-empty, this case absorbed others during the reconcile stage. "
+                    "Each entry: {merged_from_url, reason, jaro_score}",
+    )
+
     review_status: str = "auto"
     pipeline_run_id: str = ""
     enrichment_passes: int = 0  # How many enrichment loops have run on this case

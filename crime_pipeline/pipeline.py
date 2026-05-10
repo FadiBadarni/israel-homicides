@@ -1,15 +1,24 @@
 """
-Six-stage homicide news scraping pipeline orchestrator.
+Nine-stage homicide news scraping pipeline orchestrator.
 
-Stages: Discover -> Fetch -> Extract -> Dedup -> Merge -> Export
+Stages: Discover -> Fetch -> Extract -> Dedup -> Merge -> Sanity -> Quality
+        -> Reconcile -> Export
+
+The last three (Sanity, Quality, Reconcile) are deterministic, zero-API-cost
+cleanup passes that previously only ran inside ``--enrich-case`` mode. They
+were silently skipped on default pipeline runs, leaving exports without
+script-purity correction, three-axis legal-status splitting, date repair,
+or per-category confidence calibration. They now run inline by default.
 
 Each stage checkpoints to SQLite. The pipeline is resumable via ``--stage``
 flags from the CLI: any stage that is skipped will pull its inputs from
-previously persisted database rows.
+previously persisted database rows (or, for the new cleanup stages, simply
+no-op).
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -58,6 +67,10 @@ class Pipeline:
             "singletons": 0,
             "review_pairs": 0,
             "extraction_drop_in_merge": 0,
+            "sanity_applied": 0,
+            "quality_applied": 0,
+            "reconcile_merged": 0,
+            "reconcile_audit_path": None,
             "cases_exported": 0,
             "non_fatal_excluded": 0,
             "media_canonical": 0,
@@ -84,7 +97,10 @@ class Pipeline:
         stages: set[str] | None = None,
     ) -> dict[str, Any]:
         """Execute the full pipeline (or a subset of stages) and return stats."""
-        stages = stages or {"discover", "fetch", "extract", "dedup", "merge", "export"}
+        stages = stages or {
+            "discover", "fetch", "extract", "dedup", "merge",
+            "sanity", "quality", "reconcile", "export",
+        }
         log.info(
             "pipeline_start",
             run_id=self.run_id,
@@ -124,12 +140,19 @@ class Pipeline:
         if "dedup" in stages or "merge" in stages:
             cases = await self._dedup_and_merge(extractions, articles)
 
+        # ── Stages 6–8: Sanity → Quality → Reconcile ─────────────────
+        # All three are deterministic, zero-API-cost transforms over the
+        # in-memory case list. They were silently skipped before this work;
+        # any one can still be opted out of via --stage exclusion.
+        if any(s in stages for s in ("sanity", "quality", "reconcile")):
+            cases = await asyncio.to_thread(self._run_cleanup, cases, stages)
+
         # Stamp finished_at BEFORE export so the consolidated JSON's run
         # block carries an accurate end timestamp + duration_seconds.
         self.stats["finished_at"] = datetime.now(timezone.utc).isoformat()
         self.stats["stages_executed"] = sorted(stages)
 
-        # ── Stage 6: Export ───────────────────────────────────────────
+        # ── Stage 9: Export ───────────────────────────────────────────
         if "export" in stages:
             await self._export(cases)
 
@@ -558,6 +581,72 @@ class Pipeline:
     # ------------------------------------------------------------------
     # Stage 6: Export
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Stages 6-8: Sanity → Quality → Reconcile (deterministic cleanup)
+    # ------------------------------------------------------------------
+
+    def _run_cleanup(self, cases: list, stages: set[str]) -> list:
+        """Run sanity → quality → reconcile against the in-memory case list.
+
+        Cases enter as ``CanonicalCaseSchema`` instances. The three cleanup
+        functions all operate on plain dicts, so we round-trip through
+        ``model_dump()`` and re-validate before returning. The schema was
+        widened in this refactor to cover ``tier_coverage`` / ``timeline`` /
+        ``motive_translations`` / ``reconciliation_provenance`` so the
+        round-trip no longer silently drops fields.
+
+        Order matters: sanity must precede quality because
+        ``quality_pass.drop_invalid_sources`` reads ``timeline`` (written by
+        sanity) and would erase entries tied to demoted sources.
+        """
+        from crime_pipeline.enrichment.quality_pass import run_quality_pass
+        from crime_pipeline.enrichment.reconciler import reconcile_cases
+        from crime_pipeline.enrichment.sanity_pass import run_sanity_pass
+        from crime_pipeline.models import CanonicalCaseSchema
+
+        case_dicts: list[dict[str, Any]] = [
+            c.model_dump(mode="json") for c in cases
+        ]
+
+        if "sanity" in stages:
+            case_dicts = [run_sanity_pass(d) for d in case_dicts]
+            self.stats["sanity_applied"] = len(case_dicts)
+            log.info("sanity_complete", cases=len(case_dicts))
+
+        if "quality" in stages:
+            case_dicts = [run_quality_pass(d) for d in case_dicts]
+            self.stats["quality_applied"] = len(case_dicts)
+            log.info("quality_complete", cases=len(case_dicts))
+
+        if "reconcile" in stages:
+            result = reconcile_cases(case_dicts)
+            case_dicts = result.cases
+            self.stats["reconcile_merged"] = len(result.merged_pairs)
+            if result.merged_pairs:
+                audit_path = (
+                    self.settings.output_dir
+                    / f"{self.run_id}_reconcile_audit.jsonl"
+                )
+                audit_path.parent.mkdir(parents=True, exist_ok=True)
+                with audit_path.open("w", encoding="utf-8") as f:
+                    for pair in result.merged_pairs:
+                        f.write(
+                            json.dumps(pair, ensure_ascii=False, default=str) + "\n"
+                        )
+                self.stats["reconcile_audit_path"] = str(audit_path)
+                log.info(
+                    "reconcile_complete",
+                    merged=len(result.merged_pairs),
+                    cases_before=result.cases_before,
+                    cases_after=result.cases_after,
+                    audit_path=str(audit_path),
+                )
+            else:
+                log.info("reconcile_nothing_to_merge")
+
+        # Re-validate as models so the export stage's attribute access works.
+        return [CanonicalCaseSchema(**d) for d in case_dicts]
 
     async def _export(self, cases: list) -> None:
         """Write a single rich JSON containing run metadata + stats + cases.

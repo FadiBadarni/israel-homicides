@@ -41,18 +41,24 @@ python scripts/demo_media_real.py
 
 ## Architecture
 
-Six stages, each checkpointed to SQLite (`data/pipeline.db`). Any stage can be skipped via
-`--stage`; it will pull its inputs from previously persisted DB rows.
+Nine stages. Stages 1–5 + 9 are checkpointed to SQLite (`data/pipeline.db`); stages
+6–8 are deterministic in-memory transforms. Any stage can be skipped via
+`--stage`; for the persisted stages this pulls inputs from the DB, for the
+in-memory cleanup stages it simply no-ops.
 
 ```
-Discover → Fetch → Extract → Dedup → Merge → Export
+Discover → Fetch → Extract → Dedup → Merge → Sanity → Quality → Reconcile → Export
 ```
 
-After a full run, two cleanup passes run automatically inside the enricher:
+The last three (Sanity, Quality, Reconcile) are **deterministic, zero-API-cost
+cleanup stages** that previously only ran inside `--enrich-case` mode. Default
+pipeline runs were silently producing exports without script-purity correction,
+three-axis legal-status splitting, date repair, or per-category confidence
+calibration. They now run inline by default.
 
-```
-sanity_pass  →  quality_pass
-```
+`--enrich-case <json>` remains a separate operator-driven mode. It re-runs
+discover→fetch→extract on case-derived queries and additively merges new
+sources. This is per-case Gemini-API-burning work — kept opt-in by design.
 
 ---
 

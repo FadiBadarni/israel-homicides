@@ -24,12 +24,32 @@ Writes the reconciled JSON back in-place and returns a summary dict.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import structlog
 
 log = structlog.get_logger()
+
+
+@dataclass(slots=True)
+class ReconcileResult:
+    """Pure-data return from `reconcile_cases`. No file I/O involved."""
+
+    cases: list[dict[str, Any]]
+    merged_pairs: list[dict[str, Any]]
+    cases_before: int
+    cases_after: int
+
+    def summary(self) -> dict[str, Any]:
+        """Backward-compatible summary dict (matches legacy `reconcile_file` return)."""
+        return {
+            "merged_pairs": self.merged_pairs,
+            "cases_before": self.cases_before,
+            "cases_after": self.cases_after,
+        }
+
 
 _SCALAR_FILLABLE = [
     "victim_name", "victim_name_ar", "victim_name_he", "victim_name_en",
@@ -57,8 +77,20 @@ def _date_conflicts(a: dict, b: dict) -> bool:
     return bool(da and db and da != db)
 
 
-def _merge_pair(strong: dict, weak: dict) -> dict:
-    """Fill null fields in `strong` from `weak`; combine sources and flags."""
+def _merge_pair(
+    strong: dict,
+    weak: dict,
+    provenance_entry: dict | None = None,
+) -> dict:
+    """Fill null fields in `strong` from `weak`; combine sources and flags.
+
+    `provenance_entry`, if given, is appended to ``strong["reconciliation_provenance"]``
+    so consumers (the React UI especially) can show "merged from N sources" with
+    the rule and jaro_score that drove each merge.
+    """
+    if provenance_entry is not None:
+        strong.setdefault("reconciliation_provenance", []).append(provenance_entry)
+
     for field in _SCALAR_FILLABLE:
         if strong.get(field) is None and weak.get(field) is not None:
             strong[field] = weak[field]
@@ -111,21 +143,19 @@ def _merge_pair(strong: dict, weak: dict) -> dict:
     return strong
 
 
-def reconcile_file(
-    path: str | Path,
+def reconcile_cases(
+    cases: list[dict[str, Any]],
     jaro_threshold: float = 0.85,
-    dry_run: bool = False,
-) -> dict[str, Any]:
+) -> ReconcileResult:
     """
-    Load an output JSON, merge fragmented clusters, optionally write back.
+    Pure in-memory reconciliation. No file I/O, no module-level state.
 
-    Returns a summary: {"merged_pairs": [...], "cases_before": n, "cases_after": m}
+    Merges fragmented clusters using the same Jaro-Winkler + city/date gating
+    as `reconcile_file`. Each merged canonical case gets a
+    ``reconciliation_provenance`` entry recording the rule and jaro_score that
+    drove the merge, so downstream consumers (the React UI) can surface the
+    audit trail without re-reading a side-file.
     """
-    path = Path(path)
-    with path.open(encoding="utf-8") as f:
-        envelope = json.load(f)
-
-    cases: list[dict] = envelope.get("cases") or []
     n_before = len(cases)
     merged_pairs: list[dict] = []
 
@@ -216,8 +246,41 @@ def reconcile_file(
                     )
 
     if not merged_pairs:
-        log.info("reconciler_nothing_to_merge", path=str(path))
-        return {"merged_pairs": [], "cases_before": n_before, "cases_after": n_before}
+        return ReconcileResult(
+            cases=cases,
+            merged_pairs=[],
+            cases_before=n_before,
+            cases_after=n_before,
+        )
+
+    # Build a (i,j) -> pair_meta lookup for provenance attribution. Pairs are
+    # stored with i<j in merged_pairs; key the lookup with sorted index tuples.
+    pair_meta: dict[tuple[int, int], dict] = {
+        (min(p["i"], p["j"]), max(p["i"], p["j"])): p for p in merged_pairs
+    }
+
+    def _provenance_for(strong_idx: int, weak_idx: int) -> dict[str, Any]:
+        """Build a provenance entry for one weak→strong merge inside a cluster.
+
+        Falls back to a "transitive" reason when the weak case is in the same
+        union-find cluster as `strong` but they were not directly compared.
+        """
+        weak_first_url: Any = None
+        weak_sources = cases[weak_idx].get("sources") or []
+        if weak_sources:
+            weak_first_url = weak_sources[0].get("url")
+        meta = pair_meta.get((min(strong_idx, weak_idx), max(strong_idx, weak_idx)))
+        if meta is not None:
+            return {
+                "merged_from_url": weak_first_url,
+                "reason": meta["rule"],
+                "jaro_score": meta["jaro"],
+            }
+        return {
+            "merged_from_url": weak_first_url,
+            "reason": "transitive",
+            "jaro_score": 0.0,
+        }
 
     # Group by cluster root
     from collections import defaultdict
@@ -241,22 +304,57 @@ def reconcile_file(
         canonical_idx = members_sorted[0]
         canonical = dict(cases[canonical_idx])
         for weak_idx in members_sorted[1:]:
-            canonical = _merge_pair(canonical, cases[weak_idx])
+            canonical = _merge_pair(
+                canonical,
+                cases[weak_idx],
+                provenance_entry=_provenance_for(canonical_idx, weak_idx),
+            )
         kept.append(canonical)
 
-    envelope["cases"] = kept
-    envelope["case_count"] = len(kept)
+    return ReconcileResult(
+        cases=kept,
+        merged_pairs=merged_pairs,
+        cases_before=n_before,
+        cases_after=len(kept),
+    )
+
+
+def reconcile_file(
+    path: str | Path,
+    jaro_threshold: float = 0.85,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Backward-compatible CLI wrapper around `reconcile_cases`.
+
+    Loads an output JSON, calls the pure in-memory reconciler, optionally
+    writes the result back, and returns the legacy summary dict shape so
+    existing callers (the `--reconcile <json>` CLI mode) keep working.
+    """
+    path = Path(path)
+    with path.open(encoding="utf-8") as f:
+        envelope = json.load(f)
+
+    result = reconcile_cases(envelope.get("cases") or [], jaro_threshold=jaro_threshold)
+
+    if not result.merged_pairs:
+        log.info("reconciler_nothing_to_merge", path=str(path))
+        return result.summary()
+
+    envelope["cases"] = result.cases
+    envelope["case_count"] = result.cases_after
     stats = envelope.get("stats") or {}
-    stats["reconciled_merges"] = len(merged_pairs)
+    stats["reconciled_merges"] = len(result.merged_pairs)
     envelope["stats"] = stats
 
     if not dry_run:
         with path.open("w", encoding="utf-8") as f:
             json.dump(envelope, f, ensure_ascii=False, indent=2, default=str)
-        log.info("reconciler_written", path=str(path), before=n_before, after=len(kept))
+        log.info(
+            "reconciler_written",
+            path=str(path),
+            before=result.cases_before,
+            after=result.cases_after,
+        )
 
-    return {
-        "merged_pairs": merged_pairs,
-        "cases_before": n_before,
-        "cases_after": len(kept),
-    }
+    return result.summary()

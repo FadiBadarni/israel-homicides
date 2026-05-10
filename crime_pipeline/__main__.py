@@ -134,10 +134,17 @@ def configure_logging(level: str) -> None:
     "stages",
     multiple=True,
     type=click.Choice(
-        ["discover", "fetch", "extract", "dedup", "merge", "export"],
+        [
+            "discover", "fetch", "extract", "dedup", "merge",
+            "sanity", "quality", "reconcile", "export",
+        ],
         case_sensitive=False,
     ),
-    help="Run only specific stages (repeatable). Default: all six stages.",
+    help=(
+        "Run only specific stages (repeatable). Default: all nine stages "
+        "(discover, fetch, extract, dedup, merge, sanity, quality, "
+        "reconcile, export)."
+    ),
 )
 @click.option(
     "--jaro-threshold",
@@ -283,7 +290,10 @@ def cli(
     stage_set: set[str] = (
         {s.lower() for s in stages}
         if stages
-        else {"discover", "fetch", "extract", "dedup", "merge", "export"}
+        else {
+            "discover", "fetch", "extract", "dedup", "merge",
+            "sanity", "quality", "reconcile", "export",
+        }
     )
 
     # Fail fast: extract stage needs GEMINI_API_KEY before any work begins,
