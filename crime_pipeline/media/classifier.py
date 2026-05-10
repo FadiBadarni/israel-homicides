@@ -419,16 +419,31 @@ class MediaClassifier:
         city_suffix = f" in {city_name}" if city_name else ""
 
         return {
-            "victim_portrait": f"news portrait photo of a homicide victim{victim_suffix}",
-            "suspect_portrait": f"news portrait photo of a crime suspect{suspect_suffix}",
-            "crime_scene": f"news photo of a crime scene{city_suffix}",
-            "weapon": "news photo of a weapon used in a violent crime",
-            "court": "news photo from a courtroom or remand hearing",
-            "funeral": "news photo of a funeral, burial, or memorial gathering",
-            "cctv": "security camera or surveillance footage still image",
-            "police_activity": "police officers investigating or securing a scene",
-            "generic_stock": "generic stock photo or illustration for a crime news story",
-            "infographic": "news infographic, diagram, or map graphic",
-            "video": "video thumbnail or still frame from footage",
-            "other": "unclear or unrelated news image",
+            # Victim portraits are typically family snapshots, passport photos, or
+            # social-media profile pictures — NOT professional press headshots.
+            "victim_portrait": (
+                f"family snapshot, passport photo, or social media profile picture "
+                f"of a homicide victim displayed in a news memorial{victim_suffix}"
+            ),
+            # Suspect images are typically mugshots, ID photos, or CCTV stills —
+            # not clean professional portraits.
+            "suspect_portrait": (
+                f"police mugshot, ID photo, or surveillance still of a crime "
+                f"suspect published in a news article{suspect_suffix}"
+            ),
+            "crime_scene": f"news photo of a crime scene with police tape or forensic investigation{city_suffix}",
+            "weapon": "close-up news photo of a weapon — firearm, knife, or object used in a violent crime",
+            "court": "news photo inside a courtroom showing a defendant in the dock, judges, or lawyers",
+            "funeral": "news photo of a funeral procession, mourners in black, or burial ceremony for a crime victim",
+            "cctv": "low-resolution security camera still frame or surveillance footage screenshot",
+            "police_activity": "uniformed police officers securing a scene, crime tape, or investigators at work",
+            # Explicitly includes journalist byline headshots so CLIP can score
+            # them away from victim/suspect portrait categories.
+            "generic_stock": (
+                "generic stock photo, illustration, or professional reporter headshot "
+                "used as a news website byline or author avatar photo"
+            ),
+            "infographic": "news infographic, data chart, diagram, or map graphic",
+            "video": "video thumbnail or still frame from a news broadcast or footage",
+            "other": "irrelevant, decorative, or unclear image unrelated to the crime",
         }

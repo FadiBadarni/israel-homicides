@@ -21,7 +21,7 @@ class MediaSettings(BaseModel):
     enable_face_detection: bool = False
     max_vision_calls_per_case: int = 15
     keyword_confidence_threshold: float = 0.7
-    clip_confidence_threshold: float = 0.25
+    clip_confidence_threshold: float = 0.35
 
     # Dedup thresholds
     phash_distance_threshold: int = 8
