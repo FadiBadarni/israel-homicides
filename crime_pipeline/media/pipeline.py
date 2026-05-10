@@ -137,6 +137,19 @@ class MediaPipeline:
         # split_media mutates each rep's is_evidence + evidence_reason in place.
         split_media(reps, ctx, self.settings)
 
+        # Corroboration check: og:image-only evidence from a SINGLE publisher
+        # is unreliable — many news sites emit a column hero image, byline
+        # photo, or section banner as og:image. Without independent
+        # corroboration (caption-name match, cross-publisher mirroring), we
+        # demote it to decorative. Caption-name-matched og:images keep their
+        # "caption_match:victim:..." reason and pass through unchanged.
+        for rep, cluster in reps_with_clusters:
+            if rep.evidence_reason == "og_image_lead":
+                publishers = self._distinct_publishers(cluster)
+                if len(publishers) < 2:
+                    rep.is_evidence = False
+                    rep.evidence_reason = "og_image_lead:single_publisher_unverified"
+
         media_canon: list[CanonicalMedia] = []
         evidence_canon: list[CanonicalMedia] = []
         for rep, cluster in reps_with_clusters:
@@ -159,6 +172,27 @@ class MediaPipeline:
     # Cluster → CanonicalMedia
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _distinct_publishers(cluster: list[MediaCandidate]) -> set[str]:
+        """Return the set of distinct publisher hosts (e.g. 'haaretz.co.il',
+        'mako.co.il') that the cluster's source articles span. Used as a
+        corroboration signal for evidence promotion — a single-publisher
+        og:image is too noisy to treat as evidentiary on its own.
+        """
+        out: set[str] = set()
+        for c in cluster:
+            if not c.source_article_url:
+                continue
+            try:
+                host = urlparse(c.source_article_url).netloc.lower()
+            except Exception:
+                continue
+            if host.startswith("www."):
+                host = host[4:]
+            if host:
+                out.add(host)
+        return out
+
     def _build_canonical(
         self, rep: MediaCandidate, cluster: list[MediaCandidate]
     ) -> CanonicalMedia:
@@ -174,6 +208,11 @@ class MediaPipeline:
         source_article_urls = sorted({
             c.source_article_url for c in cluster if c.source_article_url
         })
+        # appearance_count = distinct ARTICLES that carried this image (NOT
+        # cluster size, which double-counts responsive variants emitted by the
+        # same article). Falls back to cluster size only when no article URLs
+        # were captured at all.
+        appearance_count = len(source_article_urls) or len(cluster)
         return CanonicalMedia(
             media_id=media_id_for(cluster),
             type=rep.classification or "other",  # type: ignore[arg-type]
@@ -194,5 +233,5 @@ class MediaPipeline:
             is_stock_photo=rep.is_stock_photo,
             is_evidence=bool(rep.is_evidence),
             evidence_reason=rep.evidence_reason,
-            appearance_count=len(cluster),
+            appearance_count=appearance_count,
         )

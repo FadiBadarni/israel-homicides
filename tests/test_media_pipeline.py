@@ -562,11 +562,12 @@ async def test_pipeline_end_to_end(monkeypatch, settings):
 async def test_pipeline_promotes_og_image_signal_across_cluster(monkeypatch, settings):
     """Fix 3 regression: an og:image lead in any cluster member survives canonical-rep selection.
 
-    Setup: two articles. Article A's og:image is the same image as Article B's
-    body figure. Cross-source dedup folds them into one cluster. The body
-    figure has dimensions (rep candidate by area), the meta og:image does not.
-    Without the fix, the rep's discovery_selector ends up "figure" and the
-    splitter's og_image_lead rule never fires.
+    Two articles from DIFFERENT publishers carrying the same image. The body
+    figure has dimensions (would be picked as rep by area), the meta og:image
+    does not. Without the og-signal-promotion fix, the rep's
+    discovery_selector ends up "figure" and the splitter's og_image_lead rule
+    never fires. Cross-publisher corroboration also satisfies the
+    "single_publisher_unverified" demotion check.
     """
     article_a = """
     <html><head>
@@ -592,18 +593,51 @@ async def test_pipeline_promotes_og_image_signal_across_cluster(monkeypatch, set
     ctx = ArticleContext(article_url="https://x.com/", victim_names=[])
     media, evidence = await pipe.run_for_case(
         [
-            {"raw_html": article_a, "url": "https://news.example.com/a"},
-            {"raw_html": article_b, "url": "https://news.example.com/b"},
+            # Two distinct publishers — corroboration passes.
+            {"raw_html": article_a, "url": "https://haaretz.co.il/news/a"},
+            {"raw_html": article_b, "url": "https://mako.co.il/news/b"},
         ],
         ctx,
     )
-    # Cluster collapsed to one canonical, classified as og_image_lead → evidence.
     all_items = media + evidence
     assert len(all_items) == 1
     cm = all_items[0]
     assert cm.appearance_count == 2
     assert cm.is_evidence is True, f"og_image_lead rule did not fire — got is_evidence={cm.is_evidence}, reason={cm.evidence_reason}"
     assert cm.evidence_reason == "og_image_lead"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_demotes_single_publisher_og_image(monkeypatch, settings):
+    """An og:image from a SINGLE publisher must be demoted to decorative.
+
+    This protects against publisher-brand images, column hero photos, and
+    byline-style author headshots being silently promoted as case evidence.
+    Real lead photos cross publishers; brand chrome doesn't.
+    """
+    article = """
+    <html><head>
+      <meta property="og:image" content="https://haaretz.com/column-hero.jpg" />
+    </head><body>
+      <article><p>A column piece</p></article>
+    </body></html>
+    """
+    _patch_downloader(monkeypatch, {
+        "https://haaretz.com/column-hero.jpg": ("h1", "1111111111111111"),
+    })
+    pipe = MediaPipeline(settings)
+    ctx = ArticleContext(article_url="https://x.com/", victim_names=[])
+    media, evidence = await pipe.run_for_case(
+        [{"raw_html": article, "url": "https://haaretz.co.il/news/single"}],
+        ctx,
+    )
+    # Single-publisher og:image must NOT land in media_evidence.
+    assert evidence == []
+    assert len(media) == 1
+    assert media[0].is_evidence is False
+    assert media[0].evidence_reason == "og_image_lead:single_publisher_unverified"
+    # appearance_count reflects distinct articles, not cluster size.
+    assert media[0].appearance_count == 1
 
 
 @pytest.mark.asyncio
