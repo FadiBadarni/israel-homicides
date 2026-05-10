@@ -32,6 +32,13 @@ LEGAL STATUS — three-axis split:
 - police_investigation_status: CASE state from the police's POV — "open" | "suspect_identified" | "completed" | "indictment_filed" | "closed"
 "Charged" is a legal_status, not a suspect_status. If the article says someone was indicted, set legal_status="indicted" AND suspect_status to whatever physical state is implied (usually "in_custody" or "arrested").
 
+VICTIM OUTCOME RULE:
+- Set victim_outcome="died" when the article confirms the victim died (נרצח, נהרג, מת מפצעיו, נפטר, لقي حتفه, توفي, استشهد).
+- Set victim_outcome="survived" when the article describes an ATTEMPTED murder or the victim is described as wounded/injured with no reported death: ניסיון רצח, נפצע, נורה ושרד, ירי שנגמר בפציעה, محاولة اغتيال, أُصيب ولم يُقتل. If the incident is called "ניסיון רצח" (attempted murder), always set "survived" — the phrasing itself confirms the victim lived.
+- Set victim_outcome="critical" only when the victim's condition is reported as life-threatening AND no death confirmation appears.
+- Set victim_outcome="unknown" when armed violence is reported but no information about the victim's fate is given.
+- Leave null ONLY for articles that describe general crime context without specifying an individual victim.
+
 DISTRICT vs REGION:
 - district = administrative district (Northern District / Central District / Haifa District / Tel Aviv District / Jerusalem District / Southern District). Hebrew: צפון = Northern, מרכז = Central, etc.
 - region = geographic region (Galilee, Negev, Sharon, Carmel, Jordan Valley). Hebrew: גליל = Galilee, נגב = Negev. Arabic: الجليل = Galilee, النقب = Negev.

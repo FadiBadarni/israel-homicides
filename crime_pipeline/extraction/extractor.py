@@ -77,6 +77,7 @@ class ArticleExtractor:
         """
         from crime_pipeline.extraction.prompts import SYSTEM_PROMPT, build_user_prompt
         from crime_pipeline.extraction.validator import (
+            apply_lethality_fixups,
             build_retry_prompt,
             validate_extraction,
         )
@@ -135,11 +136,15 @@ class ArticleExtractor:
 
                 status = "success" if validated else "parse_failed"
 
+                extracted_data = validated.model_dump(mode="json") if validated else None
+                if extracted_data:
+                    extracted_data = apply_lethality_fixups(extracted_data, article_text)
+
                 return {
                     # mode="json" serializes date/datetime to ISO strings so
                     # the dict is safely round-trippable through SQLAlchemy's
                     # JSON column type.
-                    "extracted_data": validated.model_dump(mode="json") if validated else None,
+                    "extracted_data": extracted_data,
                     "raw_response": raw_response,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
