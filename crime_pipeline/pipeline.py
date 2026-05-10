@@ -29,6 +29,7 @@ from crime_pipeline.config import Settings
 from crime_pipeline.dedup.deduplicator import Deduplicator
 from crime_pipeline.export.json_exporter import JSONExporter
 from crime_pipeline.extraction.extractor import ArticleExtractor
+from crime_pipeline.extraction.relevance import is_homicide_extraction
 from crime_pipeline.media import ArticleContext, MediaPipeline, MediaSettings
 from crime_pipeline.merging.merger import CaseMerger
 from crime_pipeline.models import ExtractedArticleData
@@ -67,6 +68,9 @@ class Pipeline:
             "singletons": 0,
             "review_pairs": 0,
             "extraction_drop_in_merge": 0,
+            "relevance_kept": 0,
+            "relevance_dropped": 0,
+            "relevance_drop_reasons": {},
             "sanity_applied": 0,
             "quality_applied": 0,
             "reconcile_merged": 0,
@@ -135,6 +139,15 @@ class Pipeline:
         else:
             with db_module.SessionLocal() as session:  # type: ignore[misc]
                 extractions = list(get_all_extractions(session))
+
+        # ── Relevance gate (between extract and dedup) ───────────────
+        # Drops mostly-null extractions that broad search queries produce
+        # when the search engine returns tangentially-related articles.
+        # Conservative: keeps anything with any victim / city / date /
+        # death-marker signal. Skipped only if both extract and dedup are
+        # excluded (nothing to filter anyway).
+        if extractions and ("extract" in stages or "dedup" in stages):
+            extractions = self._filter_relevance(extractions)
 
         # ── Stages 4 + 5: Dedup + Merge ───────────────────────────────
         if "dedup" in stages or "merge" in stages:
@@ -345,6 +358,47 @@ class Pipeline:
             output_tokens=self.stats["total_output_tokens"],
         )
         return extractions
+
+    # ------------------------------------------------------------------
+    # Relevance gate (between extract and dedup)
+    # ------------------------------------------------------------------
+
+    def _filter_relevance(self, extractions: list) -> list:
+        """Drop extractions that show no signal of being a real homicide.
+
+        Inputs are ``ExtractedRecord`` rows whose ``.extracted_json`` holds the
+        validated dict from the LLM. The gate is conservative: anything with
+        any victim / city / date / death-marker signal is kept. Only obvious
+        zero-signal extractions and explicit ``victim_outcome="survived"``
+        cases are dropped.
+
+        Side effects: updates ``self.stats`` with kept/dropped counts and a
+        ``relevance_drop_reasons`` reason→count map.
+        """
+        kept: list = []
+        drop_reasons: dict[str, int] = {}
+        for ext in extractions:
+            data = ext.extracted_json or {}
+            keep, reason = is_homicide_extraction(data)
+            if keep:
+                kept.append(ext)
+            else:
+                drop_reasons[reason] = drop_reasons.get(reason, 0) + 1
+                log.info(
+                    "relevance_dropped",
+                    article_id=ext.article_id[:8],
+                    reason=reason,
+                )
+        self.stats["relevance_kept"] = len(kept)
+        self.stats["relevance_dropped"] = len(extractions) - len(kept)
+        self.stats["relevance_drop_reasons"] = drop_reasons
+        log.info(
+            "relevance_filter_complete",
+            kept=len(kept),
+            dropped=len(extractions) - len(kept),
+            reasons=drop_reasons,
+        )
+        return kept
 
     # ------------------------------------------------------------------
     # Stages 4 + 5: Dedup + Merge
