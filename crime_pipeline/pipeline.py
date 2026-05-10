@@ -365,6 +365,7 @@ class Pipeline:
                     # encoders typically use the first 512 tokens anyway.
                     "article_text": (article.article_text or "")[:2000],
                     "source": article.source,
+                    "url": article.url,
                     "confidence_score": data.get("confidence_score", 0.5),
                 }
             )
@@ -387,6 +388,9 @@ class Pipeline:
                 deduplicator.close()
             except Exception:  # pragma: no cover - cleanup best-effort
                 pass
+
+        rec_lookup = {r["id"]: r for r in dedup_records}
+        ext_lookup = {e.id: e for e in extractions}
 
         self.stats["clusters"] = len(result["clusters"])
         self.stats["singletons"] = len(result["singletons"])
@@ -412,9 +416,6 @@ class Pipeline:
         # Merge clusters and singletons.
         merger = CaseMerger()
         cases: list = []
-
-        rec_lookup = {r["id"]: r for r in dedup_records}
-        ext_lookup = {e.id: e for e in extractions}
 
         all_groups: list[list[str]] = list(result["clusters"]) + [
             [s] for s in result["singletons"]

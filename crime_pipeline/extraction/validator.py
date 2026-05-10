@@ -82,6 +82,68 @@ _SURVIVED_PATTERNS = [
     "أُصيب ولم يُقتل",   # injured but not killed
 ]
 
+_INJURY_WITHOUT_DEATH_PATTERNS = [
+    "נפצע",
+    "נפצעו",
+    "פצוע",
+    "פצועים",
+    "מצבו בינוני",
+    "מצבו קשה",
+    "מצבם בינוני",
+    "מצבם קשה",
+    "הועבר לבית החולים",
+    "הועברו לבית החולים",
+    "أصيب",
+    "أُصيب",
+    "أصيبوا",
+    "جريح",
+    "جرحى",
+]
+
+_DEATH_MARKERS = [
+    "נרצח",
+    "נרצחה",
+    "נרצחו",
+    "נהרג",
+    "נהרגה",
+    "נהרגו",
+    "מת מפצעיו",
+    "מתה מפצעיה",
+    "נקבע מותו",
+    "מותו נקבע",
+    "למותו",
+    "لقي حتفه",
+    "لقيت حتفها",
+    "قُتل",
+    "قتلت",
+    "مقتل",
+    "توفي",
+    "توفيت",
+]
+
+_BACKGROUND_DEATH_CONTEXT = [
+    "בני אדם",
+    "קורבנות",
+    "בחודש",
+    "מתחילת השנה",
+    "בשנת",
+    "בחברה הערבית",
+    "לפי נתוני",
+    "על פי נתוני",
+    "اشخاص",
+    "ضحايا",
+    "منذ بداية العام",
+]
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Small sentence splitter for local lethality checks."""
+    return [s.strip() for s in re.split(r"(?<=[.!?؟])\s+|\n+", text) if s.strip()]
+
+
+def _is_background_death_sentence(sentence: str) -> bool:
+    return any(p in sentence for p in _BACKGROUND_DEATH_CONTEXT)
+
 
 def apply_lethality_fixups(extracted: dict, article_text: str) -> dict:
     """Override victim_outcome when article text contains unambiguous survival markers.
@@ -101,6 +163,25 @@ def apply_lethality_fixups(extracted: dict, article_text: str) -> dict:
             extracted = dict(extracted)
             extracted["victim_outcome"] = "survived"
             break
+    else:
+        # Attempted-murder/assassination and shooting-injury articles often
+        # say only that the person was wounded and taken to hospital. Check
+        # this locally: later background statistics may mention people killed
+        # in unrelated incidents and should not block the non-fatal signal.
+        sentences = _split_sentences(text)
+        has_blocking_death = any(
+            any(p in sentence for p in _DEATH_MARKERS)
+            and not _is_background_death_sentence(sentence)
+            for sentence in sentences
+        )
+        injury_without_local_death = any(
+            any(p in sentence for p in _INJURY_WITHOUT_DEATH_PATTERNS)
+            and not any(p in sentence for p in _DEATH_MARKERS)
+            for sentence in sentences
+        )
+        if injury_without_local_death and not has_blocking_death:
+            extracted = dict(extracted)
+            extracted["victim_outcome"] = "survived"
     return extracted
 
 
