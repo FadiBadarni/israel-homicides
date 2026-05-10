@@ -7,7 +7,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -239,6 +239,18 @@ class ExtractedArticleData(BaseModel):
     weapon_subtype: Optional[str] = None  # e.g. "handgun", "rifle", "automatic firearm"
     num_victims: int = Field(default=1, ge=1)
 
+    @field_validator("num_victims", mode="before")
+    @classmethod
+    def _coerce_num_victims(cls, v: Any) -> int:
+        """The LLM occasionally emits null or 0 for unspecified victim count.
+        Coerce to the schema default (1) instead of rejecting the whole
+        extraction. A homicide article with no explicit victim count
+        overwhelmingly describes a single victim — this is a safe default.
+        """
+        if v is None or v == 0 or v == "" or v == "null":
+            return 1
+        return v
+
     # Suspect (richer) — three-axis status separation:
     # - suspect_status:               PHYSICAL state of the suspect
     # - legal_status:                 LEGAL proceedings state
@@ -344,6 +356,18 @@ class CanonicalCaseSchema(BaseModel):
     ] = None
     weapon_subtype: Optional[str] = None
     num_victims: int = Field(default=1, ge=1)
+
+    @field_validator("num_victims", mode="before")
+    @classmethod
+    def _coerce_num_victims(cls, v: Any) -> int:
+        """The LLM occasionally emits null or 0 for unspecified victim count.
+        Coerce to the schema default (1) instead of rejecting the whole
+        extraction. A homicide article with no explicit victim count
+        overwhelmingly describes a single victim — this is a safe default.
+        """
+        if v is None or v == 0 or v == "" or v == "null":
+            return 1
+        return v
 
     # Suspect (three-axis status separation)
     suspect_name: Optional[str] = None
