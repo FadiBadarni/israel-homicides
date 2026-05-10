@@ -105,12 +105,9 @@ class JSONExporter:
         if "stages_executed" in stats:
             run_block["stages_executed"] = stats["stages_executed"]
 
-        # Strip from stats the keys we promoted to the run block to avoid
-        # duplication; preserve everything else.
-        stats_block = {
-            k: v for k, v in stats.items()
-            if k not in ("started_at", "finished_at", "stages_executed", "run_id")
-        }
+        # Strip from stats the keys we promoted to the run block or top level.
+        _top_level_keys = {"started_at", "finished_at", "stages_executed", "run_id", "review_pair_details"}
+        stats_block = {k: v for k, v in stats.items() if k not in _top_level_keys}
 
         envelope: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
@@ -121,6 +118,7 @@ class JSONExporter:
             "stats": stats_block,
             "case_count": len(cases),
             "cases": [c.model_dump(mode="json") for c in cases],
+            "review_pairs": stats.get("review_pair_details", []),
         }
         if human_summary is not None:
             envelope["human_summary"] = human_summary

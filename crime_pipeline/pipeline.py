@@ -391,6 +391,23 @@ class Pipeline:
         self.stats["clusters"] = len(result["clusters"])
         self.stats["singletons"] = len(result["singletons"])
         self.stats["review_pairs"] = len(result["review_pairs"])
+        self.stats["review_pair_details"] = [
+            {
+                "a": {
+                    "victim_name": rec_lookup.get(a_id, {}).get("victim_name"),
+                    "city": rec_lookup.get(a_id, {}).get("city"),
+                    "url": rec_lookup.get(a_id, {}).get("url"),
+                },
+                "b": {
+                    "victim_name": rec_lookup.get(b_id, {}).get("victim_name"),
+                    "city": rec_lookup.get(b_id, {}).get("city"),
+                    "url": rec_lookup.get(b_id, {}).get("url"),
+                },
+                "jaro_score": round(jaro, 3),
+                "cosine_score": round(cosine, 3),
+            }
+            for a_id, b_id, jaro, cosine in result["review_pairs"]
+        ]
 
         # Merge clusters and singletons.
         merger = CaseMerger()

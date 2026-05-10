@@ -235,10 +235,19 @@ class Deduplicator:
         name_b = rec_b.get("victim_name")
         either_name_missing = not name_a or not name_b
 
+        # Token-subset check: {"יאסין"} ⊆ {"בכר","יאסין"} — surname-only extraction.
+        # When one name's tokens are a strict subset of the other's, treat the names
+        # as consistent. Requires cosine ≥ review low-bound to avoid false positives.
+        name_subset_match = False
+        if name_a and name_b:
+            toks_a = set(name_a.split())
+            toks_b = set(name_b.split())
+            if toks_a < toks_b or toks_b < toks_a:
+                name_subset_match = True
+
         if cosine_score >= self.cosine_threshold:
             # GATE PASSED: high semantic similarity
-            if jaro_score >= self.jaro_threshold or either_name_missing:
-                # Names consistent (or absent) — safe to merge
+            if jaro_score >= self.jaro_threshold or either_name_missing or name_subset_match:
                 return "merge"
             else:
                 # Cosine says same event but names differ significantly
@@ -246,7 +255,9 @@ class Deduplicator:
                 return "review"
 
         if cosine_score >= _COSINE_REVIEW_LOW:
-            # Ambiguous zone — escalate to human
+            # Subset name + mid cosine → safe to merge (surname-only extraction pattern)
+            if name_subset_match:
+                return "merge"
             return "review"
 
         # Low cosine — distinct records

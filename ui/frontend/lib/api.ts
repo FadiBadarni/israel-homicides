@@ -164,3 +164,27 @@ export async function fetchStats(): Promise<StatsResponse> {
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
+
+export interface ReviewSide {
+  victim_name: string | null;
+  city: string | null;
+  url: string | null;
+}
+
+export interface ReviewPair {
+  a: ReviewSide;
+  b: ReviewSide;
+  jaro_score: number;
+  cosine_score: number;
+}
+
+export interface ReviewPairsResponse {
+  run_id: string | null;
+  pairs: ReviewPair[];
+}
+
+export async function fetchReviewPairs(): Promise<ReviewPairsResponse> {
+  const res = await fetch(`${API_BASE}/api/review-pairs`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}

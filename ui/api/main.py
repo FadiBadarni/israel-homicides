@@ -288,6 +288,22 @@ def get_stats() -> dict:
     }
 
 
+@app.get("/api/review-pairs")
+def get_review_pairs() -> dict:
+    """Return review pairs from the latest run that need human adjudication."""
+    runs = _list_runs()
+    if not runs:
+        return {"run_id": None, "pairs": []}
+    try:
+        data = _load_run(runs[0])
+        return {
+            "run_id": data.get("pipeline_run_id", runs[0].stem),
+            "pairs": data.get("review_pairs", []),
+        }
+    except Exception:
+        return {"run_id": None, "pairs": []}
+
+
 @app.get("/health")
 def health() -> dict:
     run_count = len(_list_runs())
