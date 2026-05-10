@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import structlog
 
@@ -183,11 +184,15 @@ class CaseMerger:
 
         # ---- Source refs ----
 
+        def _publisher(url: str, scraper: str) -> str:
+            netloc = urlparse(url).netloc
+            return netloc.removeprefix("www.") if netloc else scraper
+
         sources = [
             SourceRef(
                 url=m["url"],
                 discovery_source=m["source"],
-                source_name=m["source"],
+                source_name=_publisher(m["url"], m["source"]),
                 language=m["language"],
                 published_at=m.get("published_at"),
                 confidence_score=m["extraction"].confidence_score,

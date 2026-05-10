@@ -65,6 +65,9 @@ class Pipeline:
             "total_output_tokens": 0,
         }
         self._media_settings = MediaSettings()
+        # Single MediaPipeline (and MediaClassifier) for the whole run so the
+        # CLIP model (~600 MB) is loaded once, not once per merged case.
+        self._media_pipeline = MediaPipeline(self._media_settings)
 
     # ------------------------------------------------------------------
     # Public API
@@ -534,8 +537,7 @@ class Pipeline:
             city_names=city_names,
         )
 
-        media_pipe = MediaPipeline(self._media_settings)
-        media_canon, evidence_canon = await media_pipe.run_for_case(
+        media_canon, evidence_canon = await self._media_pipeline.run_for_case(
             articles_for_media, ctx
         )
         case.media = [cm.model_dump(mode="json") for cm in media_canon]
