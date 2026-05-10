@@ -141,29 +141,79 @@ def reconcile_file(
     def union(x: int, y: int) -> None:
         parent[find(x)] = find(y)
 
+    def _all_names(case: dict) -> list[str]:
+        """All known name strings for a case: primary fields + aliases."""
+        names = []
+        for k in ("victim_name", "victim_name_ar", "victim_name_he", "victim_name_en"):
+            v = (case.get(k) or "").strip()
+            if v:
+                names.append(v)
+        for v in (case.get("aliases") or []):
+            v = (v or "").strip()
+            if v and v not in names:
+                names.append(v)
+        return names
+
+    def _best_jaro(names_a: list[str], names_b: list[str]) -> float:
+        """Best Jaro-Winkler score across all cross-product name pairs."""
+        best = 0.0
+        for na in names_a:
+            for nb in names_b:
+                s = _jaro(na, nb)
+                if s > best:
+                    best = s
+        return best
+
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             a, b = cases[i], cases[j]
-            name_a = a.get("victim_name") or ""
-            name_b = b.get("victim_name") or ""
-            if not name_a or not name_b:
-                continue
-            score = _jaro(name_a, name_b)
-            if score < jaro_threshold:
-                continue
             if _city_conflicts(a, b) or _date_conflicts(a, b):
                 continue
-            union(i, j)
-            merged_pairs.append({
-                "i": i, "j": j,
-                "name_a": name_a, "name_b": name_b,
-                "jaro": round(score, 3),
-            })
-            log.info(
-                "reconciler_merge",
-                name_a=name_a, name_b=name_b, jaro=round(score, 3),
-                city_a=a.get("city"), city_b=b.get("city"),
-            )
+
+            names_a = _all_names(a)
+            names_b = _all_names(b)
+
+            # Rule 1: both have at least one name → best alias-aware Jaro match
+            if names_a and names_b:
+                score = _best_jaro(names_a, names_b)
+                if score >= jaro_threshold:
+                    union(i, j)
+                    merged_pairs.append({
+                        "i": i, "j": j,
+                        "name_a": a.get("victim_name") or names_a[0],
+                        "name_b": b.get("victim_name") or names_b[0],
+                        "jaro": round(score, 3),
+                        "rule": "name_match",
+                    })
+                    log.info(
+                        "reconciler_merge",
+                        name_a=names_a[0], name_b=names_b[0], jaro=round(score, 3),
+                        city_a=a.get("city"), city_b=b.get("city"),
+                    )
+                    continue
+
+            # Rule 2: one case has no name at all but shares city + YYYY-MM date
+            # with the other — almost certainly the same event, different article quality
+            city_a = (a.get("city") or "").strip().lower()
+            city_b = (b.get("city") or "").strip().lower()
+            date_a = str(a.get("incident_date") or "")[:7]
+            date_b = str(b.get("incident_date") or "")[:7]
+            neither_has_name = not names_a and not names_b
+            one_nameless = (not names_a) != (not names_b)
+            if one_nameless and not neither_has_name:
+                if city_a and city_b and city_a == city_b and date_a and date_b and date_a == date_b:
+                    named = names_a[0] if names_a else names_b[0]
+                    union(i, j)
+                    merged_pairs.append({
+                        "i": i, "j": j,
+                        "name_a": named, "name_b": "(unnamed)",
+                        "jaro": 0.0,
+                        "rule": "city_date_match",
+                    })
+                    log.info(
+                        "reconciler_merge_nameless",
+                        name=named, city=city_a, date=date_a,
+                    )
 
     if not merged_pairs:
         log.info("reconciler_nothing_to_merge", path=str(path))

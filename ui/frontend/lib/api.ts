@@ -108,6 +108,7 @@ export interface CasesParams {
   date_from?: string;
   date_to?: string;
   flagged?: boolean;
+  named_only?: boolean;
   sort_by?: string;
   sort_dir?: "asc" | "desc";
 }

@@ -175,6 +175,19 @@ export function CaseFilters({ filters, runs, activeRunId }: CaseFiltersProps) {
           Flagged only
         </label>
       </FilterSection>
+
+      {/* Named-only toggle */}
+      <FilterSection label="">
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={params.get("named_only") !== "false"}
+            onChange={(e) => update("named_only", e.target.checked ? "" : "false")}
+            className="rounded border-border"
+          />
+          Hide unnamed
+        </label>
+      </FilterSection>
     </aside>
   );
 }

@@ -170,6 +170,7 @@ def list_cases(
     date_from: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
     flagged: Optional[bool] = Query(None, description="Filter to flagged cases only"),
+    named_only: bool = Query(True, description="Hide cases with no victim name"),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     sort_by: str = Query("incident_date", description="Field to sort by"),
@@ -221,6 +222,8 @@ def list_cases(
                 if flagged is True and not summary.get("flags"):
                     continue
                 if flagged is False and summary.get("flags"):
+                    continue
+                if named_only and not summary.get("victim_name"):
                     continue
 
                 all_cases.append(summary)

@@ -34,6 +34,7 @@ export default async function CasesPage({ searchParams }: PageProps) {
       date_from: sp.date_from,
       date_to: sp.date_to,
       flagged: sp.flagged === "true" ? true : sp.flagged === "false" ? false : undefined,
+      named_only: sp.named_only !== "false",
       sort_by: sp.sort_by ?? "incident_date",
       sort_dir: (sp.sort_dir as "asc" | "desc") ?? "desc",
     }),
