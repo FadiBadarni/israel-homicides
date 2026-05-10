@@ -699,5 +699,3 @@ async def test_pipeline_no_articles_returns_empty(settings):
     ctx = ArticleContext(article_url="x")
     media, evidence = await pipe.run_for_case([], ctx)
     assert media == [] and evidence == []
-
-
