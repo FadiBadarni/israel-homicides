@@ -33,8 +33,8 @@ log = structlog.get_logger()
 
 
 def get_priority_weight(source: str) -> int:
-    """Return source priority for confidence weighting (0=police, 1=ynet, 2=panet)."""
-    return {"police": 0, "ynet": 1, "panet": 2}.get(source, 3)
+    """Return source priority for confidence weighting (1=ynet, 2=arab48)."""
+    return {"ynet": 1, "arab48": 2}.get(source, 3)
 
 
 class CaseMerger:
@@ -52,7 +52,7 @@ class CaseMerger:
             cluster: list of dicts, each with keys:
                 - "extraction": ExtractedArticleData
                 - "url": str
-                - "source": str (one of "police", "ynet", "panet")
+                - "source": str (one of "ynet", "arab48")
                 - "language": str ("ar" or "he")
                 - "published_at": datetime | None
             pipeline_run_id: Identifier for the pipeline run producing this case.
@@ -211,7 +211,7 @@ class CaseMerger:
         ]
 
         # ---- Confidence aggregation ----
-        # Weight inversely by source priority: police=3, ynet=2, panet=1, other=0.
+        # Weight inversely by source priority: ynet=2, arab48=1, other=0.
         # If all weights resolve to 0 (unknown sources only), fall back to plain mean.
         confidences = [m["extraction"].confidence_score for m in cluster]
         weights = [3 - get_priority_weight(m["source"]) for m in cluster]

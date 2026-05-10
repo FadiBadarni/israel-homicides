@@ -1,10 +1,10 @@
 from .base import BaseScraper, ArticleResult, DiscoveredUrl
+from .arab48 import Arab48Scraper
 from .ynet import YnetScraper
-from .panet import PanetScraper
 
 SCRAPER_REGISTRY = {
     "ynet": YnetScraper,
-    "panet": PanetScraper,
+    "arab48": Arab48Scraper,
 }
 
 

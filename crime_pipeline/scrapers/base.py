@@ -8,7 +8,7 @@ from typing import Optional
 class ArticleResult:
     url: str
     final_url: str
-    source: str  # "panet" | "ynet"
+    source: str  # "arab48" | "ynet"
     language: str  # "ar" | "he"
     title: Optional[str]
     published_at: Optional[datetime]

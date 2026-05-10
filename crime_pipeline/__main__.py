@@ -1,7 +1,7 @@
 """CLI entry point for the homicide-news AI pipeline.
 
 Usage:
-    python -m crime_pipeline --query "Arraba 2026" --sources ynet,panet \\
+    python -m crime_pipeline --query "Arraba 2026" --sources ynet,arab48 \\
         --date-from 2026-01-01 --date-to 2026-12-31
 
 Run only specific stages (resume after a partial run):
@@ -101,14 +101,14 @@ def configure_logging(level: str) -> None:
     default=None,
     help="Target a specific source tier for enrichment. "
          "1=mainstream Israeli news (Ynet, Mako, Haaretz, ...). "
-         "2=Arabic/local press (Arab48, Panet, Kul al-Arab). "
+         "2=Arabic/local press (Arab48, Kul al-Arab). "
          "3=official sources (police.gov.il, courts).",
 )
 @click.option(
     "--sources",
-    default="ynet,panet",
+    default="ynet,arab48",
     show_default=True,
-    help="Comma-separated source names. Available: ynet, panet.",
+    help="Comma-separated source names. Available: ynet, arab48.",
 )
 @click.option(
     "--date-from",

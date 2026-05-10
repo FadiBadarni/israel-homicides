@@ -6,7 +6,7 @@ Each resolver function takes a list of (value, source_name, confidence) tuples a
 disagreement on the canonical record (the "flags, not failures" principle).
 
 Source priority (lower = higher priority):
-    police (0) > ynet (1) > panet (2)
+    ynet (1) > arab48 (2)
 
 Suspect status forward-only state machine:
     unknown (0) -> wanted (1) -> arrested (2)
@@ -17,7 +17,7 @@ from collections import Counter
 from typing import Any, Optional
 
 # Lower number = higher priority
-SOURCE_PRIORITY: dict[str, int] = {"police": 0, "ynet": 1, "panet": 2}
+SOURCE_PRIORITY: dict[str, int] = {"ynet": 1, "arab48": 2}
 SUSPECT_STATUS_ORDER: dict[str, int] = {"unknown": 0, "wanted": 1, "arrested": 2}
 
 

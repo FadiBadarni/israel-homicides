@@ -295,7 +295,7 @@ class SourceRef(BaseModel):
 
     url: str
     discovery_source: str  # how we found this (e.g. "googlenews", "ynet_search")
-    actual_publisher: Optional[str] = None  # the real outlet (e.g. "haaretz", "kan", "panet")
+    actual_publisher: Optional[str] = None  # the real outlet (e.g. "haaretz", "kan", "arab48")
     source_name: str  # legacy field — kept for backward compat (= actual_publisher when known)
     language: Literal["ar", "he"]
     published_at: Optional[datetime] = None

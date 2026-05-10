@@ -29,7 +29,7 @@ Side subsystems:
 | Source       | Language | Priority | Notes                                  |
 | ------------ | -------- | -------- | -------------------------------------- |
 | `ynet`       | Hebrew   | 1        | Mainstream Israeli news                |
-| `panet`      | Arabic   | 2        | Arabic local press (Playwright-rendered) |
+| `arab48`     | Arabic   | 2        | Arabic local press                     |
 
 Source priority is used both as a tie-breaker when selecting a canonical record within a cluster and as a confidence weight during merge.
 
@@ -46,7 +46,7 @@ ORM tables (`RawArticle`, `ExtractedRecord`, `CanonicalCase`) checkpoint each st
 
 - Python ≥ 3.11
 - A Google Gemini API key
-- Playwright browsers (for the `panet` source): `playwright install chromium`
+- Playwright browsers are only needed for legacy/local experiments that use Playwright-based scrapers.
 
 ## Setup
 
@@ -79,7 +79,7 @@ cp .env.example .env
 ```bash
 python -m crime_pipeline \
     --query "Arraba 2026" \
-    --sources ynet,panet \
+    --sources ynet,arab48 \
     --date-from 2026-01-01 \
     --date-to 2026-12-31
 ```
@@ -117,7 +117,7 @@ Enrichment is **additive** — it never overwrites high-confidence existing data
 ```
 --query                          Search query (required unless --enrich-case)
 --enrich-case <path>             Run enricher against an existing canonical JSON
---sources                        Comma-separated: ynet,panet (default)
+--sources                        Comma-separated: ynet,arab48 (default)
 --date-from / --date-to          ISO dates
 --max-per-source                 Per-source discovery cap (default: 50)
 --stage <name>                   Repeatable. Limits run to listed stages.
@@ -165,9 +165,7 @@ crime_pipeline/
 ├── scrapers/              # Source-specific discover/fetch
 │   ├── base.py
 │   ├── ynet.py
-│   ├── police.py
-│   ├── panet.py           # Playwright-rendered
-│   ├── google_news.py
+│   ├── arab48.py
 │   └── tier_registry.py
 ├── extraction/            # LLM extraction + JSON-schema validation
 ├── dedup/                 # Embeddings + Jaro + DuckDB graph

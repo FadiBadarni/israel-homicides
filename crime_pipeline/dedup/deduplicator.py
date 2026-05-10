@@ -23,9 +23,8 @@ log = structlog.get_logger()
 
 # Lower index = higher trust; used as tie-breaker when choosing canonical record
 SOURCE_PRIORITY: dict[str, int] = {
-    "police": 0,
     "ynet": 1,
-    "panet": 2,
+    "arab48": 2,
 }
 
 # Cosine zone boundaries
@@ -186,7 +185,7 @@ class Deduplicator:
         Choose the canonical (authoritative) record from a merged cluster.
 
         Selection order:
-          1. Source priority tier (police > ynet > panet > unknown)
+          1. Source priority tier (ynet > arab48 > unknown)
           2. Higher confidence score as tie-breaker (descending)
 
         Parameters

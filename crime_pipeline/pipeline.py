@@ -233,15 +233,6 @@ class Pipeline:
                 log.error("fetch_error", url=du.url, error=str(e))
                 self.stats["fetch_failed"] += 1
 
-        # Cleanly close the shared Playwright browser if the panet scraper was used.
-        if "panet" in sources:
-            try:
-                from crime_pipeline.scrapers.panet import PanetScraper
-
-                await PanetScraper.close_browser()
-            except Exception as e:  # pragma: no cover - cleanup best-effort
-                log.warning("panet_browser_close_error", error=str(e))
-
         log.info(
             "fetch_complete",
             fetched=self.stats["fetched"],
