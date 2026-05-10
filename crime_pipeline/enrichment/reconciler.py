@@ -56,8 +56,15 @@ _SCALAR_FILLABLE = [
     "victim_age", "victim_gender",
     "incident_date", "death_date", "city", "neighborhood", "district",
     "region", "weapon_type", "suspect_status", "legal_status",
-    "victim_outcome", "confidence_score",
+    "confidence_score",
 ]
+
+_VICTIM_OUTCOME_ORDER = {
+    "survived": 0,
+    "critical": 1,
+    "unknown": 2,
+    "died": 3,
+}
 
 
 def _jaro(a: str, b: str) -> float:
@@ -77,6 +84,31 @@ def _date_conflicts(a: dict, b: dict) -> bool:
     return bool(da and db and da != db)
 
 
+def _resolve_victim_outcome(strong: dict, weak: dict) -> tuple[str | None, str | None]:
+    """
+    Resolve victim_outcome with fatal-first semantics.
+
+    Reconciliation can merge a breaking-news "survived/critical" case into a
+    later confirmed-death case, or vice versa. A confirmed death must win so a
+    homicide is not dropped by the export-time non-fatal filter.
+    """
+    outcomes = [
+        o for o in (strong.get("victim_outcome"), weak.get("victim_outcome"))
+        if o is not None
+    ]
+    if not outcomes:
+        return None, None
+
+    distinct = set(outcomes)
+    if "died" in distinct:
+        flag = "outcome_conflict" if len(distinct) > 1 else None
+        return "died", flag
+
+    chosen = max(outcomes, key=lambda o: _VICTIM_OUTCOME_ORDER.get(o, -1))
+    flag = "outcome_conflict" if len(distinct) > 1 else None
+    return chosen, flag
+
+
 def _merge_pair(
     strong: dict,
     weak: dict,
@@ -94,6 +126,10 @@ def _merge_pair(
     for field in _SCALAR_FILLABLE:
         if strong.get(field) is None and weak.get(field) is not None:
             strong[field] = weak[field]
+
+    victim_outcome, outcome_flag = _resolve_victim_outcome(strong, weak)
+    if victim_outcome is not None:
+        strong["victim_outcome"] = victim_outcome
 
     # Aliases — additive union
     aliases = list(strong.get("aliases") or [])
@@ -122,6 +158,8 @@ def _merge_pair(
     for f in (weak.get("flags") or []):
         if f not in flags:
             flags.append(f)
+    if outcome_flag and outcome_flag not in flags:
+        flags.append(outcome_flag)
     # Remove single_source flag if we now have multiple sources
     if len(strong.get("sources") or []) >= 2 and "single_source" in flags:
         flags.remove("single_source")

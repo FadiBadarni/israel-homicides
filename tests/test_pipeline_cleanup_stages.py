@@ -100,6 +100,7 @@ def _case(victim: str | None, city: str | None, sources: int = 1, **extra) -> di
                      "actual_publisher": "ynet",
                      "confidence_score": 0.7} for i in range(sources)],
         "confidence_score": extra.get("confidence_score", 0.7),
+        "victim_outcome": extra.get("victim_outcome"),
         "flags": list(extra.get("flags", [])),
     }
 
@@ -158,6 +159,19 @@ def test_reconcile_cases_does_not_merge_across_conflicting_cities() -> None:
     result = reconcile_cases(cases, jaro_threshold=0.85)
     assert result.cases_after == 2
     assert result.merged_pairs == []
+
+
+def test_reconcile_cases_resolves_victim_outcome_fatal_first() -> None:
+    """A weaker confirmed-death fragment must prevent export as non-fatal."""
+    cases = [
+        _case("Bakr Yassin", "Arraba", sources=2, victim_outcome="survived"),
+        _case("Bakr Yasin", "Arraba", sources=1, victim_outcome="died"),
+    ]
+    result = reconcile_cases(cases, jaro_threshold=0.85)
+    assert result.cases_after == 1
+    canonical = result.cases[0]
+    assert canonical["victim_outcome"] == "died"
+    assert "outcome_conflict" in canonical["flags"]
 
 
 # ---------------------------------------------------------------------------
