@@ -10,6 +10,35 @@ from __future__ import annotations
 import importlib
 import re
 import threading
+
+# Matches photo-credit / byline attribution prefixes that appear before a
+# person's name in captions/alt-text.  When the ONLY occurrence of a victim or
+# suspect name in a caption is immediately after one of these markers, the
+# image depicts the photographer/author, not the named person.
+#
+# Examples that should NOT trigger caption-name classification:
+#   "צילום: סמיר חסן"        (Photo: Samir Hassan — journalist credit)
+#   "Photo by Ali Yassin"     (photographer byline)
+#   "© Mako / כתב: רן לוי"   (reporter credit)
+_PHOTO_CREDIT_RE = re.compile(
+    r"(?:"
+    r"photo(?:graph(?:er)?)?(?:\s+by)?[\s:]*"  # Photo by / Photograph:
+    r"|צילום\s*[:\-]?"                          # Hebrew: Photography
+    r"|תצלום\s*[:\-]?"                          # Hebrew variant
+    r"|תמונה\s*[:\-]?"                          # Hebrew: Image
+    r"|כתב\s*[:\-]"                             # Hebrew: Reporter:
+    r"|מאת\s*[:\-]?"                            # Hebrew: By
+    r"|כתבת?\s*[:\-]"                           # Hebrew: Correspondent:
+    r"|תחקיר\s*[:\-]"                           # Hebrew: Investigation:
+    r"|تصوير\s*[:\-]?"                          # Arabic: Photography
+    r"|مصور\s*[:\-]?"                           # Arabic: Photographer
+    r"|كاميرا\s*[:\-]?"                         # Arabic: Camera
+    r"|©\s*"                                    # copyright symbol
+    r"|by\s+"                                   # English "by [name]"
+    r"|reporter\s*[:\-]?"                       # English: Reporter
+    r")",
+    re.VERBOSE | re.IGNORECASE | re.UNICODE,
+)
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
