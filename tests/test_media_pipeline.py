@@ -464,6 +464,48 @@ class TestSplitter:
         assert evidence and not media
         assert evidence[0].evidence_reason == "og_image_lead"
 
+    def test_victim_portrait_with_city_is_evidence(self, settings):
+        """Hebrew/Arabic captions often use generic words like 'הנרצח'/'الضحية'
+        instead of the full name. A confident portrait classification + the
+        case city in the caption should be enough."""
+        cand = _mk(caption="הנרצח בעראבה")
+        cand.classification = "victim_portrait"
+        cand.classification_confidence = 0.65
+        ctx = ArticleContext(
+            article_url="x",
+            victim_names=["בכר יאסין"],  # NOT in the caption
+            city_names=["עראבה"],         # IS in the caption (substring match)
+        )
+        media, evidence = split_media([cand], ctx, settings)
+        assert evidence and not media
+        assert "category:victim_portrait" in (evidence[0].evidence_reason or "")
+        assert "city:" in (evidence[0].evidence_reason or "")
+
+    def test_low_confidence_portrait_without_city_is_decorative(self, settings):
+        """Without a city anchor and only mid confidence, a portrait stays decorative
+        — guards against turning every captioned img in unrelated articles into evidence."""
+        cand = _mk(caption="some random portrait")
+        cand.classification = "victim_portrait"
+        cand.classification_confidence = 0.65
+        ctx = ArticleContext(
+            article_url="x",
+            victim_names=["Bakr Yassin"],
+            city_names=["Arraba"],   # not in caption
+        )
+        media, evidence = split_media([cand], ctx, settings)
+        assert media and not evidence
+
+    def test_very_high_confidence_portrait_clears_without_city(self, settings):
+        """When the classifier already had a caption-name match (conf >= 0.85),
+        the city check is redundant — the strongest signal already fired."""
+        cand = _mk(caption="some caption text")
+        cand.classification = "victim_portrait"
+        cand.classification_confidence = 0.92
+        ctx = ArticleContext(article_url="x", city_names=[])
+        media, evidence = split_media([cand], ctx, settings)
+        assert evidence and not media
+        assert "high_conf" in (evidence[0].evidence_reason or "")
+
 
 # ---------------------------------------------------------------------------
 # Orchestrator (MediaPipeline) — end-to-end with mocked downloader

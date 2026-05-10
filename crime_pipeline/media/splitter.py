@@ -78,6 +78,21 @@ def _decide_evidence(
             if city and city.lower() in text:
                 return True, f"category:{cand.classification}+city:{city[:24]}"
 
+    # Rule 3: portrait classifications (victim/suspect) with city mention OR
+    # high classifier confidence. Real-world Hebrew/Arabic crime captions
+    # often use generic words for the victim ("הנרצח", "الضحية") rather than
+    # the full name — so a confident victim_portrait classification on an
+    # image whose caption mentions the case city is strong evidence.
+    if cand.classification in ("victim_portrait", "suspect_portrait"):
+        if cand.classification_confidence >= 0.6:
+            for city in ctx.city_names:
+                if city and city.lower() in text:
+                    return True, f"category:{cand.classification}+city:{city[:24]}"
+        # Very-high-confidence portraits clear without the city check —
+        # caption-name match was the strongest signal that drove the score.
+        if cand.classification_confidence >= 0.85:
+            return True, f"category:{cand.classification}+high_conf"
+
     # Rule 4: weapon with evidence keyword
     if cand.classification == "weapon":
         for kw in _EVIDENCE_KEYWORDS:
