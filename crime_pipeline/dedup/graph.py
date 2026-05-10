@@ -53,23 +53,42 @@ class DeduplicationGraph:
         """
         Return candidate pairs as (i, j) index tuples where i < j.
 
-        Blocking key: (city.lower(), incident_date[:7])  →  YYYY-MM grain.
-        Records that lack either component are grouped under '__no_block__'
-        and paired with each other (conservative fallback — keeps recall high
-        at the expense of a few extra comparisons).
+        Primary blocking key: (city.lower(), incident_date[:7]) → YYYY-MM grain.
+        Records lacking city or date fall into '__no_block__' and are only
+        paired with each other via the primary key.
 
-        Complexity: O(k²) per block, where k << n, instead of O(n²) global.
+        Secondary blocking key: romanized name prefix (first 6 non-space chars).
+        This catches breaking-news articles that have no city/date yet but share
+        a victim name with a later, more complete article (e.g. Bakr Yassin:
+        Channel 13 breaking blurbs vs the Haaretz confirmed-death piece).
+
+        Complexity: O(k²) per block, where k << n.
         """
         blocks: dict[str, list[int]] = defaultdict(list)
+
+        try:
+            from crime_pipeline.dedup.name_normalizer import romanize_name as _romanize
+        except Exception:
+            _romanize = None
 
         for idx, rec in enumerate(records):
             city = (rec.get("city") or "").lower().strip()
             date = (rec.get("incident_date") or "")[:7]  # YYYY-MM
             if city and date:
-                block_key = f"{city}|{date}"
+                blocks[f"{city}|{date}"].append(idx)
             else:
-                block_key = "__no_block__"
-            blocks[block_key].append(idx)
+                blocks["__no_block__"].append(idx)
+
+            # Secondary: name-prefix block so null-city/null-date records
+            # still get compared against named-block records that share the name.
+            name = rec.get("victim_name") or ""
+            if name and _romanize is not None:
+                try:
+                    prefix = _romanize(name)[:6].lower().replace(" ", "")
+                    if len(prefix) >= 3:
+                        blocks[f"name|{prefix}"].append(idx)
+                except Exception:
+                    pass
 
         pairs: set[tuple[int, int]] = set()
         for indices in blocks.values():

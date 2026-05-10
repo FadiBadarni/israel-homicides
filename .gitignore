@@ -69,3 +69,12 @@ logs/
 # Local notes
 TODO.local.md
 NOTES.local.md
+
+# ───── Node / Next.js (ui/frontend) ─────
+node_modules/
+.next/
+.turbo/
+*.tsbuildinfo
+out/
+.vercel/
+.swc/

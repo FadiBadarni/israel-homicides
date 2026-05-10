@@ -790,8 +790,14 @@ class CaseEnricher:
         self.locale = locale
         self.target_tier = target_tier
 
-    async def enrich(self, case_path: Path) -> dict[str, Any]:
-        """Run a full enrichment pass and write back the enriched case."""
+    async def enrich(self, case_path: Path, weak_only: bool = False) -> dict[str, Any]:
+        """Run a full enrichment pass and write back the enriched case.
+
+        Args:
+            case_path:  Path to the output JSON file.
+            weak_only:  When True, skip cases that already have both
+                        victim_name and victim_outcome populated.
+        """
         case_path = Path(case_path)
         with case_path.open("r", encoding="utf-8") as f:
             envelope = json.load(f)
@@ -806,7 +812,14 @@ class CaseEnricher:
         from crime_pipeline.enrichment.quality_pass import run_quality_pass
         from crime_pipeline.enrichment.provenance import apply_provenance
 
+        skipped = 0
         for case in cases:
+            if weak_only and case.get("victim_name") and case.get("victim_outcome"):
+                skipped += 1
+                log.info("enrich_skipped_complete",
+                         victim=ascii(case.get("victim_name")),
+                         outcome=case.get("victim_outcome"))
+                continue
             # Pre-pass: normalize sources/dates/scripts.
             run_sanity_pass(case)
             run_quality_pass(case)

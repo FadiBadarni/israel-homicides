@@ -10,9 +10,9 @@ Start with:
 from __future__ import annotations
 
 import json
-import re
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,12 +31,18 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Mtime-keyed cache — avoids re-reading files that haven't changed
 # ---------------------------------------------------------------------------
 
-def _load_run(path: Path) -> dict:
-    with open(path, encoding="utf-8") as f:
+@lru_cache(maxsize=32)
+def _load_run_cached(path_str: str, mtime: float) -> dict:
+    """Load a run file; cache key includes mtime so stale cache is never served."""
+    with open(path_str, encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_run(path: Path) -> dict:
+    return _load_run_cached(str(path), path.stat().st_mtime)
 
 
 def _list_runs() -> list[Path]:
@@ -104,24 +110,75 @@ def list_runs() -> list[dict]:
     return result
 
 
+@app.get("/api/filters")
+def get_filters(run_id: Optional[str] = Query(None)) -> dict:
+    """Return distinct values for all filterable fields."""
+    cities: set[str] = set()
+    weapon_types: set[str] = set()
+    outcomes: set[str] = set()
+    review_statuses: set[str] = set()
+    districts: set[str] = set()
+
+    run_files = _list_runs()
+    if run_id:
+        run_files = [
+            p for p in run_files
+            if p.stem == run_id or _load_run(p).get("pipeline_run_id") == run_id
+        ]
+
+    for path in run_files:
+        try:
+            data = _load_run(path)
+            for case in data.get("cases", []):
+                if case.get("city"):
+                    cities.add(case["city"])
+                if case.get("weapon_type"):
+                    weapon_types.add(case["weapon_type"])
+                if case.get("victim_outcome"):
+                    outcomes.add(case["victim_outcome"])
+                if case.get("review_status"):
+                    review_statuses.add(case["review_status"])
+                if case.get("district"):
+                    districts.add(case["district"])
+        except Exception:
+            continue
+
+    return {
+        "cities": sorted(cities),
+        "weapon_types": sorted(weapon_types),
+        "outcomes": sorted(outcomes),
+        "review_statuses": sorted(review_statuses),
+        "districts": sorted(districts),
+    }
+
+
 @app.get("/api/cases")
 def list_cases(
-    run_id: Optional[str] = Query(None, description="Filter to a specific run"),
-    city: Optional[str] = Query(None, description="Filter by city (partial match)"),
-    outcome: Optional[str] = Query(None, description="Filter by victim_outcome"),
-    search: Optional[str] = Query(None, description="Search victim name"),
+    run_id: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    district: Optional[str] = Query(None),
+    outcome: Optional[str] = Query(None),
+    weapon_type: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     min_confidence: float = Query(0.0, ge=0.0, le=1.0),
     review_status: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
+    flagged: Optional[bool] = Query(None, description="Filter to flagged cases only"),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
+    sort_by: str = Query("incident_date", description="Field to sort by"),
+    sort_dir: str = Query("desc", description="asc or desc"),
 ) -> dict:
-    """Return a paginated list of case summaries across all runs (or a specific run)."""
+    """Return a paginated, filtered, sorted list of case summaries."""
     all_cases: list[dict] = []
 
     run_files = _list_runs()
     if run_id:
-        run_files = [p for p in run_files if p.stem == run_id or
-                     _load_run(p).get("pipeline_run_id") == run_id]
+        run_files = [
+            p for p in run_files
+            if p.stem == run_id or _load_run(p).get("pipeline_run_id") == run_id
+        ]
 
     for path in run_files:
         try:
@@ -129,10 +186,14 @@ def list_cases(
             rid = data.get("pipeline_run_id", path.stem)
             for idx, case in enumerate(data.get("cases", [])):
                 summary = _case_summary(case, rid, idx)
-                # Apply filters
+
                 if city and city.lower() not in (summary.get("city") or "").lower():
                     continue
+                if district and summary.get("district") != district:
+                    continue
                 if outcome and summary.get("victim_outcome") != outcome:
+                    continue
+                if weapon_type and summary.get("weapon_type") != weapon_type:
                     continue
                 if search:
                     name_fields = [
@@ -146,9 +207,27 @@ def list_cases(
                     continue
                 if review_status and summary.get("review_status") != review_status:
                     continue
+                if date_from and summary.get("incident_date"):
+                    if str(summary["incident_date"]) < date_from:
+                        continue
+                if date_to and summary.get("incident_date"):
+                    if str(summary["incident_date"]) > date_to:
+                        continue
+                if flagged is True and not summary.get("flags"):
+                    continue
+                if flagged is False and summary.get("flags"):
+                    continue
+
                 all_cases.append(summary)
         except Exception:
             continue
+
+    # Sort
+    reverse = sort_dir.lower() == "desc"
+    all_cases.sort(
+        key=lambda c: (c.get(sort_by) is None, c.get(sort_by) or ""),
+        reverse=reverse,
+    )
 
     total = len(all_cases)
     start = (page - 1) * limit
@@ -157,7 +236,7 @@ def list_cases(
         "page": page,
         "limit": limit,
         "pages": max(1, (total + limit - 1) // limit),
-        "cases": all_cases[start : start + limit],
+        "cases": all_cases[start: start + limit],
     }
 
 
@@ -212,3 +291,9 @@ def get_stats() -> dict:
         "top_cities": sorted(cities.items(), key=lambda x: -x[1])[:10],
         "by_year": dict(sorted(years.items())),
     }
+
+
+@app.get("/health")
+def health() -> dict:
+    run_count = len(_list_runs())
+    return {"status": "ok", "run_count": run_count}

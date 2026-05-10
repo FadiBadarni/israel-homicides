@@ -25,6 +25,13 @@ from crime_pipeline.pipeline import Pipeline
 
 def configure_logging(level: str) -> None:
     """Configure structlog + stdlib logging for the CLI."""
+    # Force UTF-8 on Windows before structlog/colorama attach to stdout,
+    # so Hebrew/Arabic names in log fields don't crash with cp1252 errors.
+    if sys.platform == "win32":
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
     log_level = getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
         format="%(message)s",
@@ -55,6 +62,20 @@ def configure_logging(level: str) -> None:
     type=click.Path(exists=True, dir_okay=False),
     default=None,
     help="Path to an existing canonical case JSON. Runs the second-pass enricher on it instead of a normal pipeline run.",
+)
+@click.option(
+    "--enrich-weak",
+    "enrich_weak",
+    is_flag=True,
+    default=False,
+    help="With --enrich-case: only enrich cases that are missing victim_name or victim_outcome.",
+)
+@click.option(
+    "--reconcile",
+    "reconcile",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Path to an output JSON. Merges fragmented clusters with similar names and no city/date conflict. No API key required.",
 )
 @click.option(
     "--enrichment-queries",
@@ -147,6 +168,8 @@ def configure_logging(level: str) -> None:
 def cli(
     query: str | None,
     enrich_case: str | None,
+    enrich_weak: bool,
+    reconcile: str | None,
     enrichment_queries: int,
     enrichment_articles_per_query: int,
     arabic_only: bool,
@@ -163,6 +186,18 @@ def cli(
 ) -> None:
     """Run the homicide-news scraping/AI pipeline end-to-end."""
     configure_logging(log_level)
+
+    # ── Reconcile mode (no API key needed) ───────────────────────────────
+    if reconcile:
+        from crime_pipeline.enrichment.reconciler import reconcile_file
+        click.echo(f"Reconciling: {reconcile}")
+        summary = reconcile_file(reconcile)
+        click.echo(f"  Cases before : {summary['cases_before']}")
+        click.echo(f"  Cases after  : {summary['cases_after']}")
+        click.echo(f"  Merges made  : {len(summary['merged_pairs'])}")
+        for p in summary["merged_pairs"]:
+            click.echo(f"    {p['name_a']}  +  {p['name_b']}  (jaro={p['jaro']})")
+        sys.exit(0)
 
     # ── Enrichment-only mode ─────────────────────────────────────────────
     if enrich_case:
@@ -211,7 +246,9 @@ def cli(
             target_tier=target_tier_int,
         )
         try:
-            envelope = asyncio.run(enricher.enrich(Path(enrich_case)))
+            envelope = asyncio.run(
+                enricher.enrich(Path(enrich_case), weak_only=enrich_weak)
+            )
             cases = envelope.get("cases") or []
             if cases:
                 c = cases[0]
