@@ -157,76 +157,108 @@ class Arab48Scraper(BaseScraper):
         date_from: str,
         date_to: str,
         max_results: int = 50,
+        max_pages: int = 5,
     ) -> list[DiscoveredUrl]:
+        """Discover articles, walking up to ``max_pages`` of search results.
+
+        Arab48's search exposes paginated results via ``?page=N`` (1-indexed,
+        20 results per page). The previous implementation only fetched page 1,
+        capping recall at ~20 articles per query regardless of ``max_results``.
+
+        Stop conditions (any one ends the loop):
+          1. ``len(discovered) >= max_results``
+          2. ``page > max_pages``
+          3. The current page added zero new URLs (e.g. out-of-range page
+             returns the same generic content as a different page)
+        """
         from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
         to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
-        search_url = f"{_SEARCH_URL}?searchText={quote_plus(query)}"
         discovered: list[DiscoveredUrl] = []
+        seen: set[str] = set()
 
         async with _make_client() as client:
-            try:
-                resp = await self._get(client, search_url)
-                resp.raise_for_status()
-            except (_RetryableHTTPError, httpx.HTTPError) as exc:
-                logger.error("Arab48 discover: HTTP error — %s", exc)
-                return discovered
-
-            soup = BeautifulSoup(resp.text, "lxml")
-            seen: set[str] = set()
-
-            for a_tag in soup.find_all("a", href=True):
+            for page in range(1, max_pages + 1):
                 if len(discovered) >= max_results:
                     break
 
-                href = a_tag.get("href", "")
-                if not href or not any(marker in href for marker in _ARTICLE_LINK_MARKERS):
-                    continue
+                base = f"{_SEARCH_URL}?searchText={quote_plus(query)}"
+                page_url = base if page == 1 else f"{base}&page={page}"
 
-                full_url = urljoin(_BASE_URL, href)
-                parsed = urlparse(full_url)
-                if parsed.netloc and parsed.netloc != self.base_domain:
-                    continue
-                if full_url in seen:
-                    continue
-                seen.add(full_url)
+                try:
+                    resp = await self._get(client, page_url)
+                    resp.raise_for_status()
+                except (_RetryableHTTPError, httpx.HTTPError) as exc:
+                    logger.error("Arab48 discover page %d: HTTP error — %s", page, exc)
+                    break
 
-                # Path-segment blocklist (B-stage cheap pre-fetch reject).
-                # Drops sports/culture/tech/opinion articles before we spend
-                # bandwidth fetching them or LLM tokens triaging them.
-                if _is_non_homicide_path(parsed.path):
-                    continue
+                soup = BeautifulSoup(resp.text, "lxml")
+                page_new = 0
 
-                title_text = a_tag.get_text(" ", strip=True) or None
-                pub_date: Optional[datetime] = None
-                parts = [p for p in parsed.path.split("/") if p]
-                for i, part in enumerate(parts):
-                    if (
-                        part.isdigit()
-                        and len(part) == 4
-                        and i + 2 < len(parts)
-                        and parts[i + 1].isdigit()
-                        and parts[i + 2].isdigit()
-                    ):
-                        pub_date = _parse_arab48_date(
-                            f"{part}-{parts[i + 1]}-{parts[i + 2]} 00:00:00"
-                        )
+                for a_tag in soup.find_all("a", href=True):
+                    if len(discovered) >= max_results:
                         break
 
-                if pub_date and not (from_dt <= pub_date <= to_dt):
-                    continue
+                    href = a_tag.get("href", "")
+                    if not href or not any(marker in href for marker in _ARTICLE_LINK_MARKERS):
+                        continue
 
-                discovered.append(
-                    DiscoveredUrl(
-                        url=full_url,
-                        source=self.source_name,
-                        language=self.language,
-                        title=title_text,
-                        published_at=pub_date,
-                        discovered_at=datetime.now(tz=timezone.utc),
+                    full_url = urljoin(_BASE_URL, href)
+                    parsed = urlparse(full_url)
+                    if parsed.netloc and parsed.netloc != self.base_domain:
+                        continue
+                    if full_url in seen:
+                        continue
+                    seen.add(full_url)
+
+                    # Path-segment blocklist (B-stage cheap pre-fetch reject).
+                    if _is_non_homicide_path(parsed.path):
+                        continue
+
+                    title_text = a_tag.get_text(" ", strip=True) or None
+                    pub_date: Optional[datetime] = None
+                    parts = [p for p in parsed.path.split("/") if p]
+                    for i, part in enumerate(parts):
+                        if (
+                            part.isdigit()
+                            and len(part) == 4
+                            and i + 2 < len(parts)
+                            and parts[i + 1].isdigit()
+                            and parts[i + 2].isdigit()
+                        ):
+                            pub_date = _parse_arab48_date(
+                                f"{part}-{parts[i + 1]}-{parts[i + 2]} 00:00:00"
+                            )
+                            break
+
+                    if pub_date and not (from_dt <= pub_date <= to_dt):
+                        continue
+
+                    discovered.append(
+                        DiscoveredUrl(
+                            url=full_url,
+                            source=self.source_name,
+                            language=self.language,
+                            title=title_text,
+                            published_at=pub_date,
+                            discovered_at=datetime.now(tz=timezone.utc),
+                        )
                     )
+                    page_new += 1
+
+                logger.info(
+                    "Arab48 discover: page %d added %d new URLs (cumulative %d) for query=%r",
+                    page, page_new, len(discovered), query,
                 )
 
-        logger.info("Arab48 discover: found %d URLs for query=%r", len(discovered), query)
+                # Stop on a "dead" page — out-of-range pages typically return
+                # the same generic site content with zero new article links.
+                if page_new == 0:
+                    break
+
+        logger.info(
+            "Arab48 discover: found %d URLs across %d page(s) for query=%r",
+            len(discovered), page, query,
+        )
         return discovered
 
     async def fetch(self, url: str) -> ArticleResult:

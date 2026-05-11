@@ -139,6 +139,17 @@ def configure_logging(level: str) -> None:
     help="Max articles to discover per source.",
 )
 @click.option(
+    "--max-pages",
+    default=5,
+    show_default=True,
+    type=int,
+    help=(
+        "Max search-result pages to crawl per source per query. Arab48 "
+        "returns 20 articles per page; --max-pages=5 caps at ~100 articles. "
+        "The scraper stops early if a page adds zero new URLs."
+    ),
+)
+@click.option(
     "--stage",
     "stages",
     multiple=True,
@@ -195,6 +206,7 @@ def cli(
     date_to: str | None,
     date_window_days: int,
     max_per_source: int,
+    max_pages: int,
     stages: tuple[str, ...],
     jaro_threshold: float | None,
     cosine_threshold: float | None,
@@ -366,6 +378,7 @@ def cli(
                 date_from=resolved_from,
                 date_to=resolved_to,
                 max_per_source=max_per_source,
+                max_pages=max_pages,
                 stages=stage_set,
             )
         )

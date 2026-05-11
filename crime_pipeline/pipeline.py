@@ -50,9 +50,23 @@ log = structlog.get_logger()
 class Pipeline:
     """Top-level orchestrator wiring the six pipeline stages together."""
 
-    def __init__(self, settings: Settings, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        run_id: str | None = None,
+        strict_city: bool = False,
+    ) -> None:
         self.settings = settings
         self.run_id = run_id or str(uuid.uuid4())[:12]
+        # When True, post-merge cases whose normalized city doesn't match
+        # the queried city are dropped (or kept with a `city_filter_unverified`
+        # flag if the gazetteer can't validate). Only meaningful in city-mode
+        # runs (--cities); the CLI guards against using it with a freeform
+        # --query string.
+        self.strict_city = strict_city
+        # Populated during run() when strict_city is enabled — the canonical
+        # city record we're scoping to for THIS run.
+        self._strict_city_target: dict | None = None
         # Make sure the parent directory for the SQLite file exists.
         self.settings.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = init_db(str(settings.db_path))
@@ -101,6 +115,7 @@ class Pipeline:
         date_from: str,
         date_to: str,
         max_per_source: int = 50,
+        max_pages: int = 5,
         stages: set[str] | None = None,
     ) -> dict[str, Any]:
         """Execute the full pipeline (or a subset of stages) and return stats."""
@@ -118,6 +133,26 @@ class Pipeline:
             date_to=date_to,
         )
 
+        # Resolve the strict-city target via the gazetteer if the operator
+        # enabled --strict-city. We accept the queried city in any script —
+        # the gazetteer normalizes Hebrew / Arabic / English to the same
+        # CityRecord. Resolution failure is logged but not fatal: the post-
+        # merge filter falls back to flagging instead of dropping.
+        if self.strict_city:
+            from crime_pipeline.utils.gazetteer import normalize_city
+            self._strict_city_target = normalize_city(query)
+            if self._strict_city_target is None:
+                log.warning(
+                    "strict_city_target_unresolved",
+                    query=query,
+                    note="cases will be flagged 'city_filter_unverified', not dropped",
+                )
+            else:
+                log.info(
+                    "strict_city_target",
+                    name_en=self._strict_city_target.get("name_en"),
+                )
+
         discovered: list = []
         articles: list = []
         extractions: list = []
@@ -126,7 +161,7 @@ class Pipeline:
         # ── Stage 1: Discover ─────────────────────────────────────────
         if "discover" in stages:
             discovered = await self._discover(
-                query, sources, date_from, date_to, max_per_source
+                query, sources, date_from, date_to, max_per_source, max_pages
             )
 
         # ── Stage 2: Fetch ────────────────────────────────────────────
@@ -206,6 +241,7 @@ class Pipeline:
         date_from: str,
         date_to: str,
         max_per_source: int,
+        max_pages: int = 5,
     ) -> list:
         """Find candidate URLs across each source and dedupe."""
         all_urls: list = []
@@ -216,9 +252,20 @@ class Pipeline:
                     request_delay=self.settings.request_delay_seconds,
                     respect_robots=self.settings.robots_txt_respect,
                 )
-                urls = await scraper.discover(
-                    query, date_from, date_to, max_results=max_per_source
-                )
+                # Pass max_pages where the scraper supports it; older
+                # scrapers ignore the kwarg via **kwargs or signature
+                # tolerance. We try the new signature first, fall back if
+                # the scraper hasn't been updated yet.
+                try:
+                    urls = await scraper.discover(
+                        query, date_from, date_to,
+                        max_results=max_per_source, max_pages=max_pages,
+                    )
+                except TypeError:
+                    # Scraper hasn't adopted max_pages yet — call without it.
+                    urls = await scraper.discover(
+                        query, date_from, date_to, max_results=max_per_source,
+                    )
                 log.info("discovered", source=source, count=len(urls))
                 all_urls.extend(urls)
             except Exception as e:  # pragma: no cover - defensive
