@@ -552,6 +552,52 @@ class Pipeline:
         return kept
 
     # ------------------------------------------------------------------
+    # Strict city filter helper (S5)
+    # ------------------------------------------------------------------
+
+    def _matches_strict_city(self, case) -> tuple[bool, str]:
+        """Decide whether a merged case matches ``self._strict_city_target``.
+
+        Returns ``(keep, reason)``. When the gazetteer can't validate the
+        case's extracted city, we KEEP and tag with a flag rather than
+        silently drop — false-negatives (lost real homicide) are worse
+        than false-positives (one extra row to triage).
+        """
+        target = self._strict_city_target or {}
+        target_en = (target.get("name_en") or "").strip().lower()
+
+        from crime_pipeline.utils.gazetteer import normalize_city
+
+        case_city = getattr(case, "city", None)
+        if not case_city:
+            # No city was extracted — can't validate. Keep + flag.
+            flags = list(getattr(case, "flags", None) or [])
+            if "city_filter_unverified" not in flags:
+                flags.append("city_filter_unverified")
+            try:
+                case.flags = flags
+            except Exception:  # pragma: no cover — schema mutation guard
+                pass
+            return True, "no_city_extracted"
+
+        case_record = normalize_city(case_city)
+        if case_record is None:
+            # Gazetteer doesn't know this city. Sonnet's rule: keep + flag.
+            flags = list(getattr(case, "flags", None) or [])
+            if "city_filter_unverified" not in flags:
+                flags.append("city_filter_unverified")
+            try:
+                case.flags = flags
+            except Exception:  # pragma: no cover
+                pass
+            return True, "gazetteer_miss"
+
+        case_en = (case_record.get("name_en") or "").strip().lower()
+        if case_en and target_en and case_en == target_en:
+            return True, "city_match"
+        return False, f"city_mismatch:{case_en or case_city}"
+
+    # ------------------------------------------------------------------
     # Stages 4 + 5: Dedup + Merge
     # ------------------------------------------------------------------
 
@@ -698,6 +744,25 @@ class Pipeline:
                 continue
             try:
                 case = merger.merge_cluster(cluster_input, pipeline_run_id=self.run_id)
+
+                # Strict-city filter (S5): in --cities mode the operator wants
+                # cases whose normalized city matches the queried city only.
+                # On gazetteer match-failure, FLAG don't drop (Sonnet's rule).
+                if self.strict_city and self._strict_city_target is not None:
+                    keep, drop_reason = self._matches_strict_city(case)
+                    if not keep:
+                        log.info(
+                            "strict_city_filter_drop",
+                            case_id=getattr(case, "canonical_case_id", None),
+                            extracted_city=getattr(case, "city", None),
+                            target=self._strict_city_target.get("name_en"),
+                            reason=drop_reason,
+                        )
+                        self.stats["strict_city_dropped"] = (
+                            self.stats.get("strict_city_dropped", 0) + 1
+                        )
+                        continue
+
                 # Media pass — populate case.media + case.media_evidence from
                 # each article's raw_html. Failures here must not block the
                 # case from being persisted.

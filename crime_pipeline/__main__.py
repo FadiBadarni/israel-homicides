@@ -11,6 +11,7 @@ Run only specific stages (resume after a partial run):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -150,6 +151,73 @@ def configure_logging(level: str) -> None:
     ),
 )
 @click.option(
+    "--strict-city",
+    is_flag=True,
+    default=False,
+    help=(
+        "Drop merged cases whose extracted city doesn't normalize to the "
+        "queried city via the gazetteer. Designed for --cities mode; the "
+        "freeform --query string is treated as a city name when this flag "
+        "is set. Cases the gazetteer can't validate are KEPT and tagged "
+        "with a 'city_filter_unverified' flag (never silently dropped)."
+    ),
+)
+@click.option(
+    "--cities",
+    "cities",
+    default=None,
+    help=(
+        "Comma-separated list of city names (English transliteration; "
+        "gazetteer maps to native scripts per source). When set, the "
+        "pipeline runs once per (city, source) with run_id "
+        "<city>_<year>_<source>. Mutually exclusive with --query. "
+        "Example: --cities arraba,sakhnin,umm-al-fahm"
+    ),
+)
+@click.option(
+    "--cities-year",
+    default=None,
+    type=int,
+    help=(
+        "Year tag for --cities run_ids. Defaults to current year. "
+        "Used purely for run_id naming; the actual date range is "
+        "controlled by --date-from/--date-to/--date-window-days."
+    ),
+)
+@click.option(
+    "--keyword-mode",
+    type=click.Choice(["hebrew", "arabic", "both"], case_sensitive=False),
+    default=None,
+    help=(
+        "Crime-keyword sweep mode (Strategy C stage 2). Loops the "
+        "pipeline once per (keyword, compatible source) using a curated "
+        "Hebrew/Arabic homicide-keyword union. Hebrew kw → Ynet only; "
+        "Arabic kw → Arab48 only. Each (keyword, source) run gets a "
+        "separate run_id. Mutually exclusive with --query / --cities."
+    ),
+)
+@click.option(
+    "--verify-truth",
+    "verify_truth",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to a JSONL file with ground-truth homicide records "
+        "({city, victim_name_he, victim_name_ar, incident_date}). "
+        "When combined with --verify-run, the pipeline computes "
+        "precision/recall/F1 against the truth set and exits."
+    ),
+)
+@click.option(
+    "--verify-run",
+    "verify_run",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to a pipeline output JSON to validate against --verify-truth."
+    ),
+)
+@click.option(
     "--stage",
     "stages",
     multiple=True,
@@ -207,6 +275,12 @@ def cli(
     date_window_days: int,
     max_per_source: int,
     max_pages: int,
+    strict_city: bool,
+    cities: str | None,
+    cities_year: int | None,
+    keyword_mode: str | None,
+    verify_truth: str | None,
+    verify_run: str | None,
     stages: tuple[str, ...],
     jaro_threshold: float | None,
     cosine_threshold: float | None,
@@ -304,8 +378,77 @@ def cli(
             click.echo(f"Enrichment error: {e}", err=True)
             raise
 
-    if not query:
-        click.echo("ERROR: --query is required (unless --enrich-case is set).", err=True)
+    # ── --verify mode ──────────────────────────────────────────────────
+    # Strategy C stage 3. Truth-vs-pipeline comparison; computes
+    # precision/recall/F1 and exits. Doesn't need GEMINI_API_KEY or any
+    # scraper config — it's a pure file-vs-file evaluation.
+    if verify_truth and verify_run:
+        from crime_pipeline.verification import (
+            load_pipeline_cases,
+            load_truth_jsonl,
+            verify_run_against_truth,
+        )
+        try:
+            truth = load_truth_jsonl(verify_truth)
+            cases = load_pipeline_cases(verify_run)
+        except (ValueError, OSError) as e:
+            click.echo(f"ERROR loading verify inputs: {e}", err=True)
+            sys.exit(2)
+
+        result = verify_run_against_truth(truth, cases)
+        click.echo("\n" + "=" * 60)
+        click.echo("Verification result:")
+        click.echo(f"  Truth records:    {result.truth_count}")
+        click.echo(f"  Pipeline cases:   {result.pipeline_count}")
+        click.echo(f"  True positives:   {result.true_positive}")
+        click.echo(f"  False negatives:  {result.false_negative}  ← missed real cases")
+        click.echo(f"  False positives:  {result.false_positive}  ← extra/junk")
+        click.echo(f"  Precision:        {result.precision:.1%}")
+        click.echo(f"  Recall:           {result.recall:.1%}")
+        click.echo(f"  F1:               {result.f1:.3f}")
+
+        if result.missing_truth:
+            click.echo("\nMissed truth records (false negatives):")
+            for t in result.missing_truth:
+                victim = (
+                    t.get("victim_name") or t.get("victim_name_he")
+                    or t.get("victim_name_ar") or "(unnamed)"
+                )
+                city = t.get("city") or "?"
+                date_ = t.get("incident_date") or "?"
+                click.echo(f"  - {victim} | {city} | {date_}")
+        if result.extra_pipeline:
+            click.echo("\nExtra pipeline cases (false positives):")
+            for c in result.extra_pipeline:
+                victim = c.get("victim_name") or c.get("victim_name_ar") or "(unnamed)"
+                city = c.get("city") or "?"
+                date_ = c.get("incident_date") or "?"
+                conf = c.get("confidence_score") or 0
+                click.echo(f"  - {victim} | {city} | {date_} | conf={conf}")
+
+        # Persist machine-readable summary alongside the run JSON
+        out_path = Path(verify_run).with_suffix(".verify.json")
+        out_path.write_text(
+            json.dumps(result.summary_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        click.echo(f"\nSummary written to: {out_path}")
+        sys.exit(0)
+
+    # Four-way input check: --enrich-case (handled above), --query, --cities,
+    # --keyword-mode. The three operator-driven modes are mutually exclusive.
+    operator_modes = sum(bool(x) for x in (query, cities, keyword_mode))
+    if operator_modes > 1:
+        click.echo(
+            "ERROR: --query / --cities / --keyword-mode are mutually exclusive. Pick one.",
+            err=True,
+        )
+        sys.exit(2)
+    if operator_modes == 0:
+        click.echo(
+            "ERROR: one of --query / --cities / --keyword-mode / --enrich-case is required.",
+            err=True,
+        )
         sys.exit(2)
 
     # Resolve date window. --date-from explicit always wins; otherwise look back
@@ -334,6 +477,199 @@ def cli(
         }
     )
 
+    # ── --cities backfill mode ──────────────────────────────────────────
+    # Loops the pipeline once per (city, source). Each call gets a fresh
+    # Pipeline (its stats and run_id are set in __init__), shared SQLite
+    # DB, and a per-pair run_id so resume + cross-run-scoping works.
+    if cities:
+        if "extract" in stage_set and not os.environ.get("GEMINI_API_KEY"):
+            from dotenv import load_dotenv
+            load_dotenv()
+            if not os.environ.get("GEMINI_API_KEY"):
+                click.echo(
+                    "ERROR: GEMINI_API_KEY env var is required for --cities mode.",
+                    err=True,
+                )
+                sys.exit(2)
+        try:
+            settings = Settings()  # type: ignore[call-arg]
+        except Exception as e:
+            click.echo(f"ERROR: Settings load failed: {e}", err=True)
+            sys.exit(2)
+
+        from crime_pipeline.utils.gazetteer import normalize_city
+
+        from datetime import date as _date
+        year = cities_year or _date.today().year
+        city_inputs = [c.strip() for c in cities.split(",") if c.strip()]
+        click.echo(f"--cities mode: {len(city_inputs)} cities × {len(source_list)} sources")
+        click.echo(f"  Year tag:    {year}")
+        click.echo(f"  Date range:  {resolved_from} to {resolved_to}")
+        click.echo(f"  Strict city: {strict_city}")
+        click.echo("")
+
+        summary_rows: list[dict] = []
+        for city_in in city_inputs:
+            record = normalize_city(city_in)
+            if record is None:
+                click.echo(f"  ⚠ Unknown city in gazetteer: {city_in!r} — skipping")
+                continue
+
+            # Native-script query per source. Arab48 = Arabic, Ynet = Hebrew.
+            for source in source_list:
+                if source == "arab48":
+                    native_query = record.get("name_ar") or record.get("name_en") or city_in
+                elif source == "ynet":
+                    native_query = record.get("name_he") or record.get("name_en") or city_in
+                else:
+                    native_query = record.get("name_en") or city_in
+
+                slug = (record.get("name_en") or city_in).lower().replace(" ", "_")
+                pair_run_id = f"{slug}_{year}_{source}"
+                click.echo(
+                    f"▶ {city_in} → {source} (query={native_query!r}, run_id={pair_run_id})"
+                )
+                pipeline = Pipeline(settings, run_id=pair_run_id, strict_city=strict_city)
+                try:
+                    pair_stats = asyncio.run(
+                        pipeline.run(
+                            query=native_query,
+                            sources=[source],
+                            date_from=resolved_from,
+                            date_to=resolved_to,
+                            max_per_source=max_per_source,
+                            max_pages=max_pages,
+                            stages=stage_set,
+                        )
+                    )
+                    summary_rows.append({
+                        "city": city_in,
+                        "source": source,
+                        "run_id": pair_run_id,
+                        "discovered": pair_stats.get("discovered", 0),
+                        "extracted": pair_stats.get("extracted", 0),
+                        "cases_exported": pair_stats.get("cases_exported", 0),
+                        "strict_city_dropped": pair_stats.get("strict_city_dropped", 0),
+                    })
+                except Exception as e:  # pragma: no cover — defensive
+                    click.echo(f"  ✗ {pair_run_id} failed: {e}", err=True)
+                    summary_rows.append({
+                        "city": city_in, "source": source, "run_id": pair_run_id,
+                        "discovered": 0, "extracted": 0, "cases_exported": 0,
+                        "strict_city_dropped": 0, "error": str(e)[:80],
+                    })
+
+        click.echo("\n" + "=" * 72)
+        click.echo("--cities backfill complete:")
+        click.echo(
+            f"  {'CITY':<20} {'SOURCE':<10} {'DISC':>6} {'EXT':>6} {'CASES':>6} {'CITY_DROP':>10}"
+        )
+        for r in summary_rows:
+            click.echo(
+                f"  {r['city']:<20} {r['source']:<10} "
+                f"{r['discovered']:>6} {r['extracted']:>6} "
+                f"{r['cases_exported']:>6} {r['strict_city_dropped']:>10}"
+            )
+        total_cases = sum(r["cases_exported"] for r in summary_rows)
+        click.echo(f"\nTotal cases across all (city, source) pairs: {total_cases}")
+        sys.exit(0)
+
+    # ── --keyword-mode crime sweep ─────────────────────────────────────
+    # Strategy C stage 2. Loops once per (keyword, compatible source).
+    # Hebrew keywords go to Ynet only; Arabic to Arab48 only. Each
+    # (keyword, source) pair gets its own run_id so results are traceable.
+    if keyword_mode:
+        if "extract" in stage_set and not os.environ.get("GEMINI_API_KEY"):
+            from dotenv import load_dotenv
+            load_dotenv()
+            if not os.environ.get("GEMINI_API_KEY"):
+                click.echo(
+                    "ERROR: GEMINI_API_KEY env var is required for --keyword-mode.",
+                    err=True,
+                )
+                sys.exit(2)
+        try:
+            settings = Settings()  # type: ignore[call-arg]
+        except Exception as e:
+            click.echo(f"ERROR: Settings load failed: {e}", err=True)
+            sys.exit(2)
+
+        # Curated keyword presets (Gemini's discover-phase recommendations).
+        # Kept tight: 2 strong keywords per language. Adding more multiplies
+        # API cost without much marginal recall — triage already filters noise.
+        _HE_KEYWORDS = ["רצח", "נרצח"]
+        _AR_KEYWORDS = ["جريمة قتل", "مقتل"]
+        # Source compatibility — Hebrew kw on Hebrew site, Arabic on Arabic.
+        _SOURCE_FOR_LANG = {"he": "ynet", "ar": "arab48"}
+
+        from datetime import date as _date
+        year = cities_year or _date.today().year
+        mode_lower = keyword_mode.lower()
+        plan: list[tuple[str, str, str]] = []  # (keyword, source, lang)
+        if mode_lower in ("hebrew", "both"):
+            for kw in _HE_KEYWORDS:
+                plan.append((kw, _SOURCE_FOR_LANG["he"], "he"))
+        if mode_lower in ("arabic", "both"):
+            for kw in _AR_KEYWORDS:
+                plan.append((kw, _SOURCE_FOR_LANG["ar"], "ar"))
+
+        click.echo(f"--keyword-mode={mode_lower}: {len(plan)} (keyword, source) pairs")
+        click.echo(f"  Year tag:    {year}")
+        click.echo(f"  Date range:  {resolved_from} to {resolved_to}")
+        click.echo("")
+
+        summary_rows: list[dict] = []
+        for kw, source, lang in plan:
+            # Slug the keyword for run_id (transliterate non-ASCII to short hash)
+            import hashlib
+            slug = hashlib.md5(kw.encode()).hexdigest()[:8]
+            pair_run_id = f"kw_{lang}_{slug}_{year}"
+            click.echo(f"▶ keyword={kw!r} → {source} (run_id={pair_run_id})")
+
+            pipeline = Pipeline(settings, run_id=pair_run_id)
+            try:
+                pair_stats = asyncio.run(
+                    pipeline.run(
+                        query=kw,
+                        sources=[source],
+                        date_from=resolved_from,
+                        date_to=resolved_to,
+                        max_per_source=max_per_source,
+                        max_pages=max_pages,
+                        stages=stage_set,
+                    )
+                )
+                summary_rows.append({
+                    "keyword": kw, "source": source, "run_id": pair_run_id,
+                    "discovered": pair_stats.get("discovered", 0),
+                    "extracted": pair_stats.get("extracted", 0),
+                    "cases_exported": pair_stats.get("cases_exported", 0),
+                })
+            except Exception as e:  # pragma: no cover — defensive
+                click.echo(f"  ✗ {pair_run_id} failed: {e}", err=True)
+                summary_rows.append({
+                    "keyword": kw, "source": source, "run_id": pair_run_id,
+                    "discovered": 0, "extracted": 0, "cases_exported": 0,
+                    "error": str(e)[:80],
+                })
+
+        click.echo("\n" + "=" * 72)
+        click.echo("--keyword-mode sweep complete:")
+        click.echo(
+            f"  {'KEYWORD':<20} {'SOURCE':<10} {'DISC':>6} {'EXT':>6} {'CASES':>6}"
+        )
+        for r in summary_rows:
+            click.echo(
+                f"  {r['keyword']:<20} {r['source']:<10} "
+                f"{r['discovered']:>6} {r['extracted']:>6} "
+                f"{r['cases_exported']:>6}"
+            )
+        total_cases = sum(r["cases_exported"] for r in summary_rows)
+        click.echo(f"\nTotal cases across all (keyword, source) pairs: {total_cases}")
+        click.echo("Note: cases may overlap across keywords. Run --reconcile or "
+                   "verify CLI to dedup across runs.")
+        sys.exit(0)
+
     # Fail fast: extract stage needs GEMINI_API_KEY before any work begins,
     # not after scraping completes. Check env (and the .env file Settings
     # would load) before instantiating Settings, since Settings requires it.
@@ -359,7 +695,7 @@ def cli(
     if cosine_threshold is not None:
         settings.cosine_threshold = cosine_threshold
 
-    pipeline = Pipeline(settings, run_id=run_id)
+    pipeline = Pipeline(settings, run_id=run_id, strict_city=strict_city)
 
     click.echo(f"Pipeline starting | run_id={pipeline.run_id}")
     click.echo(f"  Query:       {query}")
