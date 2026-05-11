@@ -1,0 +1,32 @@
+# Arab-society homicide victims in Israel, January 2026.
+# Source: personal knowledge (user-provided list of 26 names).
+# city and incident_date intentionally null — only the month is known.
+# The verify CLI's is_same_incident matcher tolerates this: it falls back
+# to name-only matching (Jaro-Winkler ≥ 0.70 on romanized form) when
+# both sides lack a city/date.
+{"victim_name_ar": "عبدالرحمن عماد العبيرة", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "عدي صقر أبو عمار", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "بكر محمود ياسين", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "محمد موسى خوالي", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "أدهم نظيم نصار", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "نظيم نصار", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "محمود غاوي", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "محمود جاسر أبو عرار", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "كمال حجيرات", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "خالد غدير", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "ياسر حجيرات", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "كارم سواعد", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "شريف حديد", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "احمد مؤيد جبارين", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "عزمي غريب", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "محمد دقة", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "وفاء بدران حصارمة", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "بسمة أبو فريح", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "عزات أبو لطيف", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "جمال مزاوي", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "عبد الرحيم موسى الزبيدي", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "محمد مصطفى محاميد", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "تيمور عطا الله", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "مصعب ابو جوهر", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "خالد جمال كيوان محاميد", "city": null, "incident_date": null, "notes": "January 2026"}
+{"victim_name_ar": "عمر تيسير الشمالي", "city": null, "incident_date": null, "notes": "January 2026"}
