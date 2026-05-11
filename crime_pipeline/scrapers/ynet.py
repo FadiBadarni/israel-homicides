@@ -215,105 +215,81 @@ def _matches_query(title: str, tags: str, query: str) -> bool:
     return all(term in haystack for term in terms)
 
 
+_GNEWS_DECODE_CACHE: dict[str, str | None] = {}
+
+
 async def _resolve_google_url(
     client: httpx.AsyncClient, google_url: str
 ) -> str | None:
     """Resolve a Google News redirect URL to its canonical ynet.co.il URL.
 
-    Uses the two-round-trip batchexecute approach since follow_redirects=True
-    is unreliable for Google News redirect URLs as of 2025/2026.
+    Uses the ``googlenewsdecoder`` PyPI library (community-maintained
+    wrapper around Google's batchexecute API). The library is sync, so
+    we run it in a worker thread to avoid blocking the event loop.
+
+    The previous implementation reverse-engineered the page DOM
+    (extracting ``data-n-a-sg`` / ``data-n-a-ts`` from a ``c-wiz``
+    element) and broke when Google changed their HTML in early 2026.
+    Delegating to a maintained library means the next Google change
+    requires a ``pip install --upgrade googlenewsdecoder`` rather than
+    a re-reverse-engineering session.
+
+    Per-process in-memory cache prevents re-decoding the same URL
+    within a single pipeline run; cross-run caching could be added
+    later via the SQLite DB if rate-limit pressure becomes real.
+
+    The ``client`` argument is unused now (kept for backward-compat
+    with the existing call sites).
     """
     parsed = urlparse(google_url)
     path_parts = parsed.path.strip("/").split("/")
     if parsed.netloc != "news.google.com" or "articles" not in path_parts:
         return None
-    base64_id = path_parts[-1]
+
+    if google_url in _GNEWS_DECODE_CACHE:
+        return _GNEWS_DECODE_CACHE[google_url]
 
     try:
-        html_resp = await client.get(
-            f"https://news.google.com/articles/{base64_id}",
-            headers=_GOOGLE_HEADERS,
-            timeout=20.0,
-            follow_redirects=False,
+        from googlenewsdecoder import gnewsdecoder
+    except ImportError:  # pragma: no cover — library is a hard dep, missing means env broken
+        logger.error("googlenewsdecoder not installed — discover() cannot resolve URLs")
+        return None
+
+    def _sync_decode() -> dict:
+        # interval=1 spaces requests by 1s when called repeatedly to soften
+        # rate-limit risk against Google's batchexecute endpoint.
+        return gnewsdecoder(google_url, interval=1)
+
+    try:
+        result = await asyncio.to_thread(_sync_decode)
+    except Exception as exc:  # pragma: no cover — network paths
+        logger.warning("gnews decoder threw: %s", str(exc)[:160])
+        _GNEWS_DECODE_CACHE[google_url] = None
+        return None
+
+    if not isinstance(result, dict) or not result.get("status"):
+        logger.warning(
+            "gnews decoder failed for %s — %s",
+            google_url[:80],
+            str(result)[:120],
         )
-    except httpx.HTTPError as exc:
-        logger.warning("gnews redirect: GET failed for %s — %s", base64_id, exc)
+        _GNEWS_DECODE_CACHE[google_url] = None
         return None
 
-    if html_resp.status_code != 200:
-        logger.warning("gnews redirect: GET returned %d for %s", html_resp.status_code, base64_id)
+    decoded_url = result.get("decoded_url")
+    if not isinstance(decoded_url, str):
+        _GNEWS_DECODE_CACHE[google_url] = None
         return None
 
-    html = html_resp.text
-    lowered = html.lower()
-    if (
-        "consent.google.com" in lowered
-        or "before you continue" in lowered
-        or "our systems have detected unusual traffic" in lowered
-        or "/sorry/" in lowered
-    ):
-        logger.warning("gnews redirect: consent/block page for %s", base64_id)
-        return None
-
-    soup = BeautifulSoup(html, "html.parser")
-    data_el = soup.select_one("c-wiz div[jscontroller][data-n-a-sg][data-n-a-ts]")
-    if data_el is None:
-        logger.warning("gnews redirect: data element not found for %s", base64_id)
-        return None
-
-    signature = data_el.get("data-n-a-sg")
-    timestamp = data_el.get("data-n-a-ts")
-    if not signature or not timestamp:
-        logger.warning("gnews redirect: missing signature/timestamp for %s", base64_id)
-        return None
-
-    payload = ["Fbv4je", (
-        '["garturlreq",'
-        '[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
-        '"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
-        f'"{base64_id}",{timestamp},"{signature}"]'
-    )]
-    post_data = f"f.req={quote(json.dumps([[payload]]))}"
-
-    try:
-        batch_resp = await client.post(
-            "https://news.google.com/_/DotsSplashUi/data/batchexecute",
-            headers={
-                **_GOOGLE_HEADERS,
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                "Accept": "*/*",
-            },
-            content=post_data.encode(),
-            timeout=20.0,
-            follow_redirects=False,
-        )
-    except httpx.HTTPError as exc:
-        logger.warning("gnews redirect: POST failed for %s — %s", base64_id, exc)
-        return None
-
-    if batch_resp.status_code != 200:
-        logger.warning("gnews redirect: POST returned %d for %s", batch_resp.status_code, base64_id)
-        return None
-
-    text = batch_resp.text
-    if "garturlres" not in text:
-        logger.warning("gnews redirect: garturlres not in response for %s", base64_id)
-        return None
-
-    try:
-        parts = text.split("\n\n", 1)
-        if len(parts) < 2:
-            return None
-        parsed_batch = json.loads(parts[1])
-        decoded_url = json.loads(parsed_batch[0][2])[1]
-    except (IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        logger.warning("gnews redirect: parse error for %s — %s", base64_id, exc)
-        return None
-
+    # Defensive: only accept Ynet URLs since this resolver lives in the
+    # Ynet scraper. The Google News feed is queried with ``site:ynet.co.il``
+    # so anything else is suspicious.
     if not decoded_url.startswith(("https://www.ynet.co.il/", "https://ynet.co.il/")):
-        logger.warning("gnews redirect: unexpected domain in %s", decoded_url)
+        logger.warning("gnews decoder: unexpected domain in %s", decoded_url[:120])
+        _GNEWS_DECODE_CACHE[google_url] = None
         return None
 
+    _GNEWS_DECODE_CACHE[google_url] = decoded_url
     return decoded_url
 
 
