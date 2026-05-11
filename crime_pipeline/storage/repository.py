@@ -69,21 +69,26 @@ def save_article(session: Session, article_data: dict[str, Any]) -> RawArticle:
         content_type=article_data.get("content_type", "article"),
         fetch_status=article_data.get("fetch_status", "success"),
         error_message=article_data.get("error_message"),
+        pipeline_run_id=article_data.get("pipeline_run_id"),
     )
     session.add(article)
     session.flush()
     return article
 
 
-def get_articles_by_status(session: Session, status: str) -> list[RawArticle]:
-    """Return all RawArticle rows with the given ``fetch_status``."""
-    return list(
-        session.scalars(
-            select(RawArticle)
-            .where(RawArticle.fetch_status == status)
-            .order_by(RawArticle.fetched_at.asc())
-        )
-    )
+def get_articles_by_status(
+    session: Session, status: str, pipeline_run_id: str | None = None
+) -> list[RawArticle]:
+    """Return all RawArticle rows with the given ``fetch_status``.
+
+    When ``pipeline_run_id`` is supplied, scope to articles fetched in that
+    run only — required for the multi-city / multi-keyword backfill flow
+    where the shared SQLite DB carries data from many runs.
+    """
+    stmt = select(RawArticle).where(RawArticle.fetch_status == status)
+    if pipeline_run_id is not None:
+        stmt = stmt.where(RawArticle.pipeline_run_id == pipeline_run_id)
+    return list(session.scalars(stmt.order_by(RawArticle.fetched_at.asc())))
 
 
 # ---------------------------------------------------------------------------
@@ -118,13 +123,23 @@ def save_extraction(
     return record
 
 
-def get_all_extractions(session: Session) -> list[ExtractedRecord]:
-    """Return all ExtractedRecord rows ordered by extraction time ascending."""
-    return list(
-        session.scalars(
-            select(ExtractedRecord).order_by(ExtractedRecord.extracted_at.asc())
-        )
-    )
+def get_all_extractions(
+    session: Session, pipeline_run_id: str | None = None
+) -> list[ExtractedRecord]:
+    """Return all ExtractedRecord rows ordered by extraction time ascending.
+
+    When ``pipeline_run_id`` is supplied, JOIN against ``raw_articles`` and
+    filter to extractions belonging to articles fetched in that run. Without
+    this scoping, a multi-city / multi-keyword backfill would silently pull
+    every prior run's extractions into the current run's dedup blocking —
+    cross-contamination Sonnet flagged in the discover phase.
+    """
+    stmt = select(ExtractedRecord)
+    if pipeline_run_id is not None:
+        stmt = stmt.join(
+            RawArticle, ExtractedRecord.article_id == RawArticle.id
+        ).where(RawArticle.pipeline_run_id == pipeline_run_id)
+    return list(session.scalars(stmt.order_by(ExtractedRecord.extracted_at.asc())))
 
 
 def get_extractions_for_article(session: Session, article_id: str) -> list[ExtractedRecord]:

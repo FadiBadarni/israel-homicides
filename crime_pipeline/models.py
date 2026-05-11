@@ -61,6 +61,16 @@ class RawArticle(Base):
     fetch_status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # The pipeline run that fetched this article. Lets resume-from-dedup
+    # runs (`--stage dedup ...`) scope to the current run instead of seeing
+    # every article ever fetched in the shared SQLite DB. Critical for the
+    # multi-city backfill flow (--cities arraba,sakhnin,...) where 30 sequential
+    # runs would otherwise cross-contaminate each other's dedup blocking.
+    # Nullable so legacy rows (pre-this-column) still load.
+    pipeline_run_id: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+
     # Triage stage metadata. Populated by the C-stage classifier between
     # fetch and extract. Used to skip full LLM extraction on articles whose
     # title+lede don't look like a homicide. Persisted so we can audit

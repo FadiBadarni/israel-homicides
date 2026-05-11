@@ -16,13 +16,14 @@ import asyncio
 import pytest
 
 from crime_pipeline.scrapers import ynet as ynet_mod
+from crime_pipeline.scrapers import _gnews as gnews_mod
 
 
 @pytest.fixture(autouse=True)
 def _reset_cache():
-    ynet_mod._GNEWS_DECODE_CACHE.clear()
+    gnews_mod._GNEWS_DECODE_CACHE.clear()
     yield
-    ynet_mod._GNEWS_DECODE_CACHE.clear()
+    gnews_mod._GNEWS_DECODE_CACHE.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ def test_rejects_non_google_news_urls(bad_url: str) -> None:
     """Resolver must short-circuit before calling the decoder library
     on URLs that obviously aren't Google News redirect URLs."""
     async def run():
-        return await ynet_mod._resolve_google_url(None, bad_url)
+        return await gnews_mod.resolve_google_url(None, bad_url, ("https://www.ynet.co.il/",))
     assert asyncio.run(run()) is None
 
 
@@ -63,7 +64,7 @@ def test_accepts_read_path_segment() -> None:
     parsed = urlparse(url)
     parts = parsed.path.strip("/").split("/")
     assert "read" in parts
-    assert ynet_mod._GNEWS_ARTICLE_SEGMENTS.intersection(parts)
+    assert gnews_mod._GNEWS_ARTICLE_SEGMENTS.intersection(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -73,10 +74,10 @@ def test_accepts_read_path_segment() -> None:
 def test_cache_returns_stored_value_without_calling_library() -> None:
     """Once a URL is in the cache the resolver must return it directly."""
     url = "https://news.google.com/rss/articles/CBMiXXXX"
-    ynet_mod._GNEWS_DECODE_CACHE[url] = "https://www.ynet.co.il/news/article/preset"
+    gnews_mod._GNEWS_DECODE_CACHE[url] = "https://www.ynet.co.il/news/article/preset"
 
     async def run():
-        return await ynet_mod._resolve_google_url(None, url)
+        return await gnews_mod.resolve_google_url(None, url, ("https://www.ynet.co.il/",))
 
     assert asyncio.run(run()) == "https://www.ynet.co.il/news/article/preset"
 
@@ -85,10 +86,10 @@ def test_cache_caches_failures_too() -> None:
     """A previously-failed URL must not retry the library on every call —
     the cache stores None and we return None on the next lookup."""
     url = "https://news.google.com/rss/articles/CBMiPRESETFAIL"
-    ynet_mod._GNEWS_DECODE_CACHE[url] = None
+    gnews_mod._GNEWS_DECODE_CACHE[url] = None
 
     async def run():
-        return await ynet_mod._resolve_google_url(None, url)
+        return await gnews_mod.resolve_google_url(None, url, ("https://www.ynet.co.il/",))
 
     assert asyncio.run(run()) is None
 
@@ -100,7 +101,7 @@ def test_cache_caches_failures_too() -> None:
 def test_lock_exists_for_concurrent_serialization() -> None:
     """Codex's R1 critique: parallel discover windows can burst the
     decoder. We serialize via a module-level asyncio.Lock."""
-    assert isinstance(ynet_mod._GNEWS_DECODE_LOCK, asyncio.Lock)
+    assert isinstance(gnews_mod._GNEWS_DECODE_LOCK, asyncio.Lock)
 
 
 def test_googlenewsdecoder_is_importable() -> None:

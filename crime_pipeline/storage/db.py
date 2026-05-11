@@ -53,20 +53,37 @@ def _apply_additive_migrations(engine: Engine) -> None:
         return  # fresh DB — create_all just made it with all columns
 
     existing_cols = {c["name"] for c in insp.get_columns("raw_articles")}
-    triage_cols = [
+    additive_cols = [
+        # Triage stage metadata (added when triage was introduced)
         ("triage_status", "VARCHAR(8)"),
         ("triage_incident_type", "VARCHAR(32)"),
         ("triage_reason", "VARCHAR(64)"),
         ("triage_model_version", "VARCHAR(64)"),
         ("triage_input_tokens", "INTEGER NOT NULL DEFAULT 0"),
         ("triage_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
+        # Run scoping (added for the --cities multi-run backfill flow so
+        # resume-from-dedup runs only see the current run's articles).
+        ("pipeline_run_id", "VARCHAR(64)"),
     ]
     with engine.begin() as conn:
-        for col_name, col_def in triage_cols:
+        for col_name, col_def in additive_cols:
             if col_name not in existing_cols:
                 conn.execute(
                     text(f"ALTER TABLE raw_articles ADD COLUMN {col_name} {col_def}")
                 )
+        # Index on pipeline_run_id for efficient run-scoped lookups
+        if "pipeline_run_id" in existing_cols or "pipeline_run_id" in [
+            c[0] for c in additive_cols
+        ]:
+            try:
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS "
+                        "ix_raw_articles_pipeline_run_id ON raw_articles(pipeline_run_id)"
+                    )
+                )
+            except Exception:  # pragma: no cover — index already exists or DB-engine quirk
+                pass
 
 
 def init_db(db_path: str) -> Engine:

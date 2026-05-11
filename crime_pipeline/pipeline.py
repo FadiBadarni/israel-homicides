@@ -133,8 +133,12 @@ class Pipeline:
         if "fetch" in stages:
             articles = await self._fetch(discovered, sources)
         else:
+            # Resume mode: scope to this run only — without the run_id filter
+            # a multi-city/multi-keyword backfill cross-contaminates dedup.
             with db_module.SessionLocal() as session:  # type: ignore[misc]
-                articles = list(get_articles_by_status(session, "success"))
+                articles = list(
+                    get_articles_by_status(session, "success", pipeline_run_id=self.run_id)
+                )
 
         # ── Stage 2.5: Triage (cheap classifier, drops most articles) ──
         # Sends title + first 600 chars to Gemini-flash with thinking off.
@@ -148,8 +152,11 @@ class Pipeline:
         if "extract" in stages:
             extractions = await self._extract(articles)
         else:
+            # Resume mode: scope to this run's extractions only.
             with db_module.SessionLocal() as session:  # type: ignore[misc]
-                extractions = list(get_all_extractions(session))
+                extractions = list(
+                    get_all_extractions(session, pipeline_run_id=self.run_id)
+                )
 
         # ── Relevance gate (between extract and dedup) ───────────────
         # Drops mostly-null extractions that broad search queries produce
@@ -267,6 +274,7 @@ class Pipeline:
                         "content_type": result.content_type,
                         "fetch_status": result.fetch_status,
                         "error_message": result.error_message,
+                        "pipeline_run_id": self.run_id,
                     }
                     saved = save_article(session, article_dict)
                     session.commit()
@@ -509,11 +517,15 @@ class Pipeline:
             return []
 
         # Build an ID->article lookup; if the upstream stage was skipped, refetch.
+        # Scope to this run only — multi-city/keyword backfills share the DB.
         article_lookup: dict[str, Any] = {a.id: a for a in articles} if articles else {}
         if not article_lookup:
             with db_module.SessionLocal() as session:  # type: ignore[misc]
                 article_lookup = {
-                    a.id: a for a in get_articles_by_status(session, "success")
+                    a.id: a
+                    for a in get_articles_by_status(
+                        session, "success", pipeline_run_id=self.run_id
+                    )
                 }
 
         # Construct dedup-input records.

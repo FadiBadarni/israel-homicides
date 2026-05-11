@@ -15,9 +15,7 @@ import random
 import xml.etree.ElementTree as ET
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
 from typing import Optional
-from urllib.parse import quote, quote_plus, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -29,6 +27,15 @@ from tenacity import (
 )
 
 from .base import ArticleResult, BaseScraper, DiscoveredUrl
+from ._gnews import (
+    _GOOGLE_HEADERS,
+    _GNEWS_RSS_BASE,
+    _RateLimitStop,
+    _build_windows,
+    _parse_pubdate,
+    fetch_gnews_window,
+    resolve_google_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +51,6 @@ _YNET_HEADERS = {
     "Connection": "keep-alive",
 }
 
-_GOOGLE_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/129.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": "https://news.google.com/",
-}
-
-_GNEWS_RSS_BASE = "https://news.google.com/rss/search"
 _YNET_RSS_URL = "https://www.ynet.co.il/Integration/StoryRss2.xml"
 _BASE_URL = "https://www.ynet.co.il"
 
@@ -122,10 +117,6 @@ class _RetryableHTTPError(Exception):
     """Raised for status codes that warrant a retry (429, 5xx)."""
 
 
-class _RateLimitStop(Exception):
-    """Raised when Google returns 429 — stop issuing further windows."""
-
-
 def _make_client(timeout: float = 20.0) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         headers=_YNET_HEADERS,
@@ -133,18 +124,6 @@ def _make_client(timeout: float = 20.0) -> httpx.AsyncClient:
         follow_redirects=True,
         http2=True,
     )
-
-
-def _parse_pubdate(raw: str | None) -> datetime | None:
-    if not raw:
-        return None
-    try:
-        dt = parsedate_to_datetime(raw.strip())
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except Exception:
-        return None
 
 
 def _parse_ynet_date(raw: str) -> Optional[datetime]:
@@ -197,175 +176,13 @@ def _extract_date_from_soup(soup: BeautifulSoup) -> Optional[datetime]:
     return None
 
 
-def _build_windows(date_from: str, date_to: str) -> list[tuple[datetime, datetime]]:
-    start = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1)
-    windows: list[tuple[datetime, datetime]] = []
-    cursor = start
-    while cursor < end:
-        nxt = min(cursor + timedelta(hours=48), end)
-        windows.append((cursor, nxt))
-        cursor = nxt
-    return windows
-
-
 def _matches_query(title: str, tags: str, query: str) -> bool:
     terms = [t.lower() for t in query.split() if t.strip()]
     haystack = (title + " " + tags).lower()
     return all(term in haystack for term in terms)
 
 
-_GNEWS_DECODE_CACHE: dict[str, str | None] = {}
-_GNEWS_DECODE_LOCK = asyncio.Lock()
-# Path segments Google News uses for article-redirect URLs. As of 2026 both
-# /articles/<base64> and /read/<base64> have been observed in the wild.
-_GNEWS_ARTICLE_SEGMENTS = frozenset({"articles", "read"})
-
-
-async def _resolve_google_url(
-    client: httpx.AsyncClient, google_url: str
-) -> str | None:
-    """Resolve a Google News redirect URL to its canonical ynet.co.il URL.
-
-    Uses the ``googlenewsdecoder`` PyPI library (community-maintained
-    wrapper around Google's batchexecute API). The library is sync, so
-    we run it in a worker thread to avoid blocking the event loop, and
-    serialize concurrent decodes behind a module-level ``asyncio.Lock``
-    so multi-window discover() runs don't burst Google's rate limit.
-
-    The previous implementation reverse-engineered the page DOM
-    (extracting ``data-n-a-sg`` / ``data-n-a-ts`` from a ``c-wiz``
-    element) and broke when Google changed their HTML in early 2026.
-    Delegating to a maintained library means the next Google change
-    requires ``pip install --upgrade googlenewsdecoder`` rather than
-    a re-reverse-engineering session.
-
-    Per-process in-memory cache prevents re-decoding the same URL
-    within a single pipeline run; cross-run caching could be added
-    later via the SQLite DB if rate-limit pressure becomes real.
-
-    The ``client`` argument is unused now (kept for backward-compat
-    with the existing call sites).
-    """
-    parsed = urlparse(google_url)
-    path_parts = parsed.path.strip("/").split("/")
-    if (
-        parsed.netloc != "news.google.com"
-        or not _GNEWS_ARTICLE_SEGMENTS.intersection(path_parts)
-    ):
-        return None
-
-    if google_url in _GNEWS_DECODE_CACHE:
-        return _GNEWS_DECODE_CACHE[google_url]
-
-    try:
-        from googlenewsdecoder import gnewsdecoder
-    except ImportError:  # pragma: no cover — hard dep, missing means env broken
-        logger.error("googlenewsdecoder not installed — discover() cannot resolve URLs")
-        return None
-
-    def _sync_decode() -> dict:
-        # interval=1 spaces requests by 1s when called repeatedly to soften
-        # rate-limit risk against Google's batchexecute endpoint.
-        return gnewsdecoder(google_url, interval=1)
-
-    # Serialize concurrent decodes — prevents bursts when multiple discover
-    # windows resolve in parallel and trip Google's rate limit.
-    async with _GNEWS_DECODE_LOCK:
-        # Re-check cache inside lock (could have populated while waiting).
-        if google_url in _GNEWS_DECODE_CACHE:
-            return _GNEWS_DECODE_CACHE[google_url]
-        try:
-            result = await asyncio.to_thread(_sync_decode)
-        except Exception as exc:  # pragma: no cover — network paths
-            logger.warning("gnews decoder threw: %s", str(exc)[:160])
-            _GNEWS_DECODE_CACHE[google_url] = None
-            return None
-
-    if not isinstance(result, dict) or not result.get("status"):
-        logger.warning(
-            "gnews decoder failed for %s — %s",
-            google_url[:80],
-            str(result)[:120],
-        )
-        _GNEWS_DECODE_CACHE[google_url] = None
-        return None
-
-    decoded_url = result.get("decoded_url")
-    if not isinstance(decoded_url, str):
-        _GNEWS_DECODE_CACHE[google_url] = None
-        return None
-
-    # Defensive: only accept Ynet URLs since this resolver lives in the
-    # Ynet scraper. The Google News feed is queried with ``site:ynet.co.il``
-    # so anything else is suspicious.
-    if not decoded_url.startswith(("https://www.ynet.co.il/", "https://ynet.co.il/")):
-        logger.warning("gnews decoder: unexpected domain in %s", decoded_url[:120])
-        _GNEWS_DECODE_CACHE[google_url] = None
-        return None
-
-    _GNEWS_DECODE_CACHE[google_url] = decoded_url
-    return decoded_url
-
-
-async def _fetch_gnews_window(
-    client: httpx.AsyncClient, query: str, start: datetime, end: datetime
-) -> list[tuple[str, str | None, datetime | None]]:
-    """Fetch one Google News RSS window. Returns list of (google_url, title, pubdate)."""
-    q = (
-        f"{query} site:ynet.co.il"
-        f" after:{start.strftime('%Y-%m-%d')}"
-        f" before:{end.strftime('%Y-%m-%d')}"
-    )
-    url = f"{_GNEWS_RSS_BASE}?q={quote_plus(q)}&hl=he&gl=IL&ceid=IL:he"
-
-    try:
-        resp = await client.get(url, headers=_GOOGLE_HEADERS, timeout=30.0, follow_redirects=True)
-    except httpx.HTTPError as exc:
-        logger.warning("gnews window fetch error: %s", exc)
-        return []
-
-    if resp.status_code == 429:
-        raise _RateLimitStop("Google returned 429")
-    if resp.status_code != 200:
-        logger.warning("gnews window: HTTP %d for window %s-%s", resp.status_code, start.date(), end.date())
-        return []
-
-    try:
-        root = ET.fromstring(resp.text)
-    except ET.ParseError as exc:
-        logger.warning("gnews window: XML parse error — %s", exc)
-        return []
-
-    items: list[tuple[str, str | None, datetime | None]] = []
-    ns = {"media": "http://search.yahoo.com/mrss/"}
-    channel = root.find("channel")
-    if channel is None:
-        return []
-
-    for item in channel.findall("item"):
-        link_el = item.find("link")
-        if link_el is None or not link_el.text:
-            continue
-        link = link_el.text.strip()
-        if "news.google.com" not in link:
-            continue
-
-        title_el = item.find("title")
-        title = title_el.text.strip() if title_el is not None and title_el.text else None
-
-        pubdate_el = item.find("pubDate")
-        pubdate = _parse_pubdate(pubdate_el.text if pubdate_el is not None else None)
-
-        items.append((link, title, pubdate))
-
-    logger.debug(
-        "gnews window %s-%s: %d items",
-        start.strftime("%Y-%m-%d"),
-        end.strftime("%Y-%m-%d"),
-        len(items),
-    )
-    return items
+_YNET_VALID_PREFIXES = ("https://www.ynet.co.il/", "https://ynet.co.il/")
 
 
 class YnetScraper(BaseScraper):
@@ -445,7 +262,7 @@ class YnetScraper(BaseScraper):
                     win_start, win_end, depth = queue.popleft()
 
                     await asyncio.sleep(10)  # 10s between Google News requests
-                    raw_items = await _fetch_gnews_window(gnews_client, query, win_start, win_end)
+                    raw_items = await fetch_gnews_window(gnews_client, query, win_start, win_end, "ynet.co.il")
 
                     if len(raw_items) >= 90 and depth < 4 and (win_end - win_start) > timedelta(hours=3):
                         mid = win_start + (win_end - win_start) / 2
@@ -470,7 +287,7 @@ class YnetScraper(BaseScraper):
                         if len(results) >= max_results:
                             break
 
-                        canonical = await _resolve_google_url(gnews_client, google_url)
+                        canonical = await resolve_google_url(gnews_client, google_url, _YNET_VALID_PREFIXES)
                         if canonical is None:
                             logger.warning("google_redirect_unresolved: %s", google_url)
                             continue
