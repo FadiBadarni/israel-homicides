@@ -48,6 +48,12 @@ def save_article(session: Session, article_data: dict[str, Any]) -> RawArticle:
             "fetch_status",
             "error_message",
             "language",
+            # Last-run-to-touch wins. Without this, an article first fetched
+            # under run_id=None (legacy) or under run_A stays tagged that way
+            # even when run_B re-encounters it in --cities backfill. That
+            # silently excludes the article from run_B's resume-mode reads
+            # — the Magdi-Shela'ata-disappeared-from-Arraba bug.
+            "pipeline_run_id",
         }
         for field in mutable_fields:
             if field in article_data:
