@@ -41,7 +41,10 @@ def test_discover_source_uses_page_query_param() -> None:
 
 
 def test_discover_stops_on_zero_new() -> None:
-    """The early-stop-on-zero-new safeguard must be present so out-of-range
-    page requests don't keep hitting Arab48 forever."""
+    """The early-stop-on-zero-new safeguard must be present so a truly
+    exhausted page doesn't keep hitting Arab48 forever. The variable name
+    was renamed from ``page_new`` to ``page_new_unique`` when the
+    date-aware-stop fix shipped — see test_arab48_pagination_date_filter.py
+    for the deeper invariants."""
     src = inspect.getsource(Arab48Scraper.discover)
-    assert "page_new == 0" in src or "page_new==0" in src
+    assert "page_new_unique == 0" in src or "page_new == 0" in src

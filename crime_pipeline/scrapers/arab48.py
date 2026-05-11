@@ -192,7 +192,10 @@ class Arab48Scraper(BaseScraper):
                     break
 
                 soup = BeautifulSoup(resp.text, "lxml")
-                page_new = 0
+                page_new_unique = 0    # truly new URLs (regardless of date)
+                page_kept = 0          # URLs kept after date filter
+                page_pre_window = 0    # URLs newer than date_to (we haven't reached window yet)
+                page_post_window = 0   # URLs older than date_from (we've gone past)
 
                 for a_tag in soup.find_all("a", href=True):
                     if len(discovered) >= max_results:
@@ -209,6 +212,7 @@ class Arab48Scraper(BaseScraper):
                     if full_url in seen:
                         continue
                     seen.add(full_url)
+                    page_new_unique += 1
 
                     # Path-segment blocklist (B-stage cheap pre-fetch reject).
                     if _is_non_homicide_path(parsed.path):
@@ -230,8 +234,13 @@ class Arab48Scraper(BaseScraper):
                             )
                             break
 
-                    if pub_date and not (from_dt <= pub_date <= to_dt):
-                        continue
+                    if pub_date:
+                        if pub_date > to_dt:
+                            page_pre_window += 1
+                            continue
+                        if pub_date < from_dt:
+                            page_post_window += 1
+                            continue
 
                     discovered.append(
                         DiscoveredUrl(
@@ -243,17 +252,29 @@ class Arab48Scraper(BaseScraper):
                             discovered_at=datetime.now(tz=timezone.utc),
                         )
                     )
-                    page_new += 1
+                    page_kept += 1
 
                 logger.info(
-                    "Arab48 discover: page %d added %d new URLs (cumulative %d) for query=%r",
-                    page, page_new, len(discovered), query,
+                    "Arab48 discover: page %d added %d kept "
+                    "(new_unique=%d, pre_window=%d, post_window=%d, cumulative=%d) for query=%r",
+                    page, page_kept, page_new_unique,
+                    page_pre_window, page_post_window, len(discovered), query,
                 )
 
-                # Stop on a "dead" page — out-of-range pages typically return
-                # the same generic site content with zero new article links.
-                if page_new == 0:
+                # New stop logic, ordered:
+                # 1) Truly exhausted — page returned only URLs we'd already
+                #    seen. Real "no more results".
+                if page_new_unique == 0:
                     break
+                # 2) Walked past the target window (page contains URLs older
+                #    than date_from). Results are date-DESC on Arab48, so any
+                #    older URLs mean further pages will also be older.
+                if page_post_window > 0 and page_kept == 0 and page_pre_window == 0:
+                    break
+                # 3) Otherwise keep paginating — page_kept==0 with all URLs
+                #    in page_pre_window means we haven't reached the target
+                #    date range yet (Arab48 search is date-desc). The old
+                #    logic stopped here, missing historical queries entirely.
 
         logger.info(
             "Arab48 discover: found %d URLs across %d page(s) for query=%r",
