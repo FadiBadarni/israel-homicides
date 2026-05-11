@@ -106,17 +106,30 @@ def _truth_to_case_shape(truth: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_VERIFY_NAME_JARO_THRESHOLD = 0.85
+_VERIFY_NAME_JARO_HIGH = 0.95        # full-string Jaro at/above this → auto-accept
+_VERIFY_NAME_JARO_LOW = 0.85         # below this → auto-reject
+_VERIFY_TOKEN_JARO_THRESHOLD = 0.85  # per-token match threshold for overlap count
+_VERIFY_REQUIRED_TOKEN_OVERLAP = 2   # ≥ this many shared tokens needed in ambiguous zone
 _VERIFY_DATE_WINDOW_DAYS = 10
 
 
 def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
-    """Strict name-match for verify: Jaro-Winkler ≥ 0.85 on romanized form,
-    best-pair across all (truth × case) name combos.
+    """Strict name-match for verify, with token-overlap fallback for the
+    ambiguous Jaro zone.
 
-    Stricter than ``is_same_incident``'s 0.70 because verify lacks the
-    surrounding context (article text, source URLs, ...) that disambiguates
-    near-matches in the intra-pipeline merge step.
+    Why this is more complex than a single threshold: a flat Jaro ≥ 0.85
+    accepts the Bakr↔Bakr-Mahmoud substring case (legit) but ALSO accepts
+    family-name collisions like 'Ahmed Nassar' ↔ 'Nathim Nassar' (Jaro
+    ≈ 0.878). The first shares 2 tokens (bakr + yassin), the second
+    shares only 1 (nassar). Token-overlap discriminates the two cases.
+
+    Decision logic:
+      • Jaro ≥ 0.95 → ACCEPT (essentially identical, near-perfect)
+      • Jaro < 0.85 → REJECT (clearly different names)
+      • Jaro ∈ [0.85, 0.95) → require ≥ 2 shared tokens (where 'shared'
+        means there's a per-token Jaro ≥ 0.85 partner across the two
+        names). One shared token is too weak — it's the family-name
+        collision pattern.
     """
     from crime_pipeline.dedup.name_normalizer import (
         jaro_winkler_similarity, romanize_name,
@@ -127,13 +140,42 @@ def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
     case_rom = [n for n in case_rom if n]
     if not truth_rom or not case_rom:
         return False
+
     best = 0.0
+    best_pair: tuple[str, str] | None = None
     for tn in truth_rom:
         for cn in case_rom:
             s = jaro_winkler_similarity(tn, cn)
             if s > best:
                 best = s
-    return best >= _VERIFY_NAME_JARO_THRESHOLD
+                best_pair = (tn, cn)
+
+    if best >= _VERIFY_NAME_JARO_HIGH:
+        return True
+    if best < _VERIFY_NAME_JARO_LOW:
+        return False
+
+    # Ambiguous zone — require sufficient token overlap to distinguish
+    # legit substring matches from family-name collisions.
+    if best_pair is None:
+        return False
+    tn, cn = best_pair
+    t_tokens = [t for t in tn.split() if len(t) > 1]
+    c_tokens = [t for t in cn.split() if len(t) > 1]
+    if not t_tokens or not c_tokens:
+        return False
+
+    short, long_ = (
+        (t_tokens, c_tokens) if len(t_tokens) <= len(c_tokens)
+        else (c_tokens, t_tokens)
+    )
+    shared = 0
+    for st in short:
+        for lt in long_:
+            if jaro_winkler_similarity(st, lt) >= _VERIFY_TOKEN_JARO_THRESHOLD:
+                shared += 1
+                break
+    return shared >= _VERIFY_REQUIRED_TOKEN_OVERLAP
 
 
 def _verify_dates_match(truth_date: Any, case_date: Any) -> bool:
