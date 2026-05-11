@@ -1,0 +1,5 @@
+# Ground-truth Arraba 2026 homicides for the verify CLI.
+# Per the user's report: 2 confirmed homicides in Arraba in 2026.
+# Names extracted from publicly available Arab48/Ynet article URLs.
+{"city": "Arraba", "victim_name_ar": "بكر ياسين", "victim_name_he": "בכר מחמוד יאסין", "incident_date": "2026-01-03"}
+{"city": "Arraba", "victim_name_ar": "مجدي عاطف شلاعطة", "incident_date": "2026-03-20"}
