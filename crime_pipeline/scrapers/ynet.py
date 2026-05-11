@@ -216,6 +216,10 @@ def _matches_query(title: str, tags: str, query: str) -> bool:
 
 
 _GNEWS_DECODE_CACHE: dict[str, str | None] = {}
+_GNEWS_DECODE_LOCK = asyncio.Lock()
+# Path segments Google News uses for article-redirect URLs. As of 2026 both
+# /articles/<base64> and /read/<base64> have been observed in the wild.
+_GNEWS_ARTICLE_SEGMENTS = frozenset({"articles", "read"})
 
 
 async def _resolve_google_url(
@@ -225,13 +229,15 @@ async def _resolve_google_url(
 
     Uses the ``googlenewsdecoder`` PyPI library (community-maintained
     wrapper around Google's batchexecute API). The library is sync, so
-    we run it in a worker thread to avoid blocking the event loop.
+    we run it in a worker thread to avoid blocking the event loop, and
+    serialize concurrent decodes behind a module-level ``asyncio.Lock``
+    so multi-window discover() runs don't burst Google's rate limit.
 
     The previous implementation reverse-engineered the page DOM
     (extracting ``data-n-a-sg`` / ``data-n-a-ts`` from a ``c-wiz``
     element) and broke when Google changed their HTML in early 2026.
     Delegating to a maintained library means the next Google change
-    requires a ``pip install --upgrade googlenewsdecoder`` rather than
+    requires ``pip install --upgrade googlenewsdecoder`` rather than
     a re-reverse-engineering session.
 
     Per-process in-memory cache prevents re-decoding the same URL
@@ -243,7 +249,10 @@ async def _resolve_google_url(
     """
     parsed = urlparse(google_url)
     path_parts = parsed.path.strip("/").split("/")
-    if parsed.netloc != "news.google.com" or "articles" not in path_parts:
+    if (
+        parsed.netloc != "news.google.com"
+        or not _GNEWS_ARTICLE_SEGMENTS.intersection(path_parts)
+    ):
         return None
 
     if google_url in _GNEWS_DECODE_CACHE:
@@ -251,7 +260,7 @@ async def _resolve_google_url(
 
     try:
         from googlenewsdecoder import gnewsdecoder
-    except ImportError:  # pragma: no cover — library is a hard dep, missing means env broken
+    except ImportError:  # pragma: no cover — hard dep, missing means env broken
         logger.error("googlenewsdecoder not installed — discover() cannot resolve URLs")
         return None
 
@@ -260,12 +269,18 @@ async def _resolve_google_url(
         # rate-limit risk against Google's batchexecute endpoint.
         return gnewsdecoder(google_url, interval=1)
 
-    try:
-        result = await asyncio.to_thread(_sync_decode)
-    except Exception as exc:  # pragma: no cover — network paths
-        logger.warning("gnews decoder threw: %s", str(exc)[:160])
-        _GNEWS_DECODE_CACHE[google_url] = None
-        return None
+    # Serialize concurrent decodes — prevents bursts when multiple discover
+    # windows resolve in parallel and trip Google's rate limit.
+    async with _GNEWS_DECODE_LOCK:
+        # Re-check cache inside lock (could have populated while waiting).
+        if google_url in _GNEWS_DECODE_CACHE:
+            return _GNEWS_DECODE_CACHE[google_url]
+        try:
+            result = await asyncio.to_thread(_sync_decode)
+        except Exception as exc:  # pragma: no cover — network paths
+            logger.warning("gnews decoder threw: %s", str(exc)[:160])
+            _GNEWS_DECODE_CACHE[google_url] = None
+            return None
 
     if not isinstance(result, dict) or not result.get("status"):
         logger.warning(

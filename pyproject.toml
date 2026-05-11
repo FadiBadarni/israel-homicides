@@ -28,6 +28,7 @@ dependencies = [
     "click",
     "tenacity",
     "structlog",
+    "googlenewsdecoder>=0.1.7",
 ]
 
 [project.optional-dependencies]
