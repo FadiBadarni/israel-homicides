@@ -757,9 +757,38 @@ class Pipeline:
                     )
                 }
 
+        # Pick the most recent extraction per article. ``save_extraction``
+        # explicitly preserves history (re-extracting with a different LLM
+        # leaves the old row in place), so the same article can have multiple
+        # extracted_records rows. Without this dedup step, identical-text
+        # duplicates flow into cosine clustering, producing fake clusters of
+        # the same article paired with itself — the bug that made a single
+        # Bakr Yassin article masquerade as a 2-case cluster after a
+        # multi-run --cities backfill.
+        # Sort by extracted_at descending and keep only the first per article.
+        seen_articles: set[str] = set()
+        unique_extractions: list = []
+        for ext in sorted(
+            extractions,
+            key=lambda e: getattr(e, "extracted_at", None) or "",
+            reverse=True,
+        ):
+            if ext.article_id in seen_articles:
+                continue
+            seen_articles.add(ext.article_id)
+            unique_extractions.append(ext)
+
+        if len(unique_extractions) < len(extractions):
+            log.info(
+                "deduped_extractions_by_article",
+                input=len(extractions),
+                kept=len(unique_extractions),
+                dropped_duplicates=len(extractions) - len(unique_extractions),
+            )
+
         # Construct dedup-input records.
         dedup_records: list[dict[str, Any]] = []
-        for ext in extractions:
+        for ext in unique_extractions:
             article = article_lookup.get(ext.article_id)
             if article is None:
                 continue
