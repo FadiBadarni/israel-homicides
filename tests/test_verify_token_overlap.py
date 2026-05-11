@@ -65,6 +65,26 @@ def test_one_char_typo_still_matches() -> None:
     assert _verify_match(truth, case) is True
 
 
+def test_wafa_middle_name_insertion_matches() -> None:
+    """Live FP-investigation case: truth 'وفاء بدران حصارمة' (3 tokens) is
+    fully contained in pipeline 'وفاء محمود بدران - حصارمة' (4 tokens
+    after splitting on '-'). Full-string Jaro = 0.837, below the 0.85
+    floor — but every truth token has a perfect partner. The containment
+    escape hatch must catch this."""
+    truth = {"victim_name_ar": "وفاء بدران حصارمة"}
+    case = {"victim_name_ar": "وفاء محمود بدران - حصارمة"}
+    assert _verify_match(truth, case) is True
+
+
+def test_three_token_containment_overrides_low_jaro() -> None:
+    """Generic containment test: a 3-token truth fully inside a 5-token
+    pipeline name must match, even though the extra tokens drag the
+    full-string Jaro below 0.85."""
+    truth = {"victim_name_en": "Ahmed Khalil Mansour"}
+    case = {"victim_name_en": "Ahmed Mohamed Khalil Saeed Mansour"}
+    assert _verify_match(truth, case) is True
+
+
 def test_cross_script_bakr_still_matches() -> None:
     """Cross-script (post-romanization fix) Jaro=1.0 — auto-accept."""
     truth = {"victim_name_ar": "بكر محمود ياسين"}

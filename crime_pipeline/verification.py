@@ -115,7 +115,8 @@ _VERIFY_DATE_WINDOW_DAYS = 10
 
 def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
     """Strict name-match for verify, with token-overlap fallback for the
-    ambiguous Jaro zone.
+    ambiguous Jaro zone and a containment escape hatch for middle-name
+    insertions.
 
     Why this is more complex than a single threshold: a flat Jaro ≥ 0.85
     accepts the Bakr↔Bakr-Mahmoud substring case (legit) but ALSO accepts
@@ -123,13 +124,20 @@ def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
     ≈ 0.878). The first shares 2 tokens (bakr + yassin), the second
     shares only 1 (nassar). Token-overlap discriminates the two cases.
 
+    A separate failure mode: 'وفاء بدران حصارمة' vs 'وفاء محمود بدران حصارمة'
+    has full-string Jaro ≈ 0.837 (extra middle name drags it under 0.85),
+    yet every truth token has a perfect partner. That's containment,
+    not a collision — handled by the escape hatch below.
+
     Decision logic:
-      • Jaro ≥ 0.95 → ACCEPT (essentially identical, near-perfect)
-      • Jaro < 0.85 → REJECT (clearly different names)
-      • Jaro ∈ [0.85, 0.95) → require ≥ 2 shared tokens (where 'shared'
-        means there's a per-token Jaro ≥ 0.85 partner across the two
-        names). One shared token is too weak — it's the family-name
-        collision pattern.
+      • Jaro ≥ 0.95 → ACCEPT (essentially identical)
+      • Token-containment: ≥ 2 tokens on the short side AND every short
+        token has a partner at per-token Jaro ≥ 0.85 → ACCEPT (overrides
+        the < 0.85 reject; handles middle-name insertions and Arabic
+        article elisions)
+      • Jaro < 0.85 → REJECT
+      • Jaro ∈ [0.85, 0.95) → require ≥ 2 shared tokens. One shared
+        token is the family-name collision pattern.
     """
     from crime_pipeline.dedup.name_normalizer import (
         jaro_winkler_similarity, romanize_name,
@@ -152,11 +160,7 @@ def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
 
     if best >= _VERIFY_NAME_JARO_HIGH:
         return True
-    if best < _VERIFY_NAME_JARO_LOW:
-        return False
 
-    # Ambiguous zone — require sufficient token overlap to distinguish
-    # legit substring matches from family-name collisions.
     if best_pair is None:
         return False
     tn, cn = best_pair
@@ -175,6 +179,16 @@ def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
             if jaro_winkler_similarity(st, lt) >= _VERIFY_TOKEN_JARO_THRESHOLD:
                 shared += 1
                 break
+
+    # Containment escape hatch: every short-side token has a partner.
+    # Requires short ≥ 2 to avoid the single-family-name collision
+    # pattern ('Bakr' alone matching 'Bakr Mahmoud Yassin').
+    if len(short) >= 2 and shared == len(short):
+        return True
+
+    if best < _VERIFY_NAME_JARO_LOW:
+        return False
+
     return shared >= _VERIFY_REQUIRED_TOKEN_OVERLAP
 
 
