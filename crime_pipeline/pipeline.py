@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -45,6 +46,45 @@ from crime_pipeline.storage.repository import (
 )
 
 log = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Discovery query expansion (E+D strategy)
+# ---------------------------------------------------------------------------
+
+_DISCOVER_SECOND_PASS_THRESHOLD = 3
+
+_HE_DESCRIPTOR_TERMS = ["רצח", "ירי"]   # murder, shooting
+_AR_DESCRIPTOR_TERMS = ["مقتل", "قتل"]  # killed, killing
+
+_ALL_CRIME_TERMS = frozenset(
+    _HE_DESCRIPTOR_TERMS + _AR_DESCRIPTOR_TERMS
+    + ["דקירה", "נרצח", "הרג", "إطلاق", "جريمة", "طعن"]
+)
+
+
+def _generate_descriptor_variants(query: str, date_from: str) -> list[str]:
+    """Return incident-descriptor query variants to run when first-pass is sparse.
+
+    Appending a crime term to a city name catches articles whose titles say
+    "doctor kills his brother in Arraba" when the original query was the city
+    name or a victim name that never appears in Hebrew news headlines.
+
+    Returns [] when the query already contains crime vocabulary.
+    """
+    if any(t in query for t in _ALL_CRIME_TERMS):
+        return []
+
+    year = date_from[:4] if date_from and len(date_from) >= 4 else ""
+    if year and year in query:
+        year = ""  # don't duplicate year already in query string
+
+    is_arabic = bool(re.search(r"[؀-ۿ]", query))
+    terms = _AR_DESCRIPTOR_TERMS if is_arabic else _HE_DESCRIPTOR_TERMS
+
+    return [
+        f"{query} {term}" + (f" {year}" if year else "")
+        for term in terms
+    ]
 
 
 class Pipeline:
