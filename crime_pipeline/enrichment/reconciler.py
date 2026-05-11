@@ -73,9 +73,35 @@ def _jaro(a: str, b: str) -> float:
 
 
 def _city_conflicts(a: dict, b: dict) -> bool:
-    ca = (a.get("city") or "").strip().lower()
-    cb = (b.get("city") or "").strip().lower()
-    return bool(ca and cb and ca != cb)
+    """True if both cases have a city AND those cities clearly differ.
+
+    Uses the gazetteer to canonicalize before comparing — so the bare
+    'عرابة' and the official long form 'عرابة البطوف' are treated as
+    the same city instead of as a hard conflict. Falls back to literal
+    string compare when the gazetteer doesn't know the city.
+
+    Pre-fix bug: the live --cities Arab48 backfill produced two records
+    for Bakr Yassin (one with city='عرابة', the other with city='عرابة
+    البطوف') that the reconciler refused to merge because this function
+    flagged a conflict before the Jaro name check could run.
+    """
+    ca = (a.get("city") or "").strip()
+    cb = (b.get("city") or "").strip()
+    if not (ca and cb):
+        return False
+    if ca.lower() == cb.lower():
+        return False
+
+    # Both sides have a city and they differ literally — check gazetteer
+    # for an alias-aware match before declaring a real conflict.
+    from crime_pipeline.utils.gazetteer import normalize_city
+    ra = normalize_city(ca)
+    rb = normalize_city(cb)
+    if ra and rb:
+        return ra.get("name_en") != rb.get("name_en")
+
+    # One side unknown to gazetteer → fall back to literal compare
+    return True
 
 
 def _date_conflicts(a: dict, b: dict) -> bool:
@@ -232,6 +258,41 @@ def reconcile_cases(
                     best = s
         return best
 
+    def _name_tokens(name: str) -> list[str]:
+        """Romanized token list, dropping 1-char tokens (initials/diacritics)."""
+        from crime_pipeline.dedup.name_normalizer import romanize_name
+        return [t for t in romanize_name(name).split() if len(t) > 1]
+
+    def _token_containment_match(
+        names_a: list[str], names_b: list[str]
+    ) -> bool:
+        """True when one name is the other with extra middle tokens inserted.
+
+        Required guards (preventing over-merging on common first names):
+        - Shorter side must have ≥2 tokens (single-token names too risky)
+        - Shorter side's tokens must be a STRICT subset of the longer's
+        - First AND last tokens must match exactly (so "X Y" matches
+          "X Z Y" but not "X Y" vs "Y X" reorderings)
+
+        Catches the inserted-middle-name pattern that Jaro can fall below
+        threshold on for longer middle names. The primary fix for this
+        bug was the city-gazetteer comparison; this is defense in depth.
+        """
+        for na in names_a:
+            ta = _name_tokens(na)
+            for nb in names_b:
+                tb = _name_tokens(nb)
+                if len(ta) < 2 or len(tb) < 2 or len(ta) == len(tb):
+                    continue
+                short, long_ = (ta, tb) if len(ta) < len(tb) else (tb, ta)
+                if (
+                    set(short) < set(long_)
+                    and short[0] == long_[0]
+                    and short[-1] == long_[-1]
+                ):
+                    return True
+        return False
+
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             a, b = cases[i], cases[j]
@@ -242,20 +303,29 @@ def reconcile_cases(
             names_b = _all_names(b)
 
             # Rule 1: both have at least one name → best alias-aware Jaro match
+            # OR token-containment match (catches inserted-middle-name cases
+            # where Jaro can fall below threshold for longer middle names).
             if names_a and names_b:
                 score = _best_jaro(names_a, names_b)
-                if score >= jaro_threshold:
+                containment = _token_containment_match(names_a, names_b)
+                if score >= jaro_threshold or containment:
                     union(i, j)
+                    rule = (
+                        "name_match"
+                        if score >= jaro_threshold
+                        else "name_token_containment"
+                    )
                     merged_pairs.append({
                         "i": i, "j": j,
                         "name_a": a.get("victim_name") or names_a[0],
                         "name_b": b.get("victim_name") or names_b[0],
                         "jaro": round(score, 3),
-                        "rule": "name_match",
+                        "rule": rule,
                     })
                     log.info(
                         "reconciler_merge",
                         name_a=names_a[0], name_b=names_b[0], jaro=round(score, 3),
+                        rule=rule,
                         city_a=a.get("city"), city_b=b.get("city"),
                     )
                     continue
