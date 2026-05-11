@@ -95,6 +95,7 @@ class Pipeline:
         settings: Settings,
         run_id: str | None = None,
         strict_city: bool = False,
+        strict_date: bool = False,
     ) -> None:
         self.settings = settings
         self.run_id = run_id or str(uuid.uuid4())[:12]
@@ -104,9 +105,15 @@ class Pipeline:
         # runs (--cities); the CLI guards against using it with a freeform
         # --query string.
         self.strict_city = strict_city
-        # Populated during run() when strict_city is enabled — the canonical
-        # city record we're scoping to for THIS run.
         self._strict_city_target: dict | None = None
+        # When True, post-merge cases whose extracted incident_date falls
+        # outside the queried [date_from, date_to] window are dropped. The
+        # 2020-killed-Wafa-Abahara-in-a-2026-sentencing-article case is the
+        # canonical reason this filter exists. Without it, sentencing /
+        # retrospective articles about old murders contaminate year-by-year
+        # backfills with cases from the wrong year.
+        self.strict_date = strict_date
+        self._strict_date_window: tuple[Any, Any] | None = None
         # Make sure the parent directory for the SQLite file exists.
         self.settings.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = init_db(str(settings.db_path))
@@ -192,6 +199,25 @@ class Pipeline:
                     "strict_city_target",
                     name_en=self._strict_city_target.get("name_en"),
                 )
+
+        # Resolve the strict-date window (canonicalised once per run).
+        if self.strict_date:
+            from datetime import date as _date
+            try:
+                self._strict_date_window = (
+                    _date.fromisoformat(date_from),
+                    _date.fromisoformat(date_to),
+                )
+                log.info(
+                    "strict_date_window",
+                    date_from=date_from, date_to=date_to,
+                )
+            except ValueError as exc:
+                log.warning(
+                    "strict_date_window_unresolved",
+                    date_from=date_from, date_to=date_to, error=str(exc),
+                )
+                self._strict_date_window = None
 
         discovered: list = []
         articles: list = []
@@ -663,6 +689,50 @@ class Pipeline:
             return True, "city_match"
         return False, f"city_mismatch:{case_en or case_city}"
 
+    def _matches_strict_date(self, case) -> tuple[bool, str]:
+        """Decide whether a merged case's incident_date is in window.
+
+        Returns ``(keep, reason)``. When the case has no extracted
+        incident_date, we KEEP and flag with `date_filter_unverified`
+        — same logic as the city filter: don't silently drop on missing
+        data, surface it for operator review.
+        """
+        window = self._strict_date_window
+        if window is None:
+            return True, "no_window"
+        date_from, date_to = window
+
+        # Try incident_date first, fall back to death_date (a 2020-killed
+        # victim with no incident_date but death_date=2020 still gets dropped).
+        from datetime import date as _date
+        candidate = None
+        for field in ("incident_date", "death_date"):
+            val = getattr(case, field, None)
+            if val is None:
+                continue
+            if isinstance(val, _date):
+                candidate = val
+                break
+            try:
+                candidate = _date.fromisoformat(str(val))
+                break
+            except (ValueError, TypeError):
+                continue
+
+        if candidate is None:
+            flags = list(getattr(case, "flags", None) or [])
+            if "date_filter_unverified" not in flags:
+                flags.append("date_filter_unverified")
+            try:
+                case.flags = flags
+            except Exception:  # pragma: no cover
+                pass
+            return True, "no_date_extracted"
+
+        if date_from <= candidate <= date_to:
+            return True, "date_in_window"
+        return False, f"date_out_of_window:{candidate.isoformat()}"
+
     # ------------------------------------------------------------------
     # Stages 4 + 5: Dedup + Merge
     # ------------------------------------------------------------------
@@ -826,6 +896,25 @@ class Pipeline:
                         )
                         self.stats["strict_city_dropped"] = (
                             self.stats.get("strict_city_dropped", 0) + 1
+                        )
+                        continue
+
+                # Strict-date filter: drop cases whose incident_date is outside
+                # the queried window. Catches the Wafa-Abahara 2020 sentencing
+                # scenario where a 2026 article correctly extracts the 2020
+                # incident date but the case shouldn't ship in a 2026 dataset.
+                if self.strict_date and self._strict_date_window is not None:
+                    keep, drop_reason = self._matches_strict_date(case)
+                    if not keep:
+                        log.info(
+                            "strict_date_filter_drop",
+                            case_id=getattr(case, "canonical_case_id", None),
+                            extracted_date=getattr(case, "incident_date", None),
+                            window=self._strict_date_window,
+                            reason=drop_reason,
+                        )
+                        self.stats["strict_date_dropped"] = (
+                            self.stats.get("strict_date_dropped", 0) + 1
                         )
                         continue
 

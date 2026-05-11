@@ -163,6 +163,19 @@ def configure_logging(level: str) -> None:
     ),
 )
 @click.option(
+    "--strict-date",
+    is_flag=True,
+    default=False,
+    help=(
+        "Drop merged cases whose extracted incident_date falls outside the "
+        "queried [--date-from, --date-to] window. Catches sentencing / "
+        "retrospective articles where a 2026 article correctly extracts a "
+        "2020 incident date but the case doesn't belong in a 2026 dataset. "
+        "Cases without any extracted date are KEPT and tagged "
+        "'date_filter_unverified'."
+    ),
+)
+@click.option(
     "--cities",
     "cities",
     default=None,
@@ -276,6 +289,7 @@ def cli(
     max_per_source: int,
     max_pages: int,
     strict_city: bool,
+    strict_date: bool,
     cities: str | None,
     cities_year: int | None,
     keyword_mode: str | None,
@@ -529,7 +543,10 @@ def cli(
                 click.echo(
                     f"▶ {city_in} → {source} (query={native_query!r}, run_id={pair_run_id})"
                 )
-                pipeline = Pipeline(settings, run_id=pair_run_id, strict_city=strict_city)
+                pipeline = Pipeline(
+                    settings, run_id=pair_run_id,
+                    strict_city=strict_city, strict_date=strict_date,
+                )
                 try:
                     pair_stats = asyncio.run(
                         pipeline.run(
@@ -626,7 +643,9 @@ def cli(
             pair_run_id = f"kw_{lang}_{slug}_{year}"
             click.echo(f"▶ keyword={kw!r} → {source} (run_id={pair_run_id})")
 
-            pipeline = Pipeline(settings, run_id=pair_run_id)
+            pipeline = Pipeline(
+                settings, run_id=pair_run_id, strict_date=strict_date,
+            )
             try:
                 pair_stats = asyncio.run(
                     pipeline.run(
@@ -695,7 +714,10 @@ def cli(
     if cosine_threshold is not None:
         settings.cosine_threshold = cosine_threshold
 
-    pipeline = Pipeline(settings, run_id=run_id, strict_city=strict_city)
+    pipeline = Pipeline(
+        settings, run_id=run_id,
+        strict_city=strict_city, strict_date=strict_date,
+    )
 
     click.echo(f"Pipeline starting | run_id={pipeline.run_id}")
     click.echo(f"  Query:       {query}")

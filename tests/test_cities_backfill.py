@@ -57,8 +57,10 @@ def test_cities_dispatch_loop_lives_in_main_module() -> None:
     src = inspect.getsource(cli_mod)
     # The loop must be visible in the CLI module
     assert "for city_in in city_inputs" in src or "for city_in in" in src
-    # Each iteration creates a fresh Pipeline (Sonnet's requirement)
-    assert "Pipeline(settings, run_id=pair_run_id" in src
+    # Each iteration creates a fresh Pipeline (Sonnet's requirement).
+    # The line may wrap to multi-line with strict_city/strict_date kwargs.
+    assert "Pipeline(" in src
+    assert "run_id=pair_run_id" in src
 
 
 def test_cities_runs_per_source_with_native_query() -> None:
