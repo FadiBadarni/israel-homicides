@@ -283,44 +283,70 @@ class Pipeline:
         max_per_source: int,
         max_pages: int = 5,
     ) -> list:
-        """Find candidate URLs across each source and dedupe."""
-        all_urls: list = []
+        """Find candidate URLs across each source, with E+D query expansion.
+
+        First pass uses the caller-supplied query. If it returns fewer than
+        _DISCOVER_SECOND_PASS_THRESHOLD unique URLs, a second pass runs
+        crime-type descriptor variants (e.g. "{city} רצח {year}") to catch
+        articles whose titles use incident descriptors rather than victim names.
+        """
+        # Build scraper map once — avoid recreating per query in second pass.
+        scrapers: dict = {}
         for source in sources:
             try:
-                scraper = get_scraper(
+                scrapers[source] = get_scraper(
                     source,
                     request_delay=self.settings.request_delay_seconds,
                     respect_robots=self.settings.robots_txt_respect,
                 )
-                # Pass max_pages where the scraper supports it; older
-                # scrapers ignore the kwarg via **kwargs or signature
-                # tolerance. We try the new signature first, fall back if
-                # the scraper hasn't been updated yet.
-                try:
-                    urls = await scraper.discover(
-                        query, date_from, date_to,
-                        max_results=max_per_source, max_pages=max_pages,
-                    )
-                except TypeError:
-                    # Scraper hasn't adopted max_pages yet — call without it.
-                    urls = await scraper.discover(
-                        query, date_from, date_to, max_results=max_per_source,
-                    )
-                log.info("discovered", source=source, count=len(urls))
-                all_urls.extend(urls)
             except Exception as e:  # pragma: no cover - defensive
-                log.error("discover_error", source=source, error=str(e))
+                log.error("scraper_init_error", source=source, error=str(e))
 
-        # Dedup URLs across sources (first occurrence wins).
         seen: set[str] = set()
-        unique = []
-        for u in all_urls:
-            if u.url not in seen:
-                seen.add(u.url)
-                unique.append(u)
+        unique: list = []
+        total_raw = 0
+
+        async def _run_query(q: str) -> None:
+            nonlocal total_raw
+            for source, scraper in scrapers.items():
+                try:
+                    try:
+                        urls = await scraper.discover(
+                            q, date_from, date_to,
+                            max_results=max_per_source, max_pages=max_pages,
+                        )
+                    except TypeError:
+                        # Scraper hasn't adopted max_pages yet — call without it.
+                        urls = await scraper.discover(
+                            q, date_from, date_to, max_results=max_per_source,
+                        )
+                    total_raw += len(urls)
+                    log.info("discovered", source=source, query=q, count=len(urls))
+                    for u in urls:
+                        if u.url not in seen:
+                            seen.add(u.url)
+                            unique.append(u)
+                except Exception as e:  # pragma: no cover - defensive
+                    log.error("discover_error", source=source, query=q, error=str(e))
+
+        # First pass: original query.
+        await _run_query(query)
+
+        # Second pass (E+D): when the first pass is sparse, run crime-type
+        # descriptor variants that catch headlines like "doctor kills his
+        # brother in Arraba" when the original query was a victim name or a
+        # bare city name that doesn't appear in titles.
+        if len(unique) < _DISCOVER_SECOND_PASS_THRESHOLD:
+            for alt_query in _generate_descriptor_variants(query, date_from):
+                log.info(
+                    "discover_second_pass",
+                    alt_query=alt_query,
+                    first_pass_count=len(unique),
+                )
+                await _run_query(alt_query)
 
         self.stats["discovered"] = len(unique)
-        log.info("discover_complete", unique_urls=len(unique), total_raw=len(all_urls))
+        log.info("discover_complete", unique_urls=len(unique), total_raw=total_raw)
         return unique
 
     # ------------------------------------------------------------------
