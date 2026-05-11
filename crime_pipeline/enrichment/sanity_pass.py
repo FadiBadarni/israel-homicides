@@ -76,10 +76,22 @@ def _coerce_date(d: Any) -> date | None:
 
 def clamp_dates_to_published_year(case: dict[str, Any]) -> dict[str, Any]:
     """
-    If incident_date / death_date / incident_date_possible has a year that is
-    >= 2 years off from the dominant published_at year, swap the year.
-    Also corrects values stored under ``conflicts[field]`` (so the audit
-    trail doesn't keep showing pre-correction dates as live conflicts).
+    Conservative year-correction. Catches LLM typos without rewriting
+    legitimate historical references.
+
+    Rules:
+      - Future dates (year > publication_year): ALWAYS clamp — articles
+        can't report on events that haven't happened yet, so this is a
+        clear LLM error.
+      - Past dates 1-2 years off (year < publication_year by 1-2): clamp —
+        LLM probably defaulted to a stale training-data year despite the
+        prompt instruction to infer from publication date.
+      - Past dates 3+ years off: KEEP. These are almost always genuine
+        historical references in sentencing / retrospective articles
+        (e.g. a 2026 article reporting on the 2020 murder of X). Clamping
+        them would silently turn old cases into fake current-year
+        homicides — the Wafa Abahara 2020 bug.
+
     Adds 'date_year_corrected' flag when a correction is applied.
     """
     py = _published_year(case)
@@ -94,7 +106,11 @@ def clamp_dates_to_published_year(case: dict[str, Any]) -> dict[str, Any]:
         d = _coerce_date(case.get(field))
         if d is None:
             continue
-        if abs(d.year - py) >= 2:
+        delta = d.year - py
+        # Future date → clamp; small backward delta → clamp; larger
+        # historical reference → keep.
+        should_clamp = delta > 0 or (-2 <= delta < 0)
+        if should_clamp:
             try:
                 fixed = d.replace(year=py)
             except ValueError:
@@ -116,8 +132,10 @@ def clamp_dates_to_published_year(case: dict[str, Any]) -> dict[str, Any]:
             if cd is None:
                 survivors[url] = value
                 continue
-            if abs(cd.year - py) >= 2:
-                # apply same year correction
+            delta_c = cd.year - py
+            # Same conservative clamp as above: future or 1-2 year backward
+            # typo gets corrected; older historical refs are kept as-is.
+            if delta_c > 0 or (-2 <= delta_c < 0):
                 try:
                     cd = cd.replace(year=py)
                 except ValueError:
