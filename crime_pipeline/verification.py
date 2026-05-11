@@ -106,30 +106,138 @@ def _truth_to_case_shape(truth: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_VERIFY_NAME_JARO_THRESHOLD = 0.85
+_VERIFY_DATE_WINDOW_DAYS = 10
+
+
+def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
+    """Strict name-match for verify: Jaro-Winkler ≥ 0.85 on romanized form,
+    best-pair across all (truth × case) name combos.
+
+    Stricter than ``is_same_incident``'s 0.70 because verify lacks the
+    surrounding context (article text, source URLs, ...) that disambiguates
+    near-matches in the intra-pipeline merge step.
+    """
+    from crime_pipeline.dedup.name_normalizer import (
+        jaro_winkler_similarity, romanize_name,
+    )
+    truth_rom = [romanize_name(n) for n in truth_names if n]
+    case_rom = [romanize_name(n) for n in case_names if n]
+    truth_rom = [n for n in truth_rom if n]
+    case_rom = [n for n in case_rom if n]
+    if not truth_rom or not case_rom:
+        return False
+    best = 0.0
+    for tn in truth_rom:
+        for cn in case_rom:
+            s = jaro_winkler_similarity(tn, cn)
+            if s > best:
+                best = s
+    return best >= _VERIFY_NAME_JARO_THRESHOLD
+
+
+def _verify_dates_match(truth_date: Any, case_date: Any) -> bool:
+    """±10-day window. Loosened from is_same_incident's ±5 because truth
+    dates are often inferred (e.g. from a sentencing-article publication
+    date rather than the actual incident)."""
+    from datetime import date as _date, timedelta
+    def _coerce(d: Any) -> _date | None:
+        if d is None:
+            return None
+        if isinstance(d, _date):
+            return d
+        try:
+            return _date.fromisoformat(str(d))
+        except (ValueError, TypeError):
+            return None
+    a, b = _coerce(truth_date), _coerce(case_date)
+    if a is None or b is None:
+        return False
+    return abs((a - b).days) <= _VERIFY_DATE_WINDOW_DAYS
+
+
+def _verify_cities_match(truth_city: str | None, case: dict[str, Any]) -> bool:
+    """Gazetteer-aware city match — both must resolve to the same canonical
+    record. Returns False if either side lacks a city."""
+    if not truth_city:
+        return False
+    case_city = case.get("city")
+    if not case_city:
+        return False
+    if truth_city.strip().lower() == case_city.strip().lower():
+        return True
+    from crime_pipeline.utils.gazetteer import normalize_city
+    a = normalize_city(truth_city)
+    b = normalize_city(case_city)
+    if a and b:
+        return a.get("name_en") == b.get("name_en")
+    return False
+
+
+def _verify_match(truth: dict[str, Any], case: dict[str, Any]) -> bool:
+    """Strict per-record matcher for verify.
+
+    Required: AT LEAST ONE positive signal must hold —
+      (a) name match (Jaro ≥ 0.85 on romanized form), OR
+      (b) city + date match (gazetteer city + ±10 days)
+
+    Null fields are NEVER treated as auto-pass: a truth record with
+    only a name and no city/date is matched ONLY by name. A pipeline
+    case with no name can only be matched if truth supplies city + date.
+    This is stricter than ``is_same_incident``'s skip-on-null behavior,
+    which is correct for intra-pipeline merging but produces spurious
+    verify hits when truth records lack context.
+    """
+    truth_names = [
+        truth.get("victim_name"),
+        truth.get("victim_name_ar"),
+        truth.get("victim_name_he"),
+        truth.get("victim_name_en"),
+    ]
+    case_names = [
+        case.get("victim_name"),
+        case.get("victim_name_ar"),
+        case.get("victim_name_he"),
+        case.get("victim_name_en"),
+    ]
+    case_names += list(case.get("aliases") or [])
+
+    name_match = _verify_names_match(
+        [n for n in truth_names if n], [n for n in case_names if n]
+    )
+
+    city_match = _verify_cities_match(truth.get("city"), case)
+    date_match = _verify_dates_match(
+        truth.get("incident_date") or truth.get("death_date"),
+        case.get("incident_date") or case.get("death_date"),
+    )
+
+    # Strict: name match alone is enough; city alone or date alone is NOT.
+    # City + date together is enough (covers anonymous victims).
+    return name_match or (city_match and date_match)
+
+
 def verify_run_against_truth(
     truth_records: list[dict[str, Any]],
     pipeline_cases: list[dict[str, Any]],
 ) -> VerifyResult:
     """Match truth records to pipeline cases.
 
-    Uses the same gating logic as the cross-source merge (jaro≥0.70 on
-    romanized names, city normalization via gazetteer, ±5-day date window)
-    so the eval rule is consistent with how the pipeline merges incidents.
+    Uses a strict per-record matcher (``_verify_match``) — different from
+    the intra-pipeline ``is_same_incident`` gate because verify lacks
+    surrounding article context and can't tolerate null-field auto-passes.
     Greedy 1:1 matching — once a pipeline case is matched it can't match
     another truth record.
     """
-    from crime_pipeline.enrichment.enricher import is_same_incident
-
     matched_truth_idx: set[int] = set()
     matched_case_idx: set[int] = set()
 
     for ti, truth in enumerate(truth_records):
-        truth_shape = _truth_to_case_shape(truth)
         for ci, case in enumerate(pipeline_cases):
             if ci in matched_case_idx:
                 continue
             try:
-                ok, _reason = is_same_incident(case, truth_shape)
+                ok = _verify_match(truth, case)
             except Exception:
                 continue
             if ok:
