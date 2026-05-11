@@ -614,8 +614,16 @@ def cli(
         # Curated keyword presets (Gemini's discover-phase recommendations).
         # Kept tight: 2 strong keywords per language. Adding more multiplies
         # API cost without much marginal recall — triage already filters noise.
-        _HE_KEYWORDS = ["רצח", "נרצח"]
-        _AR_KEYWORDS = ["جريمة قتل", "مقتل"]
+        # Curated keyword presets (Gemini's discover-phase + live-recall
+        # data). Each list is a union — every keyword runs as its own
+        # pipeline call and results are de-duped at verify time.
+        # Initial 2 keywords per language gave 69% recall on the Jan 2026
+        # truth. Adding the *weapon-action* keywords (ירי / דקירה /
+        # إطلاق نار / طعن) catches articles whose titles describe the
+        # method rather than naming the crime — pushes recall higher
+        # at the cost of more noise the triage filter then drops.
+        _HE_KEYWORDS = ["רצח", "נרצח", "ירי", "דקירה"]
+        _AR_KEYWORDS = ["جريمة قتل", "مقتل", "إطلاق نار", "طعن"]
         # Source compatibility — Hebrew kw on Hebrew site, Arabic on Arabic.
         _SOURCE_FOR_LANG = {"he": "ynet", "ar": "arab48"}
 
