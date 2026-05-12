@@ -28,6 +28,10 @@ function pulseWeight(mostRecentIncidentDate: string | null): number {
   return Math.max(0, 1 - days / 30);
 }
 
+function slugify(city: string): string {
+  return city.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 export function MemorialMap({ memorial }: MemorialMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -57,6 +61,44 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
   useEffect(() => {
     filteredLocalitiesRef.current = filteredLocalities;
   }, [filteredLocalities]);
+
+  // Read URL on first paint
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("locality");
+    if (!slug) return;
+    const loc = memorial.localities.find((l) => slugify(l.city) === slug);
+    if (!loc) return;
+    setSelectedLocality(loc);
+    setScreenPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    const caseStr = params.get("case");
+    if (caseStr) {
+      const idx = Number(caseStr);
+      if (!isNaN(idx)) setSelectedCaseIndex(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Write URL on selection change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (selectedLocality) {
+      params.set("locality", slugify(selectedLocality.city));
+      if (selectedCaseIndex !== null) {
+        params.set("case", String(selectedCaseIndex));
+      } else {
+        params.delete("case");
+      }
+    } else {
+      params.delete("locality");
+      params.delete("case");
+    }
+    const qs = params.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", url);
+  }, [selectedLocality, selectedCaseIndex]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
