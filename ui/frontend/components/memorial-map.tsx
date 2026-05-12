@@ -81,6 +81,39 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
           "circle-stroke-color": "#5a1b13",
         },
       });
+
+      // Pulse ring — outer circle whose opacity oscillates
+      map.addLayer({
+        id: "locality-pulse",
+        type: "circle",
+        source: "localities",
+        paint: {
+          "circle-color": "transparent",
+          "circle-stroke-color": "#8b2a1f",
+          "circle-stroke-width": 2,
+          "circle-stroke-opacity": 0,
+          "circle-radius": [
+            "min",
+            28,
+            ["+", 8, ["*", 4, ["sqrt", ["get", "death_count"]]]],
+          ],
+        },
+      }, "locality-dot");  // insert beneath the solid dot
+
+      let raf = 0;
+      const tick = () => {
+        const t = performance.now() / 1000;
+        const sine = (Math.sin(t * 1.8) + 1) / 2; // 0..1 at ~0.3 Hz
+        map.setPaintProperty("locality-pulse", "circle-stroke-opacity", [
+          "*",
+          sine * 0.45,
+          ["get", "pulse_weight"],
+        ]);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+
+      map.once("remove", () => cancelAnimationFrame(raf));
     });
 
     return () => {
