@@ -192,6 +192,39 @@ class CaseMerger:
         organized_crime, _ = resolve_boolean_or(field_values("organized_crime"))
         family_dispute, _ = resolve_boolean_or(field_values("family_dispute"))
 
+        # ---- Geography (scope discriminator) ----
+        # Value-based priority: when sources disagree, prefer the more
+        # SPECIFIC value (a known classification over "unknown"). The
+        # ordering favours the dataset target (israel_arab_society) so
+        # corroboration wins over an outlier "abroad" tag from a
+        # tangentially-related summary article. Conflicts are flagged
+        # but don't change the priority winner.
+        _GEO_PRIORITY = {
+            "israel_arab_society": 0,
+            "palestinian_territories": 1,
+            "abroad": 2,
+            "israel_jewish_society": 3,
+            "israel_other": 4,
+            "unknown": 5,
+        }
+        geo_non_null = [
+            v for v, _src, _c in field_values("incident_geography")
+            if v is not None
+        ]
+        if geo_non_null:
+            incident_geography = min(
+                geo_non_null,
+                key=lambda v: _GEO_PRIORITY.get(v, 99),
+            )
+            if len(set(geo_non_null)) > 1:
+                flags.append("incident_geography:field_conflict")
+                collect_conflict(
+                    "incident_geography",
+                    field_values("incident_geography"),
+                )
+        else:
+            incident_geography = None
+
         # ---- Source refs ----
 
         def _publisher(url: str, scraper: str) -> str:
@@ -238,6 +271,7 @@ class CaseMerger:
         )
 
         case = CanonicalCaseSchema(
+            incident_geography=incident_geography,
             victim_name=victim_name,
             victim_age=victim_age,
             victim_gender=victim_gender,

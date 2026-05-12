@@ -87,6 +87,21 @@ Per-victim date rule (CRITICAL):
     RIGHT:  {"victim_name_he": "אדהם נסאר", "incident_date": "2026-01-05"}
     ACCEPTABLE: {"victim_name_he": "אדהם נסאר", "incident_date": null}
 
+INCIDENT GEOGRAPHY — pick one (this also drives whether the case enters the dataset):
+- "israel_arab_society": victim is an Arab citizen of Israel (or stateless resident of the Arab community in Israel); incident occurred INSIDE Israel proper. THIS IS THE DATASET TARGET. Default to this category whenever Israeli Arab-society indicators are present: an Israeli Arab town/city (Tira, Sakhnin, Umm al-Fahm, Rahat, Nazareth, Bedouin Negev, Druze villages like Yarka/Yanuh, etc.), references to "המגזר הערבי" / "المجتمع العربي" / "Arab society", police of Israel investigating, Hebrew/Arabic name combinations typical of Israeli Arab citizens.
+- "israel_jewish_society": victim is a Jewish Israeli; incident inside Israel. Same incident type (homicide) but out of scope — different dataset.
+- "israel_other": victim is a foreign national (tourist, foreign worker, dual citizen mostly abroad) killed inside Israel.
+- "palestinian_territories": incident in the Gaza Strip, the West Bank, or East Jerusalem. Examples: قطاع غزة / רצועת עזה, רמאללה / رام الله, خان يونس, نابلس, جنين, etc. Even when the victim is Palestinian-Israeli (e.g. East Jerusalem resident with Israeli ID), code as palestinian_territories when the INCIDENT LOCATION is in the territories.
+- "abroad": anywhere outside Israel and the Palestinian territories. Iran (Tehran, Isfahan, Karaj, Malard, Harsin), Libya (الزنتان), Lebanon (بيروت), Syria (دمشق), Iraq, Egypt, Jordan, Turkey, Europe (Lyon, Paris, London, Berlin, Madrid, Budapest), USA (Minneapolis, Wilmington, NYC), Russia, etc.
+- "unknown": article doesn't make geography clear (early-breaking-news snippet, paywall, ambiguous).
+
+Geography rules of thumb:
+- Article city is INSIDE Israel + victim has Arab name → israel_arab_society.
+- Article explicitly mentions "Gaza" / "Strip" / "West Bank" / "occupied territories" → palestinian_territories (even if the victim has an Israeli ID).
+- Article is about a foreign assassination, foreign war casualty, foreign-country crime → abroad (regardless of victim's ethnicity).
+- A Saif al-Islam Gaddafi report → abroad. A Tehran political assassination → abroad. A Minneapolis shooting → abroad.
+- When uncertain (article uses generic words like "ירי" / "إطلاق نار" with no city), pick "unknown" rather than guessing.
+
 INCIDENT TYPE — pick one (this drives whether the case enters the dataset):
 - "homicide": confirmed deliberate killing — current case (e.g. נרצח / قُتل / مقتل with named victim, criminal investigation)
 - "attempted_homicide": deliberate attempt that did NOT kill (yet) — wounded, critical, in hospital after a shooting/stabbing/assault. ניסיון רצח / محاولة قتل / إطلاق نار / طعن without confirmed death.
@@ -107,6 +122,7 @@ Rules of thumb:
 JSON Schema you must follow:
 {
   "incident_type": "homicide" | "attempted_homicide" | "accident" | "suicide" | "historical" | "other_crime" | "non_crime" | "unknown",
+  "incident_geography": "israel_arab_society" | "israel_jewish_society" | "israel_other" | "palestinian_territories" | "abroad" | "unknown",
   "victim_name": string | null,                           // primary spelling as it appears
   "victim_name_ar": string | null,                        // Arabic-script form if present
   "victim_name_he": string | null,                        // Hebrew-script form if present

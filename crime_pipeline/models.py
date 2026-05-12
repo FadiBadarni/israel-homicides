@@ -287,6 +287,36 @@ class ExtractedArticleData(BaseModel):
         ]
     ] = None
 
+    # WHERE the incident occurred and WHO the victim is, in terms of the
+    # dataset's scope. Replaces the post-hoc city/name blocklists that
+    # tried (and failed) to filter foreign-news bleed-through. The LLM
+    # is already reading the article — it has all the context to make
+    # this call directly. The relevance filter drops everything except
+    # ``israel_arab_society`` (and optionally ``unknown`` for review).
+    #
+    # Categories:
+    #   • israel_arab_society — Arab citizens of Israel (the dataset target)
+    #   • israel_jewish_society — Jewish Israeli victim; legitimate Israeli
+    #     homicide but out of scope here.
+    #   • israel_other — foreign-national victims killed inside Israel
+    #     (tourists, foreign workers).
+    #   • palestinian_territories — Gaza Strip / West Bank incidents.
+    #   • abroad — anywhere outside Israel + Palestinian territories
+    #     (Iran, US, EU, Russia, etc.).
+    #   • unknown — article is ambiguous about geography.
+    #
+    # None for legacy extractions made before this field existed.
+    incident_geography: Optional[
+        Literal[
+            "israel_arab_society",
+            "israel_jewish_society",
+            "israel_other",
+            "palestinian_territories",
+            "abroad",
+            "unknown",
+        ]
+    ] = None
+
     # Multilingual victim names — capture all variants present in the article
     victim_name: Optional[str] = None  # Primary name as it appears in article
     victim_name_ar: Optional[str] = None  # Arabic spelling if present
@@ -436,6 +466,21 @@ class CanonicalCaseSchema(BaseModel):
     """
 
     canonical_case_id: Optional[str] = None  # e.g. "IL-HOMICIDE-2026-ARRABA-2026-01-04-BAKR-YASSIN"
+
+    # Scope discriminator — propagated from extraction so downstream
+    # filters (and the React UI) can show / hide cases by geography.
+    # See ``ExtractedArticleData.incident_geography`` for the value
+    # semantics. None = legacy / not yet extracted.
+    incident_geography: Optional[
+        Literal[
+            "israel_arab_society",
+            "israel_jewish_society",
+            "israel_other",
+            "palestinian_territories",
+            "abroad",
+            "unknown",
+        ]
+    ] = None
 
     # Multilingual victim identity
     victim_name: Optional[str] = None  # primary display name

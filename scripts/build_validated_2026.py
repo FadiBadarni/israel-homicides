@@ -1,15 +1,15 @@
 """Aggregate validated 2026 cases into a single Schema 2.0 envelope.
 
 Pulls every per-run output JSON in ``output/`` from the validated date
-windows we have (Jan 1 → Feb 16, 2026), filters to:
+window (Jan 1 → Feb 16, 2026), filters to:
 
   - victim_outcome == 'died'
   - named (at least one of victim_name_ar / he / en is populated)
   - incident_date inside the 2026 YTD validated window
-  - city not in the "non-Israel" exclusion list (Gaza, Libya, Lyon, etc.)
-  - name not in the "non-Arab-society" exclusion list (a couple
-    Israeli-Jewish or international victims that snuck in via
-    keyword sweeps with the term רצח/مقتل)
+  - ``incident_geography`` in {israel_arab_society}
+    (also accepts ``unknown`` and legacy ``None`` from extractions made
+     before the geography field existed, treating those as "uncertain →
+     keep for human review")
 
 Then runs ``reconcile_cases`` (which uses the post-fix matcher with
 fuzzy per-token containment + the gazetteer additions) to collapse
@@ -17,6 +17,14 @@ cross-source duplicates.
 
 Writes a Schema 2.0 envelope to ``output/validated_2026_ytd.json``
 which the UI API picks up automatically as one more "run" to browse.
+
+History note: previous revisions of this script had a sprawling
+``_NON_ARAB_SOCIETY_NAMES`` + ``_NON_ISRAEL_CITY_HINTS`` blocklist that
+grew every time a foreign-news article leaked into the dataset. The
+blocklist was replaced by the LLM-driven ``incident_geography`` field
+on ``ExtractedArticleData`` — the model is already reading the article
+body, it has all the context to make this call directly. One
+declarative filter replaces a maintenance treadmill.
 
 Run from project root:
     python scripts/build_validated_2026.py
@@ -75,84 +83,13 @@ _SOURCE_RUNS = [
     "feb26_ar_makan_fa494eb6.json",
 ]
 
-# Names of victims who slipped through despite being non-Arab-society
-# (mostly Israeli-Jewish or international cases the keyword sweeps caught
-# because the article used 'רצח' generically). Hardcoded exclusion list
-# rather than a content-based filter so this stays auditable.
-#
-# Used as EXACT-string match (full primary name equals one of these).
-_NON_ARAB_SOCIETY_NAMES = {
-    "גיא בן סימון",        # Israeli-Jewish, Kiryat Yam
-    "קוונטין דראנק",       # Lyon, France
-    "לינדה סטיבנסון",      # Wilmington, USA
-    "לואי רזק נתפי",       # Motorcycle accident, not homicide
-}
 
-# Substrings in primary name that indicate a non-Arab-society foreign
-# figure. Substring rather than exact match because the Hebrew/Arabic
-# transliterations of foreign names vary widely (סיף אל-אסלאם קדאפי vs
-# سيف الإسلام القذافي vs Saif al-Islam Gaddafi vs Gadaffi etc.).
-_NON_ARAB_SOCIETY_NAME_HINTS = [
-    # Libya
-    "קדאפי", "אלקדאפי", "القذافي", "القذاف", "Gaddafi", "Qaddafi", "Gadaffi",
-    # Iran (high-profile assassinations frequently caught by 'مقتل'/'ירי')
-    "דהקאן", "دهقان", "Dehghan",
-    "אנסארי בחטיאר", "أنصاري بختيار",  # Iranian dissident assassinations
-    "עזיזי", "عزيزي",                  # generic Iranian — keep if not Iranian
-                                       # context; safe because Arab-society
-                                       # has no עזיזי-named victims.
-]
-
-# Substrings in city that mark a non-Israeli incident location.
-# Hebrew/Arabic news outlets routinely report on homicides abroad — Iran,
-# US, EU, Russia, Gaza, West Bank — and our keyword sweeps catch those
-# with words like "רצח" / "مقتل". This is a literal-substring blocklist
-# rather than a positive-allowlist because the gazetteer can never list
-# every legitimate small Israeli town, but the foreign cities are finite
-# and well-known.
-_NON_ISRAEL_CITY_HINTS = [
-    # Gaza Strip + West Bank
-    "غزة", "ע'זה", "עזה", "دير البلح", "בית-לאהיא", "بيت لاهيا",
-    "خان يونس", "ח'אן יונס", "رفح", "רפיח", "نابلس", "שכם",
-    # Other Arab states
-    "الزنتان", "ا-זנתאן", "א-זנתאן",         # Libya
-    "تركيا", "טורקיה", "أنقرة", "אנקרה",     # Turkey
-    "بيروت", "ביירות",                       # Lebanon
-    "دمشق", "דמשק", "حلب", "חאלב",          # Syria
-    "بغداد", "בגדאד",                        # Iraq
-    "القاهرة", "קהיר",                       # Egypt
-    "عمّان", "עמאן",                         # Jordan
-    # Iran
-    "אצפהאן", "אסצפהאן", "איספהאן", "اصفهان", "ספהאן",
-    "טהראן", "טהרן", "طهران",
-    "هرسين", "הרסין",
-    "ملارد", "מלרד", "מלארד",     # Malard, Tehran province
-    "كرج", "כרג'", "Karaj",
-    "مشهد", "משהד",
-    "شيراز", "שיראז",
-    "تبريز", "תבריז",
-    # Europe
-    "פריז", "פאריז", "باريس",
-    "לונדון", "لندن",
-    "ברלין", "برلين",
-    "מדריד", "مدريد",
-    "רומא", "روما",
-    "בודפשט", "בודאפסט", "بودابست",
-    "מוסקווה", "موسكو",
-    "ליון", "ליאון", "ليون",
-    # North America
-    "ניו יורק", "نيويورك",
-    "וושינגטון", "ושינגטון", "واشنطن",
-    "ووילמינגטון", "ווילמינגטון", "וילמינגטון", "ويلمنغتون",
-    "שיקגו", "شيكاغو",
-    "מיניאפוליס", "מיניאפולס", "مينيابوليس", "مينيابولس",
-    "טורונטו", "تورنتو",
-    # Other
-    "פקיסטן", "باكستان",
-    "אפגניסטן", "أفغانستان",
-    "אוקראינה", "أوكرانيا",
-    "רוסיה", "روسيا",
-]
+# Geography values that PASS the dataset filter. ``israel_arab_society``
+# is the target. ``unknown`` and ``None`` (legacy / pre-geography
+# extractions) pass through so we don't silently lose Jan cases that
+# were extracted before the field existed — they'll get the geography
+# label on the next full re-extraction.
+_ALLOWED_GEOGRAPHIES = {"israel_arab_society", "unknown", None}
 
 
 def _parse_date(raw):
@@ -183,39 +120,63 @@ def _is_in_window(case: dict) -> bool:
     return d is not None and from_d <= d <= to_d
 
 
-def _is_israeli(case: dict) -> bool:
-    city = (case.get("city") or "").strip()
-    if not city:
-        return True  # null cities pass through; reconciler may clean later
-    return not any(hint in city for hint in _NON_ISRAEL_CITY_HINTS)
+def _geography_passes(case: dict) -> bool:
+    """The single declarative filter that replaces the old name+city
+    blocklists. ``incident_geography`` is set by the LLM at extraction
+    time based on the full article body. Legacy ``None`` values pass so
+    we don't silently lose pre-geography-field extractions; they'll get
+    re-classified on the next extraction run."""
+    return case.get("incident_geography") in _ALLOWED_GEOGRAPHIES
 
 
-def _is_arab_society_victim(case: dict) -> bool:
-    """Exclude known non-Arab-society victims via name match.
+def _backfill_geography_from_db(cases: list[dict], db_path: str) -> int:
+    """For cases whose ``incident_geography`` is None (older per-run
+    JSONs from before the field existed), look up the most-recent
+    successful extraction in the DB and copy its geography over.
 
-    Two filter modes:
-      • Exact match against ``_NON_ARAB_SOCIETY_NAMES`` (auditable list of
-        specific people seen in prior sweeps).
-      • Substring match against ``_NON_ARAB_SOCIETY_NAME_HINTS`` to
-        catch transliteration variants (e.g. Gaddafi spelled four
-        different ways across Hebrew, Arabic, and English).
+    Joins by source URL → article_id → latest extracted_records row.
+    Returns the number of cases backfilled.
     """
-    # Check ALL name fields, not just the best one — Arabic forms may
-    # appear in victim_name_ar while Hebrew is empty (Gaddafi case).
-    names = [
-        case.get(k) for k in
-        ("victim_name", "victim_name_ar", "victim_name_he", "victim_name_en")
-    ]
-    names = [n for n in names if n]
-    if not names:
-        return True
-    if any(n in _NON_ARAB_SOCIETY_NAMES for n in names):
-        return False
-    for n in names:
-        for hint in _NON_ARAB_SOCIETY_NAME_HINTS:
-            if hint in n:
-                return False
-    return True
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        backfilled = 0
+        for case in cases:
+            if case.get("incident_geography") is not None:
+                continue
+            urls = [
+                s.get("url")
+                for s in (case.get("sources") or [])
+                if s.get("url")
+            ]
+            if not urls:
+                continue
+            placeholders = ",".join("?" * len(urls))
+            cur.execute(
+                f"""
+                SELECT e.extracted_json
+                FROM raw_articles r
+                JOIN extracted_records e ON e.article_id = r.id
+                WHERE r.url IN ({placeholders})
+                  AND e.extraction_status = 'success'
+                ORDER BY e.extracted_at DESC
+                LIMIT 1
+                """,
+                urls,
+            )
+            row = cur.fetchone()
+            if not row:
+                continue
+            data = json.loads(row[0] or "{}")
+            geo = data.get("incident_geography")
+            if geo is not None:
+                case["incident_geography"] = geo
+                backfilled += 1
+        return backfilled
+    finally:
+        conn.close()
 
 
 def main() -> None:
@@ -238,53 +199,45 @@ def main() -> None:
         print(f"  Missing: {missing_files[:5]}...")
     print(f"Raw cases pooled: {len(all_cases)}")
 
-    # Filter pass 1: named + died + in date window + Israel + Arab-society
+    # Backfill ``incident_geography`` from the DB for cases whose per-run
+    # JSONs were written before the field existed. The DB has the latest
+    # extraction; this saves us re-running 28 per-run pipelines just to
+    # pick up the new field on canonical cases.
+    from crime_pipeline.config import Settings
+    backfilled = _backfill_geography_from_db(all_cases, str(Settings().db_path))
+    print(f"Backfilled incident_geography on {backfilled} cases from DB")
+
+    # Single declarative filter: died + named + in window + geography passes.
     filtered = [
         c for c in all_cases
         if c.get("victim_outcome") == "died"
         and _best_name(c)
         and _is_in_window(c)
-        and _is_israeli(c)
-        and _is_arab_society_victim(c)
+        and _geography_passes(c)
     ]
-    print(f"After filters (died/named/in-window/Israel/Arab-society): {len(filtered)}")
+    print(f"After filters (died/named/in-window/geography): {len(filtered)}")
+
+    # Breakdown by geography for visibility — should be all
+    # israel_arab_society in steady state, with legacy None during the
+    # migration period.
+    from collections import Counter
+    geo_counts = Counter(c.get("incident_geography") for c in filtered)
+    for geo, n in geo_counts.most_common():
+        print(f"  geography={geo!r}: {n}")
 
     # Reconcile across runs — uses the post-fix matcher.
     result = reconcile_cases(filtered, jaro_threshold=0.85)
     print(f"After cross-source reconcile: {result.cases_after} cases "
           f"({len(result.merged_pairs)} merges collapsed duplicates)")
 
-    # Aliases cleanup: the merger's conflict resolver moves losing-name
-    # victims into aliases when clusters span multi-victim siblings. The
-    # quality_pass then keeps anything that "shares a token" with the
-    # primary — too permissive when both victims share a family name
-    # (Adham Nassar vs Nadhim Nassar — both have נסאר as their last
-    # token, so "Nadhim Nassar" passes the token-share filter and
-    # bleeds into Adham's aliases).
-    #
-    # Stricter post-build pass: keep an alias ONLY when its romanized
-    # form has Jaro >= 0.85 with at least one of the case's primary
-    # romanized names. Spelling variants pass; distinct-person aliases
-    # are stripped.
+    # Aliases cleanup (positional-anchor — see build history): strip
+    # aliases that don't share first AND last tokens with any primary
+    # name. Kills father-vs-son name bleed.
     from crime_pipeline.dedup.name_normalizer import (
         jaro_winkler_similarity, romanize_name,
     )
 
     def _alias_belongs_to_primary(ar: str, primaries_rom: list[str]) -> bool:
-        """Decide whether romanized alias ``ar`` is a legitimate spelling
-        variant of any romanized primary name in ``primaries_rom``.
-
-        Three pass-conditions (any one fires → keep alias):
-          1. ``ar`` is identical to a primary (case-insensitive equal).
-          2. Full-string Jaro ≥ 0.95 with a primary (very-near identical,
-             e.g. one-char typo or missing diacritic).
-          3. Token-overlap ≥ 0.85 AND first-token positional match. This
-             is the same fuzzy-containment used by the verify matcher
-             and reconciler — rules out the father-son pattern where
-             ``נד'ים נסאר`` (Nadhim Nassar) sits at Jaro 0.87 against
-             ``אדהם נסאר`` (Adham Nassar) purely because they share the
-             ``נסאר`` surname.
-        """
         for p in primaries_rom:
             if ar == p:
                 return True
@@ -294,12 +247,9 @@ def main() -> None:
             p_tokens = [t for t in p.split() if len(t) > 1]
             if not a_tokens or not p_tokens:
                 continue
-            # First-token positional anchor: aliases sharing only the
-            # family-name fail this check, killing the father↔son pattern.
             first_jaro = jaro_winkler_similarity(a_tokens[0], p_tokens[0])
             if first_jaro < 0.85:
                 continue
-            # All alias tokens must have a Jaro ≥ 0.85 partner in primary
             all_match = all(
                 any(jaro_winkler_similarity(at, pt) >= 0.85 for pt in p_tokens)
                 for at in a_tokens
@@ -345,7 +295,6 @@ def main() -> None:
         return (d.isoformat() if d else "9999", _best_name(c))
     sorted_cases = sorted(cleaned_cases, key=sort_key)
 
-    # Schema 2.0 envelope.
     envelope = {
         "schema_version": "2.0",
         "kind": "crime_pipeline.run",
@@ -363,14 +312,15 @@ def main() -> None:
             "after_filters": len(filtered),
             "after_reconcile": result.cases_after,
             "reconcile_merges": len(result.merged_pairs),
+            "geography_breakdown": dict(geo_counts),
         },
         "case_count": len(sorted_cases),
         "cases": sorted_cases,
         "human_summary": (
             f"Validated 2026 Arab-society homicide victims, "
             f"{DATE_FROM} to {DATE_TO}. Aggregates {len(seen_files)} per-run "
-            f"outputs (Ynet + Arab48 + Makan + Walla), filters to named-died-"
-            f"in-Israel, then cross-source-reconciles by name + city + date."
+            f"outputs (Ynet + Arab48 + Makan + Walla), filters to died + "
+            f"named + in-window + LLM-classified Israeli Arab society."
         ),
     }
 
