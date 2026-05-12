@@ -235,6 +235,12 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         Crime Pipeline — Memorial
       </div>
 
+      {memorial.run_id === null && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 text-xs text-neutral-500 bg-white/80 backdrop-blur px-2 py-1 rounded">
+          Unable to load memorial data.
+        </div>
+      )}
+
       <DeathCount count={visibleCount} />
 
       <YearScrubber
