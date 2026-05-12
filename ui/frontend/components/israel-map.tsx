@@ -8,7 +8,6 @@ import {
   clusterGeometry,
   findClusters,
   projectLatLng,
-  projectRing,
 } from "@/lib/project";
 
 interface IsraelMapProps {
@@ -16,6 +15,10 @@ interface IsraelMapProps {
   selectedCity: string | null;
   cityPolygons?: Record<string, [number, number][]>;
   onSelect: (city: string) => void;
+}
+
+interface ProjectedPolygon {
+  points: string;
 }
 
 function pulseWeight(mostRecentIncidentDate: string | null): number {
@@ -32,6 +35,46 @@ function dotRadius(count: number): number {
 
 function ringRadius(count: number): number {
   return Math.min(30, 10 + 4 * Math.sqrt(count));
+}
+
+function polygonForLocality(
+  loc: Locality,
+  cityPolygons?: Record<string, [number, number][]>,
+): ProjectedPolygon | null {
+  if (!cityPolygons) return null;
+  const ring =
+    cityPolygons[loc.city] ||
+    (loc.city_he ? cityPolygons[loc.city_he] : undefined) ||
+    (loc.city_ar ? cityPolygons[loc.city_ar] : undefined);
+  if (!ring || ring.length < 3) return null;
+
+  const projected = ring.map(([lng, lat]) => projectLatLng(lat, lng));
+  const minX = Math.min(...projected.map((p) => p.x));
+  const maxX = Math.max(...projected.map((p) => p.x));
+  const minY = Math.min(...projected.map((p) => p.y));
+  const maxY = Math.max(...projected.map((p) => p.y));
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const maxSpan = Math.max(width, height);
+
+  // Real municipal boundaries are often only a few pixels wide at this
+  // full-country scale. Scale only the tiny rings around their own centroid
+  // so they remain visible/clickable without shifting their location.
+  const minVisibleSpan = 26;
+  const scale = maxSpan > 0 && maxSpan < minVisibleSpan
+    ? Math.min(minVisibleSpan / maxSpan, 6)
+    : 1;
+  const cx = projected.reduce((sum, p) => sum + p.x, 0) / projected.length;
+  const cy = projected.reduce((sum, p) => sum + p.y, 0) / projected.length;
+  const points = projected
+    .map((p) => ({
+      x: cx + (p.x - cx) * scale,
+      y: cy + (p.y - cy) * scale,
+    }))
+    .map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`)
+    .join(" ");
+
+  return { points };
 }
 
 export function IsraelMap({
@@ -76,20 +119,32 @@ export function IsraelMap({
       {/* Affected-city polygons (faint, just under the dots) */}
       {cityPolygons &&
         localities.map((loc) => {
-          const ring = cityPolygons[loc.city];
-          if (!ring) return null;
-          const points = projectRing(ring);
+          const polygon = polygonForLocality(loc, cityPolygons);
+          if (!polygon) return null;
           const selected = loc.city === selectedCity;
           return (
             <polygon
               key={`poly-${loc.city}`}
-              points={points}
-              fill={selected ? "#e0d4bf" : "#e3d8c5"}
-              stroke="#b9ac96"
-              strokeWidth={0.4}
-              strokeDasharray={selected ? "0" : "1.5 1.5"}
-              opacity={selected ? 0.95 : 0.7}
-              pointerEvents="none"
+              points={polygon.points}
+              fill={selected ? "#8b2a1f" : "#a13b2e"}
+              stroke={selected ? "#45130d" : "#8b2a1f"}
+              strokeWidth={selected ? 1.35 : 0.9}
+              opacity={selected ? 0.48 : 0.28}
+              className="cursor-pointer transition-opacity duration-150 hover:opacity-60"
+              data-testid="city-polygon"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(loc.city);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(loc.city);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select ${loc.city}`}
             />
           );
         })}
