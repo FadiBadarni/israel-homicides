@@ -193,31 +193,31 @@ footer.bottom p { margin: 4px 0; }
 .case-page a:hover { text-decoration-color: var(--accent); }
 .breadcrumb { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 56px; border-bottom: 1px solid var(--hair); }
 .breadcrumb a { color: var(--muted); }
-.masthead { text-align: center; padding: 72px 0 40px; }
+.masthead { text-align: center; padding: 72px 0 40px; position: relative; isolation: isolate; }
 .portrait {
-  width: 168px;
-  height: 168px;
-  margin: 0 auto 32px;
-  position: relative;
-  filter: grayscale(0.15);
-}
-.portrait::after {
-  content: "";
   position: absolute;
-  inset: auto -16px -8px;
-  height: 56px;
-  background: linear-gradient(to top, var(--paper) 10%, transparent);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 320px;
+  margin: 0;
   pointer-events: none;
+  z-index: -1;
+  opacity: 0.11;
+  filter: grayscale(0.5);
 }
 .portrait img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  opacity: 0.92;
-  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 35%, transparent 85%);
+  mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 35%, transparent 85%);
 }
+.masthead .age-label,
+.masthead .case-name,
+.masthead .lifespan { position: relative; z-index: 1; }
 .age-label { font-size: 14px; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 24px; }
 .case-name { font-family: var(--amiri); font-size: 72px; line-height: 1.4; font-weight: 700; color: var(--ink); margin: 0 0 28px; letter-spacing: -0.005em; }
 .lifespan { font-size: 19px; color: var(--ink-2); line-height: 1.6; }
@@ -370,5 +370,5 @@ footer.bottom p { margin: 4px 0; }
   .fact:nth-child(odd) { padding-left: 4px; border-left: 0; }
   .fact:nth-child(even) { padding-right: 4px; }
   .rule { margin: 56px auto; }
-  .portrait { width: 132px; height: 132px; margin-bottom: 24px; }
+  .portrait { width: 240px; height: 240px; }
 }
