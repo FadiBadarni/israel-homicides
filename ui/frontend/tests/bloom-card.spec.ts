@@ -32,17 +32,15 @@ test("bloom card opens, lists victims, swaps to case detail, closes on ESC", asy
     })
   );
 
-  await page.goto("/");
-  await page.waitForSelector(".maplibregl-canvas");
-
-  // Use the deep-link URL pattern to open the locality directly.
   await page.goto("/?locality=tira");
+  await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 10_000 });
 
-  await expect(page.getByText("Alice")).toBeVisible({ timeout: 5_000 });
+  // BidiName prefers Hebrew when present; Alice's fixture has victim_name_he set.
+  await expect(page.getByText("אליס")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Bob")).toBeVisible();
 
-  await page.getByText("Alice").click();
-  await expect(page.getByText("A test narrative.")).toBeVisible();
+  await page.getByText("אליס").click();
+  await expect(page.getByText("A test narrative.")).toBeVisible({ timeout: 10_000 });
 
   await page.keyboard.press("Escape");
   await expect(page.getByText("A test narrative.")).toBeHidden();

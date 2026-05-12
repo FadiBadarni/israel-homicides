@@ -8,11 +8,11 @@ test("renders the memorial map with the death count", async ({ page }) => {
 
   await page.goto("/");
 
-  // Map container is present
   await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 10_000 });
-
-  // Title and count chrome render
   await expect(page.getByText("Crime Pipeline — Memorial")).toBeVisible();
-  await expect(page.getByText("3", { exact: false })).toBeVisible();
-  await expect(page.getByText("names")).toBeVisible();
+
+  const deathCount = page.getByTestId("death-count");
+  await expect(deathCount).toBeVisible();
+  await expect(deathCount).toContainText("3");
+  await expect(deathCount).toContainText("names");
 });
