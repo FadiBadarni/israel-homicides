@@ -297,6 +297,215 @@ class Pipeline:
         return self.stats
 
     # ------------------------------------------------------------------
+    # Canonical build — production operating mode
+    # ------------------------------------------------------------------
+
+    async def build_canonical(
+        self,
+        date_from: str,
+        date_to: str,
+    ) -> dict[str, Any]:
+        """Build THE canonical homicide dataset for a date window.
+
+        Single source of truth. Operates on every article in
+        ``raw_articles`` that passed triage, uses the LATEST
+        successful extraction per article, and runs the global
+        dedup → merge → sanity → quality → reconcile pipeline once
+        across the full union.
+
+        Designed for production:
+          • Idempotent — same DB state always produces the same output.
+          • No per-keyword silos — global dedup catches cross-source
+            duplicates that per-sweep pipelines miss.
+          • Filter by ``incident_geography`` + ``incident_date`` window
+            at the end; no hardcoded name/city blocklists.
+          • Re-running after a prompt change requires explicit
+            re-extraction (separate command) — never silently mixes
+            old and new prompt outputs.
+
+        Output: one Schema-2.0 envelope at
+        ``output/canonical_<date_from>_<date_to>.json``.
+        """
+        from datetime import date as _date
+
+        log.info(
+            "build_canonical_start",
+            run_id=self.run_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+        # Resolve window into date objects for the post-merge filter.
+        try:
+            window_from = _date.fromisoformat(date_from)
+            window_to = _date.fromisoformat(date_to)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid date window {date_from} to {date_to}: {exc}"
+            ) from exc
+
+        # ── Stage A: Load full universe from DB ──────────────────────
+        # No run_id scoping. We want EVERY article that was fetched +
+        # passed triage, regardless of which sweep ran it.
+        with db_module.SessionLocal() as session:  # type: ignore[misc]
+            from sqlalchemy import select
+            from crime_pipeline.models import RawArticle
+
+            articles = list(
+                session.scalars(
+                    select(RawArticle)
+                    .where(RawArticle.fetch_status == "success")
+                    .where(RawArticle.triage_status.in_(("yes", "maybe")))
+                )
+            )
+
+            extractions = list(get_all_extractions(session))
+
+        self.stats["articles_loaded"] = len(articles)
+        self.stats["extractions_loaded"] = len(extractions)
+        log.info(
+            "build_canonical_loaded",
+            articles=len(articles),
+            extractions=len(extractions),
+        )
+
+        # ── Stage B: Relevance filter (homicide-only) ────────────────
+        extractions = self._filter_relevance(extractions)
+
+        # ── Stages C+D: Dedup + Merge across the FULL union ──────────
+        # Reuses _dedup_and_merge, which already handles:
+        #   • Picking the latest extraction per article
+        #   • Multi-victim explode
+        #   • Intra-article exclusion in dedup
+        #   • Cluster → CanonicalCaseSchema
+        cases = await self._dedup_and_merge(extractions, articles)
+
+        # ── Stages E+F+G: Sanity → Quality → Reconcile ───────────────
+        # Same in-memory cleanup as the per-run pipeline, but operating
+        # on the global merged set — cross-source reconcile sees ALL
+        # pairs at once instead of per-sweep silos.
+        cleanup_stages = {"sanity", "quality", "reconcile"}
+        cases = await asyncio.to_thread(
+            self._run_cleanup, cases, cleanup_stages
+        )
+
+        # ── Stage H: Final declarative filter ─────────────────────────
+        # The whole-dataset gate. Drop anything that isn't:
+        #   • died
+        #   • named
+        #   • incident_date inside window
+        #   • incident_geography ∈ allowed set (target + uncertainty)
+        ALLOWED_GEO = {"israel_arab_society", "unknown", None}
+
+        def passes_filter(case: Any) -> bool:
+            if getattr(case, "victim_outcome", None) != "died":
+                return False
+            name = (
+                getattr(case, "victim_name_ar", None)
+                or getattr(case, "victim_name_he", None)
+                or getattr(case, "victim_name_en", None)
+                or getattr(case, "victim_name", None)
+                or ""
+            ).strip()
+            if not name:
+                return False
+            d = getattr(case, "incident_date", None)
+            if d is None or not (window_from <= d <= window_to):
+                return False
+            geo = getattr(case, "incident_geography", None)
+            if geo not in ALLOWED_GEO:
+                return False
+            return True
+
+        before_filter = len(cases)
+        cases = [c for c in cases if passes_filter(c)]
+        self.stats["filtered_out"] = before_filter - len(cases)
+        self.stats["canonical_cases"] = len(cases)
+        log.info(
+            "build_canonical_filter",
+            before=before_filter,
+            after=len(cases),
+            dropped=before_filter - len(cases),
+        )
+
+        # ── Persist + export ──────────────────────────────────────────
+        if cases:
+            await asyncio.to_thread(self._persist_canonical_cases, cases)
+
+        self.stats["finished_at"] = datetime.now(timezone.utc).isoformat()
+        self.stats["stages_executed"] = sorted({
+            "load", "relevance", "dedup", "merge",
+            "sanity", "quality", "reconcile", "filter", "export",
+        })
+
+        # Write the canonical envelope. One file per (date_from, date_to)
+        # — easy for the UI to point at and for ops to diff between
+        # builds.
+        await self._export_canonical(cases, date_from, date_to)
+
+        log.info("build_canonical_complete", **self.stats)
+        return self.stats
+
+    async def _export_canonical(
+        self,
+        cases: list,
+        date_from: str,
+        date_to: str,
+    ) -> None:
+        """Emit a single canonical Schema-2.0 envelope to
+        ``output/canonical_<date_from>_<date_to>.json``."""
+        import json
+        from pathlib import Path
+
+        case_dicts = [c.model_dump(mode="json") for c in cases]
+
+        def _sort_key(c: dict) -> tuple:
+            d = c.get("incident_date") or "9999-99-99"
+            name = (
+                c.get("victim_name_ar") or c.get("victim_name_he")
+                or c.get("victim_name_en") or c.get("victim_name") or ""
+            )
+            return (str(d), name)
+
+        case_dicts.sort(key=_sort_key)
+
+        run_id = f"canonical_{date_from}_{date_to}"
+        envelope = {
+            "schema_version": "2.0",
+            "kind": "crime_pipeline.canonical",
+            "pipeline_run_id": run_id,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "run": {
+                "started_at": self.stats.get("started_at"),
+                "finished_at": self.stats.get("finished_at"),
+                "duration_seconds": None,
+                "stages_executed": self.stats.get("stages_executed"),
+            },
+            "stats": dict(self.stats),
+            "window": {"date_from": date_from, "date_to": date_to},
+            "case_count": len(case_dicts),
+            "cases": case_dicts,
+            "human_summary": (
+                f"Canonical Arab-society homicide dataset, "
+                f"{date_from} to {date_to}. Built from the full "
+                f"raw_articles + latest extracted_records union, "
+                f"deduped globally, filtered by incident_geography."
+            ),
+        }
+
+        out_path = self.settings.output_dir / f"{run_id}.json"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(envelope, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        log.info(
+            "canonical_exported",
+            path=str(out_path),
+            case_count=len(case_dicts),
+        )
+
+    # ------------------------------------------------------------------
     # Stage 1: Discover
     # ------------------------------------------------------------------
 

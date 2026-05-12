@@ -292,6 +292,31 @@ def configure_logging(level: str) -> None:
     default=None,
     help="Custom run ID; auto-generated when omitted.",
 )
+@click.option(
+    "--build-canonical",
+    "build_canonical_mode",
+    is_flag=True,
+    default=False,
+    help=(
+        "Production mode: build THE canonical homicide dataset over "
+        "every fetched article in the DB, using the latest extraction "
+        "per article. Outputs one Schema-2.0 envelope at "
+        "output/canonical_<date_from>_<date_to>.json. Requires "
+        "--date-from and --date-to. No discover/fetch — operates on "
+        "existing raw_articles."
+    ),
+)
+@click.option(
+    "--reextract-all",
+    "reextract_all",
+    is_flag=True,
+    default=False,
+    help=(
+        "Re-run extraction on every triage-passed article in the DB "
+        "with the current prompt. Use after prompt changes to refresh "
+        "extracted_records before --build-canonical."
+    ),
+)
 def cli(
     query: str | None,
     enrich_case: str | None,
@@ -321,6 +346,8 @@ def cli(
     cosine_threshold: float | None,
     log_level: str,
     run_id: str | None,
+    build_canonical_mode: bool,
+    reextract_all: bool,
 ) -> None:
     """Run the homicide-news scraping/AI pipeline end-to-end."""
     configure_logging(log_level)
@@ -344,6 +371,127 @@ def cli(
         else:
             click.echo(format_funnel_as_table(rows))
         sys.exit(0)
+
+    # ── Re-extract all triage-passed articles (refresh DB) ───────────────
+    # Production prep: run after a prompt change to repopulate
+    # extracted_records with current-prompt outputs. No discover/fetch —
+    # operates on raw_articles already in the DB.
+    if reextract_all:
+        from dotenv import load_dotenv
+        load_dotenv()
+        if not os.environ.get("GEMINI_API_KEY"):
+            click.echo("ERROR: GEMINI_API_KEY required for --reextract-all.", err=True)
+            sys.exit(2)
+        try:
+            settings = Settings()  # type: ignore[call-arg]
+        except Exception as e:
+            click.echo(f"ERROR: Settings load failed: {e}", err=True)
+            sys.exit(2)
+
+        import sqlite3
+        from crime_pipeline.extraction.extractor import ArticleExtractor
+        import crime_pipeline.storage.db as db_mod
+        from crime_pipeline.storage.db import init_db
+        from crime_pipeline.storage.repository import save_extraction
+
+        init_db(str(settings.db_path))
+        conn = sqlite3.connect(str(settings.db_path))
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, article_text, language, source, published_at
+            FROM raw_articles
+            WHERE fetch_status = 'success'
+              AND triage_status IN ('yes', 'maybe')
+              AND article_text IS NOT NULL
+              AND length(article_text) > 200
+            ORDER BY fetched_at DESC
+            """
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        article_inputs = [
+            {
+                "article_id": r[0], "article_text": r[1],
+                "language": r[2], "source": r[3], "published_at": r[4],
+            }
+            for r in rows
+        ]
+        click.echo(f"--reextract-all: {len(article_inputs)} triage-passed articles")
+
+        extractor = ArticleExtractor(
+            api_key=settings.gemini_api_key,
+            model=settings.llm_model,
+            max_tokens=settings.llm_max_tokens,
+            concurrency=settings.llm_concurrency,
+        )
+        results = asyncio.run(extractor.extract_batch(article_inputs))
+
+        from collections import Counter
+        geo_counts: Counter = Counter()
+        success = failed = 0
+        with db_mod.SessionLocal() as session:  # type: ignore[misc]
+            for inp, res in zip(article_inputs, results):
+                if res.get("status") == "success" and res.get("extracted_data"):
+                    data = res["extracted_data"]
+                    geo_counts[data.get("incident_geography")] += 1
+                    save_extraction(
+                        session, inp["article_id"],
+                        {
+                            "article_id": inp["article_id"],
+                            "extracted_json": data,
+                            "validation_status": "valid",
+                            "llm_model": settings.llm_model,
+                            "input_tokens": res.get("input_tokens", 0),
+                            "output_tokens": res.get("output_tokens", 0),
+                            "cache_hit": res.get("cache_hit", False),
+                            "latency_ms": res.get("latency_ms", 0),
+                            "extraction_status": "success",
+                        },
+                    )
+                    success += 1
+                else:
+                    failed += 1
+            session.commit()
+
+        click.echo(f"Re-extracted: success={success} failed={failed}")
+        click.echo("Geography breakdown:")
+        for geo, n in geo_counts.most_common():
+            click.echo(f"  {geo!r}: {n}")
+        sys.exit(0)
+
+    # ── Canonical build mode ─────────────────────────────────────────────
+    # Production operating mode: build THE canonical dataset for a date
+    # window from the DB's current state. No discover/fetch/extract —
+    # uses whatever's in extracted_records (run --reextract-all first
+    # if you changed the prompt).
+    if build_canonical_mode:
+        if not date_from or not date_to:
+            click.echo(
+                "ERROR: --build-canonical requires --date-from and --date-to.",
+                err=True,
+            )
+            sys.exit(2)
+        try:
+            settings = Settings()  # type: ignore[call-arg]
+        except Exception as e:
+            click.echo(f"ERROR: Settings load failed: {e}", err=True)
+            sys.exit(2)
+
+        canonical_run_id = run_id or f"canonical_{date_from}_{date_to}"
+        pipeline = Pipeline(settings, run_id=canonical_run_id, strict_date=False)
+        click.echo(f"--build-canonical: window {date_from} to {date_to}")
+        try:
+            stats = asyncio.run(pipeline.build_canonical(date_from, date_to))
+            click.echo()
+            click.echo("Canonical build complete:")
+            for k, v in stats.items():
+                click.echo(f"  {k}: {v}")
+            sys.exit(0 if stats.get("canonical_cases", 0) > 0 else 2)
+        except Exception as e:
+            click.echo(f"Canonical build error: {e}", err=True)
+            raise
 
     # ── Reconcile mode (no API key needed) ───────────────────────────────
     if reconcile:

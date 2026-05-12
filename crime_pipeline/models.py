@@ -517,7 +517,9 @@ class CanonicalCaseSchema(BaseModel):
 
     # Granular location
     city: Optional[str] = None
-    city_normalized: Optional[dict[str, str]] = None  # {name_ar, name_he, name_en, district}
+    # {name_ar, name_he, name_en, district, region, lat, lng}. lat/lng are
+    # floats from the gazetteer; other fields are strings — hence Any.
+    city_normalized: Optional[dict[str, Any]] = None
     neighborhood: Optional[str] = None
     exact_place_type: Optional[str] = None
     district: Optional[str] = None  # Administrative: Northern, Central, Haifa, etc.

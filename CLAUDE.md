@@ -78,7 +78,17 @@ pytest tests/test_media_pipeline.py -v     # specific file, verbose
 ruff check crime_pipeline
 mypy crime_pipeline
 
-# Full pipeline run
+# PRODUCTION CANONICAL BUILD — the operating mode that ships data
+# Step 1 (only after a prompt change): re-extract every triage-passed article
+python -m crime_pipeline --reextract-all
+# Step 2: build the single canonical dataset for a date window
+python -m crime_pipeline --build-canonical \
+    --date-from 2026-01-01 --date-to 2026-02-16
+# → writes output/canonical_2026-01-01_2026-02-16.json
+# No discover/fetch. Operates on the DB's current state. Global dedup,
+# declarative filter on incident_geography + window. Idempotent.
+
+# Full pipeline run (development / discover new articles)
 python -m crime_pipeline \
     --query "Arraba 2026" \
     --sources ynet,police,panet \
