@@ -330,15 +330,35 @@ def reconcile_cases(
             if _city_conflicts(a, b) or _date_conflicts(a, b):
                 continue
 
-            # Intra-article exclusion (mirrors the dedup stage's rule for
-            # multi-victim records). Two cases sharing any source URL
-            # describe distinct victims of one article — merging them
-            # silently re-collapses the multi-victim explode.
-            if _source_urls(a) & _source_urls(b):
-                continue
-
             names_a = _all_names(a)
             names_b = _all_names(b)
+
+            # Intra-article exclusion (mirrors the dedup stage's rule
+            # for multi-victim records). Two cases sharing any source
+            # URL AND with different names describe distinct victims of
+            # one multi-victim article — merging them re-collapses the
+            # very victims the explode step worked to separate.
+            #
+            # The "AND different names" qualifier is critical: when
+            # cross-run aggregation re-discovers the same article in
+            # multiple keyword sweeps, the same victim shows up in N
+            # per-run JSONs all citing the same URL. Those legitimate
+            # duplicates have NAME MATCH and MUST merge. The Feb 2026
+            # Hadi Nassar triple murder surfaced this gap — 3 duplicate
+            # rows in validated_2026_ytd.json.
+            shared_urls = _source_urls(a) & _source_urls(b)
+            if shared_urls and names_a and names_b:
+                name_overlap = (
+                    _best_jaro(names_a, names_b) >= jaro_threshold
+                    or _token_containment_match(names_a, names_b)
+                )
+                if not name_overlap:
+                    continue
+            elif shared_urls:
+                # Shared URL but at least one side has no name — leave
+                # as-is (the name-less case will likely be handled by
+                # Rule 2 below if city+date align).
+                continue
 
             # Rule 1: both have at least one name → best alias-aware Jaro match
             # OR token-containment match (catches inserted-middle-name cases

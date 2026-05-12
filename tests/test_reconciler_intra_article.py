@@ -85,10 +85,10 @@ def test_reconciler_three_way_multi_victim_stays_distinct() -> None:
 
 
 def test_reconciler_partial_overlap_blocks_merge() -> None:
-    """A case can cite multiple sources; if ONE source URL overlaps,
-    the merge is still blocked. Better to keep two distinct cases than
-    to silently collapse them on the assumption the LLM was right both
-    times."""
+    """A case can cite multiple sources; if ONE source URL overlaps
+    AND the names are distinct, the merge is still blocked. Better to
+    keep two distinct cases than to silently collapse them on the
+    assumption the LLM was right both times."""
     cases = [
         {
             "victim_name_he": "יאסר חוג'יראת",
@@ -109,3 +109,70 @@ def test_reconciler_partial_overlap_blocks_merge() -> None:
     ]
     res = reconcile_cases(cases)
     assert res.cases_after == 2
+
+
+def test_reconciler_merges_same_victim_from_same_url_across_runs() -> None:
+    """Cross-run aggregation re-discovers the same article in multiple
+    keyword sweeps. The SAME victim shows up in N per-run JSONs, all
+    citing the same URL. These legitimate duplicates MUST merge —
+    they're the same person, not multi-victim siblings.
+
+    The live failure: Feb 2026 Hadi Nassar appeared 3 times in
+    validated_2026_ytd.json. All 3 cited the same Ynet article URL
+    (rjnmf0yvwx) but had matching names — the user spotted the dupes
+    in the UI."""
+    shared = "https://www.ynet.co.il/news/article/rjnmf0yvwx"
+    cases = [
+        {
+            "victim_name_he": "האדי נסאר",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+        {
+            "victim_name_he": "האדי נסאר",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+        {
+            "victim_name_he": "האדי נסאר",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+    ]
+    res = reconcile_cases(cases)
+    assert res.cases_after == 1, (
+        f"Expected 1 merged Hadi Nassar, got {res.cases_after}"
+    )
+
+
+def test_reconciler_keeps_multivictim_siblings_separate_same_url() -> None:
+    """Sanity check the original guard still works: different victims
+    in the same article (multi-victim explode siblings) stay distinct."""
+    shared = "https://www.ynet.co.il/news/article/rjnmf0yvwx"
+    cases = [
+        {
+            "victim_name_he": "ג'בראן נאסר",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+        {
+            "victim_name_he": "האדי נסאר",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+        {
+            "victim_name_he": "אסיל קאסם",
+            "city": "טירה",
+            "incident_date": "2026-02-02",
+            "sources": [{"url": shared, "source_name": "ynet"}],
+        },
+    ]
+    res = reconcile_cases(cases)
+    assert res.cases_after == 3, (
+        f"Expected 3 distinct multi-victim siblings, got {res.cases_after}"
+    )
