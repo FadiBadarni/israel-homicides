@@ -32,11 +32,14 @@ _DEFAULT_GAZETTEER_PATH = Path("data/gazetteer.json")
 _index: dict[str, dict[str, str]] = {}
 
 
-class CityRecord(TypedDict):
+class CityRecord(TypedDict, total=False):
     name_ar: str
     name_he: str
     name_en: str
     district: str
+    region: str
+    lat: float | None
+    lng: float | None
 
 
 def _normalise_key(raw: str) -> str:
@@ -75,8 +78,9 @@ def load_gazetteer(path: Path = _DEFAULT_GAZETTEER_PATH) -> None:
             "name_he": str(entry.get("name_he", "")),
             "name_en": str(entry.get("name_en", "")),
             "district": str(entry.get("district", "")),
+            "lat": float(entry["lat"]) if entry.get("lat") is not None else None,
+            "lng": float(entry["lng"]) if entry.get("lng") is not None else None,
         }
-        # Optional: stash region directly on the record so callers can read it
         if entry.get("region"):
             record["region"] = str(entry["region"])  # type: ignore[typeddict-unknown-key]
 
