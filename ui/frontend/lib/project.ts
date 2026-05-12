@@ -25,34 +25,110 @@ export function projectLatLng(lat: number, lng: number): { x: number; y: number 
 
 /**
  * Approximate Israel + West Bank + Gaza boundary, traversed clockwise from
- * Rosh Hanikra (NW). ~25 points — coarse but recognisable.
+ * Rosh Hanikra (NW). ~40 points — coarse but recognisable.
  */
 export const ISRAEL_OUTLINE_LATLNG: ReadonlyArray<[number, number]> = [
   // Mediterranean coast, north → south
-  [33.08, 35.10],
-  [32.93, 35.08],
-  [32.79, 34.99],
-  [32.50, 34.91],
-  [32.08, 34.78],
-  [31.80, 34.64],
-  [31.52, 34.45],
-  [31.29, 34.25],
-  // Egyptian (Sinai) border, north → south
-  [30.95, 34.43],
-  [30.60, 34.65],
-  [30.10, 34.75],
-  [29.55, 34.95],
-  // Gulf of Aqaba / Jordan border, south → north
-  [29.60, 34.98],
-  [30.50, 35.13],
-  [30.95, 35.31],
-  [31.30, 35.41],
-  [31.78, 35.46],
-  [32.39, 35.56],
-  [32.78, 35.57],
-  [33.10, 35.66],
-  // Northern border (Syria + Lebanon), east → west
-  [33.27, 35.62],
-  [33.27, 35.45],
-  [33.08, 35.10],
+  [33.083, 35.107], // Rosh Hanikra (Lebanon border on coast)
+  [33.000, 35.103],
+  [32.928, 35.082], // Acre
+  [32.832, 35.045],
+  [32.794, 34.989], // Haifa
+  [32.625, 34.927], // Atlit
+  [32.412, 34.879], // Hadera
+  [32.317, 34.853],
+  [32.166, 34.815], // Herzliya
+  [32.085, 34.768], // Tel Aviv-Yafo
+  [31.964, 34.733],
+  [31.797, 34.638], // Ashdod
+  [31.668, 34.572], // Ashkelon
+  [31.521, 34.448], // Gaza City coast
+  [31.430, 34.342],
+  [31.358, 34.260], // Rafah / Egypt-Gaza-Israel triple
+  // Egyptian (Sinai) border — NE inland, then SW
+  [31.230, 34.395],
+  [31.083, 34.480],
+  [30.952, 34.435],
+  [30.733, 34.580],
+  [30.435, 34.668],
+  [30.137, 34.756],
+  [29.811, 34.838],
+  [29.553, 34.957], // Eilat / Gulf of Aqaba
+  // Jordan border, north to Dead Sea, on to Galilee
+  [29.913, 35.072],
+  [30.176, 35.155],
+  [30.434, 35.205],
+  [30.913, 35.367],
+  [31.105, 35.434], // south Dead Sea
+  [31.500, 35.484], // east of Dead Sea
+  [31.762, 35.555],
+  [32.092, 35.567],
+  [32.388, 35.567],
+  [32.687, 35.572],
+  [32.985, 35.661], // north of Sea of Galilee
+  // Golan / Northern border
+  [33.115, 35.825], // Mount Hermon area
+  [33.305, 35.792],
+  [33.292, 35.625],
+  [33.262, 35.450],
+  [33.190, 35.250],
+  [33.108, 35.142], // close near Rosh Hanikra
 ];
+
+/**
+ * Cluster localities by geographic proximity using union-find on a
+ * distance threshold in degrees. Two localities are in the same cluster
+ * if their Euclidean distance in lat/lng space is <= threshold.
+ *
+ * 0.18° ≈ 20 km — chosen to group adjacent Arab towns in the Galilee
+ * and the Bedouin settlements in the Negev, without bridging entire
+ * regions into one super-cluster.
+ */
+export function findClusters<T extends { lat: number; lng: number; city: string }>(
+  items: T[],
+  thresholdDegrees: number = 0.18,
+): T[][] {
+  if (items.length === 0) return [];
+  const parent = items.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const union = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const dlat = items[i].lat - items[j].lat;
+      const dlng = items[i].lng - items[j].lng;
+      if (dlat * dlat + dlng * dlng <= thresholdDegrees * thresholdDegrees) {
+        union(i, j);
+      }
+    }
+  }
+
+  const groups = new Map<number, T[]>();
+  for (let i = 0; i < items.length; i++) {
+    const root = find(i);
+    const arr = groups.get(root) ?? [];
+    arr.push(items[i]);
+    groups.set(root, arr);
+  }
+  return Array.from(groups.values());
+}
+
+/**
+ * Given a cluster of localities, return the centroid + radius (in projected
+ * SVG units) that contains all of them with a small padding.
+ */
+export function clusterGeometry(cluster: { lat: number; lng: number }[]): {
+  cx: number;
+  cy: number;
+  r: number;
+} {
+  const pts = cluster.map((c) => projectLatLng(c.lat, c.lng));
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const r = Math.max(...pts.map((p) => Math.hypot(p.x - cx, p.y - cy))) + 18;
+  return { cx, cy, r };
+}

@@ -1,7 +1,14 @@
 "use client";
 
 import type { Locality } from "@/lib/api";
-import { ISRAEL_OUTLINE_LATLNG, MAP_HEIGHT, MAP_WIDTH, projectLatLng } from "@/lib/project";
+import {
+  ISRAEL_OUTLINE_LATLNG,
+  MAP_HEIGHT,
+  MAP_WIDTH,
+  clusterGeometry,
+  findClusters,
+  projectLatLng,
+} from "@/lib/project";
 
 interface IsraelMapProps {
   localities: Locality[];
@@ -18,11 +25,11 @@ function pulseWeight(mostRecentIncidentDate: string | null): number {
 }
 
 function dotRadius(count: number): number {
-  return Math.min(14, 3 + 2.5 * Math.sqrt(count));
+  return Math.min(16, 4 + 2.5 * Math.sqrt(count));
 }
 
 function ringRadius(count: number): number {
-  return Math.min(28, 8 + 4 * Math.sqrt(count));
+  return Math.min(30, 10 + 4 * Math.sqrt(count));
 }
 
 export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps) {
@@ -31,6 +38,8 @@ export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps
     .map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`)
     .join(" ");
 
+  const clusters = findClusters(localities).filter((c) => c.length >= 2);
+
   return (
     <svg
       viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
@@ -38,13 +47,45 @@ export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps
       preserveAspectRatio="xMidYMid meet"
       data-testid="israel-map"
     >
+      {/* Soft halo behind the country shape */}
+      <polygon
+        points={outlinePoints}
+        fill="none"
+        stroke="#d8cfbf"
+        strokeWidth={6}
+        strokeLinejoin="round"
+        opacity={0.55}
+      />
+
+      {/* Country shape */}
       <polygon
         points={outlinePoints}
         fill="#ece6db"
         stroke="#2c2a26"
-        strokeWidth={1}
+        strokeWidth={1.25}
         strokeLinejoin="round"
       />
+
+      {/* Cluster rings (dashed, faint, behind the dots) */}
+      {clusters.map((cluster, i) => {
+        const { cx, cy, r } = clusterGeometry(cluster);
+        return (
+          <circle
+            key={`cluster-${i}`}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="#9a8e7b"
+            strokeWidth={0.75}
+            strokeDasharray="2.5 2.5"
+            opacity={0.7}
+            pointerEvents="none"
+          />
+        );
+      })}
+
+      {/* Dots + pulse */}
       {localities.map((loc) => {
         const { x, y } = projectLatLng(loc.lat, loc.lng);
         const w = pulseWeight(loc.most_recent_incident_date);
@@ -70,7 +111,7 @@ export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps
               r={dotRadius(loc.death_count)}
               fill="#8b2a1f"
               stroke={selected ? "#2c2a26" : "#5a1b13"}
-              strokeWidth={selected ? 1.5 : 0.5}
+              strokeWidth={selected ? 1.5 : 0.75}
               className="cursor-pointer transition-[stroke-width] duration-150"
               onClick={(e) => {
                 e.stopPropagation();
