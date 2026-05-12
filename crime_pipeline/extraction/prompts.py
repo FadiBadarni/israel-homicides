@@ -69,6 +69,24 @@ Rules of restraint:
     extract identifiable individuals, not aggregate statistics.
   - additional_victims is always a list — never null, never omitted. Empty list is the default.
 
+Per-victim date rule (CRITICAL):
+  When populating ``additional_victims[i].incident_date``, set it ONLY when
+  the article text UNAMBIGUOUSLY states when that SPECIFIC victim was killed.
+  In week-in-review and round-up articles ("13 killed since the start of the
+  year", "violence in the Arab community this week"), each named victim has
+  their OWN date. Do NOT carry the article's publication date or a
+  prominently mentioned event date onto every additional_victims entry.
+  When the article does not explicitly attribute a date to a named additional
+  victim, set ``incident_date: null`` for that entry. A null date is safe;
+  a wrong date splits cases at the reconcile stage and creates phantom
+  duplicates downstream.
+
+  Example (article published 2026-02-11 about an unrelated 2026-02-09 event,
+  mentioning Adham + Nadhim Nassar killed on 2026-01-05):
+    WRONG:  {"victim_name_he": "אדהם נסאר", "incident_date": "2026-02-09"}
+    RIGHT:  {"victim_name_he": "אדהם נסאר", "incident_date": "2026-01-05"}
+    ACCEPTABLE: {"victim_name_he": "אדהם נסאר", "incident_date": null}
+
 INCIDENT TYPE — pick one (this drives whether the case enters the dataset):
 - "homicide": confirmed deliberate killing — current case (e.g. נרצח / قُتل / مقتل with named victim, criminal investigation)
 - "attempted_homicide": deliberate attempt that did NOT kill (yet) — wounded, critical, in hospital after a shooting/stabbing/assault. ניסיון רצח / محاولة قتل / إطلاق نار / طعن without confirmed death.

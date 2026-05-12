@@ -172,11 +172,96 @@ def main() -> None:
     print(f"After cross-source reconcile: {result.cases_after} cases "
           f"({len(result.merged_pairs)} merges collapsed duplicates)")
 
+    # Aliases cleanup: the merger's conflict resolver moves losing-name
+    # victims into aliases when clusters span multi-victim siblings. The
+    # quality_pass then keeps anything that "shares a token" with the
+    # primary — too permissive when both victims share a family name
+    # (Adham Nassar vs Nadhim Nassar — both have נסאר as their last
+    # token, so "Nadhim Nassar" passes the token-share filter and
+    # bleeds into Adham's aliases).
+    #
+    # Stricter post-build pass: keep an alias ONLY when its romanized
+    # form has Jaro >= 0.85 with at least one of the case's primary
+    # romanized names. Spelling variants pass; distinct-person aliases
+    # are stripped.
+    from crime_pipeline.dedup.name_normalizer import (
+        jaro_winkler_similarity, romanize_name,
+    )
+
+    def _alias_belongs_to_primary(ar: str, primaries_rom: list[str]) -> bool:
+        """Decide whether romanized alias ``ar`` is a legitimate spelling
+        variant of any romanized primary name in ``primaries_rom``.
+
+        Three pass-conditions (any one fires → keep alias):
+          1. ``ar`` is identical to a primary (case-insensitive equal).
+          2. Full-string Jaro ≥ 0.95 with a primary (very-near identical,
+             e.g. one-char typo or missing diacritic).
+          3. Token-overlap ≥ 0.85 AND first-token positional match. This
+             is the same fuzzy-containment used by the verify matcher
+             and reconciler — rules out the father-son pattern where
+             ``נד'ים נסאר`` (Nadhim Nassar) sits at Jaro 0.87 against
+             ``אדהם נסאר`` (Adham Nassar) purely because they share the
+             ``נסאר`` surname.
+        """
+        for p in primaries_rom:
+            if ar == p:
+                return True
+            if jaro_winkler_similarity(ar, p) >= 0.95:
+                return True
+            a_tokens = [t for t in ar.split() if len(t) > 1]
+            p_tokens = [t for t in p.split() if len(t) > 1]
+            if not a_tokens or not p_tokens:
+                continue
+            # First-token positional anchor: aliases sharing only the
+            # family-name fail this check, killing the father↔son pattern.
+            first_jaro = jaro_winkler_similarity(a_tokens[0], p_tokens[0])
+            if first_jaro < 0.85:
+                continue
+            # All alias tokens must have a Jaro ≥ 0.85 partner in primary
+            all_match = all(
+                any(jaro_winkler_similarity(at, pt) >= 0.85 for pt in p_tokens)
+                for at in a_tokens
+            )
+            if all_match:
+                return True
+        return False
+
+    def _strip_cross_victim_aliases(case: dict) -> dict:
+        primaries_rom = []
+        for k in ("victim_name", "victim_name_ar",
+                  "victim_name_he", "victim_name_en"):
+            v = case.get(k)
+            if v:
+                primaries_rom.append(romanize_name(v))
+        primaries_rom = [p for p in primaries_rom if p]
+        if not primaries_rom:
+            return case
+        clean = []
+        dropped = []
+        for alias in case.get("aliases") or []:
+            ar = romanize_name(alias)
+            if not ar:
+                continue
+            if _alias_belongs_to_primary(ar, primaries_rom):
+                clean.append(alias)
+            else:
+                dropped.append(alias)
+        case["aliases"] = clean
+        if dropped:
+            case.setdefault("flags", []).append("aliases_cleaned")
+        return case
+
+    cleaned_cases = [_strip_cross_victim_aliases(c) for c in result.cases]
+    stripped = sum(
+        1 for c in cleaned_cases if "aliases_cleaned" in (c.get("flags") or [])
+    )
+    print(f"Aliases cleanup: stripped cross-victim aliases on {stripped} cases")
+
     # Sort cases by incident_date for the UI.
     def sort_key(c):
         d = _parse_date(c.get("incident_date"))
         return (d.isoformat() if d else "9999", _best_name(c))
-    sorted_cases = sorted(result.cases, key=sort_key)
+    sorted_cases = sorted(cleaned_cases, key=sort_key)
 
     # Schema 2.0 envelope.
     envelope = {
