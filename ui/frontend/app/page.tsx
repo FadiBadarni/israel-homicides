@@ -3,12 +3,16 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { fetchMemorial, type Locality, type MemorialResponse, type DeathSummary } from "@/lib/api";
-import { regionFor, REGION_LABELS_AR, type RegionKey } from "@/lib/regions";
-import { formatArabicDate, yearOf } from "@/lib/format";
+import { regionFor, regionLabel, type RegionKey } from "@/lib/regions";
+import { formatDate, yearOf } from "@/lib/format";
+import { useLanguage } from "@/lib/language-context";
+import { t, pickLangField } from "@/lib/i18n";
+import { LanguageToggle } from "@/components/language-toggle";
 
 interface DeathWithCity extends DeathSummary {
-  city: string;
+  city_en: string;
   city_ar: string | null;
+  city_he: string | null;
   region: RegionKey | null;
 }
 
@@ -16,14 +20,16 @@ function flattenDeaths(localities: Locality[]): DeathWithCity[] {
   return localities.flatMap((loc) =>
     loc.deaths.map((d) => ({
       ...d,
-      city: loc.city,
+      city_en: loc.city,
       city_ar: loc.city_ar,
+      city_he: loc.city_he,
       region: regionFor(loc.city),
     }))
   );
 }
 
 export default function HomePage() {
+  const { lang } = useLanguage();
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
   const [activeFilter, setActiveFilter] = useState<RegionKey | "all" | "current-year">("all");
 
@@ -45,8 +51,6 @@ export default function HomePage() {
   );
 
   const currentYear = new Date().getFullYear();
-
-  // Stats
   const totalAll = memorial?.total_deaths ?? 0;
   const currentYearCount = allDeaths.filter((d) => yearOf(d.incident_date) === currentYear).length;
   const lastYearCount = allDeaths.filter((d) => yearOf(d.incident_date) === currentYear - 1).length;
@@ -55,7 +59,6 @@ export default function HomePage() {
     ? 0
     : Math.round((ageData.filter((d) => (d.victim_age ?? 0) < 40).length / ageData.length) * 100);
 
-  // Region counts
   const regionCounts = useMemo(() => {
     const c: Record<RegionKey, number> = { galilee: 0, triangle: 0, negev: 0, mixed: 0 };
     for (const d of allDeaths) {
@@ -65,7 +68,6 @@ export default function HomePage() {
   }, [allDeaths]);
   const maxRegion = Math.max(1, ...Object.values(regionCounts));
 
-  // Filtered + sorted recent cases (top 9)
   const recentCases = useMemo(() => {
     let filtered = allDeaths;
     if (activeFilter === "current-year") {
@@ -79,7 +81,6 @@ export default function HomePage() {
       .slice(0, 9);
   }, [allDeaths, activeFilter, currentYear]);
 
-  // Tapestry: per-year counts
   const yearlyData = useMemo(() => {
     const byYear = new Map<number, number>();
     for (const d of allDeaths) {
@@ -92,58 +93,64 @@ export default function HomePage() {
       .map(([year, n]) => ({ year, n, current: year === currentYear }));
   }, [allDeaths, currentYear]);
 
-  if (!memorial) {
-    return <div style={{ minHeight: "100vh" }} />;
-  }
+  if (!memorial) return <div style={{ minHeight: "100vh" }} />;
 
   return (
     <>
       <nav className="top">
         <div className="wrap row">
-          <Link href="/" className="brand">سجل الضحايا</Link>
-          <div className="links">
-            <a href="#cases">القضايا</a>
-            <a href="#regions">المناطق</a>
-            <a href="#years">السنوات</a>
-            <a href="#about">عن المشروع</a>
+          <Link href="/" className="brand">{t(lang, "brand")}</Link>
+          <div className="links" style={{ alignItems: "center" }}>
+            <a href="#cases">{t(lang, "nav.cases")}</a>
+            <a href="#regions">{t(lang, "nav.regions")}</a>
+            <a href="#years">{t(lang, "nav.years")}</a>
+            <a href="#about">{t(lang, "nav.about")}</a>
+            <LanguageToggle />
           </div>
         </div>
       </nav>
 
       <header className="hero">
         <div className="wrap">
-          <div className="eyebrow">سجل عام · يُحدَّث أسبوعياً</div>
-          <h1>كلّ ضحيّة لها اسم.<br />وكل قضيّة لها قصّة.</h1>
-          <p className="lede">
-            سجلٌّ عامّ يُوثّق ضحايا جرائم القتل في المجتمع العربي في إسرائيل، اسماً تلو الآخر، استناداً إلى مصادر إخباريّة بالعربيّة والعبريّة.
-          </p>
+          <div className="eyebrow">{t(lang, "hero.eyebrow")}</div>
+          <h1>{t(lang, "hero.h1").split("\n").map((line, i, arr) => (
+            <span key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </span>
+          ))}</h1>
+          <p className="lede">{t(lang, "hero.lede")}</p>
         </div>
       </header>
 
       <section className="stats wrap">
         <div className="stat">
           <div className="num">{lastYearCount || "—"}</div>
-          <div className="label"><strong>ضحيّة في عام {currentYear - 1}</strong> — حسب السجلّ.</div>
+          <div className="label">
+            <strong>{t(lang, "stats.last_year", { year: currentYear - 1 })}</strong>
+          </div>
         </div>
         <div className="stat">
           <div className="num" style={{ color: "var(--blood)" }}>{currentYearCount}</div>
-          <div className="label">ضحيّة منذ بداية {currentYear}<br />حتى الآن.</div>
+          <div className="label">
+            {t(lang, "stats.current_year_prefix")} {currentYear} {t(lang, "stats.current_year_suffix")}
+          </div>
         </div>
         <div className="stat">
           <div className="num">{totalAll}</div>
-          <div className="label">قضيّة موثّقة في السجلّ<br />منذ بدء التوثيق.</div>
+          <div className="label">{t(lang, "stats.total")}</div>
         </div>
         <div className="stat">
           <div className="num">{under40Pct}%</div>
-          <div className="label">من الضحايا أعمارهم<br />دون الأربعين عاماً.</div>
+          <div className="label">{t(lang, "stats.under_40_pct")}</div>
         </div>
       </section>
 
       <section className="sec" id="cases">
         <div className="wrap">
           <div className="sec-head">
-            <h2 className="sec-title">القضايا الأحدث</h2>
-            <div className="sec-meta">عرض كل القضايا</div>
+            <h2 className="sec-title">{t(lang, "sec.cases_title")}</h2>
+            <div className="sec-meta">{t(lang, "sec.cases_meta")}</div>
           </div>
 
           <div className="filters">
@@ -151,7 +158,7 @@ export default function HomePage() {
               className={`filter ${activeFilter === "all" ? "on" : ""}`}
               onClick={() => setActiveFilter("all")}
             >
-              الكلّ <span className="count">{totalAll}</span>
+              {t(lang, "filter.all")} <span className="count">{totalAll}</span>
             </button>
             <button
               className={`filter ${activeFilter === "current-year" ? "on" : ""}`}
@@ -165,36 +172,38 @@ export default function HomePage() {
                 className={`filter ${activeFilter === r ? "on" : ""}`}
                 onClick={() => setActiveFilter(r)}
               >
-                {REGION_LABELS_AR[r]} <span className="count">{regionCounts[r]}</span>
+                {regionLabel(r, lang)} <span className="count">{regionCounts[r]}</span>
               </button>
             ))}
           </div>
 
           <div className="cases">
-            {recentCases.map((d) => (
-              <Link
-                key={`${d.run_id}-${d.case_index}`}
-                href={`/cases/${d.run_id}/${d.case_index}`}
-                className="case"
-              >
-                <div className="date">{formatArabicDate(d.incident_date)}</div>
-                <div className="name">
-                  {d.victim_name_ar || d.victim_name_he || d.victim_name || "—"}
-                </div>
-                <div className="meta">
-                  {d.victim_age !== null && <span>{d.victim_age} عاماً</span>}
-                  {d.victim_age !== null && <span className="sep">·</span>}
-                  <span>{d.city_ar || d.city}</span>
-                </div>
-                <div className="footer">
-                  <span className="badge">قيد التوثيق</span>
-                  <span className="arrow">←</span>
-                </div>
-              </Link>
-            ))}
+            {recentCases.map((d) => {
+              const name = pickLangField(d.victim_name_ar, d.victim_name_he, lang);
+              const city = pickLangField(d.city_ar, d.city_he, lang);
+              return (
+                <Link
+                  key={`${d.run_id}-${d.case_index}`}
+                  href={`/cases/${d.run_id}/${d.case_index}`}
+                  className="case"
+                >
+                  <div className="date">{formatDate(d.incident_date, lang)}</div>
+                  <div className={`name ${name === "—" ? "missing" : ""}`}>{name}</div>
+                  <div className="meta">
+                    {d.victim_age !== null && <span>{d.victim_age} {t(lang, "case.years_old")}</span>}
+                    {d.victim_age !== null && <span className="sep">·</span>}
+                    <span className={city === "—" ? "missing" : ""}>{city}</span>
+                  </div>
+                  <div className="footer">
+                    <span className="badge">{t(lang, "badge.documenting")}</span>
+                    <span className="arrow">←</span>
+                  </div>
+                </Link>
+              );
+            })}
             {recentCases.length === 0 && (
               <div style={{ gridColumn: "1 / -1", padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-                لا توجد قضايا تطابق هذه التصفية.
+                {t(lang, "no_cases")}
               </div>
             )}
           </div>
@@ -204,8 +213,8 @@ export default function HomePage() {
       <section className="sec" id="regions">
         <div className="wrap">
           <div className="sec-head">
-            <h2 className="sec-title">حسب المنطقة</h2>
-            <div className="sec-meta">منذ بداية التوثيق</div>
+            <h2 className="sec-title">{t(lang, "sec.regions_title")}</h2>
+            <div className="sec-meta">{t(lang, "sec.regions_meta")}</div>
           </div>
 
           <div className="regions">
@@ -220,10 +229,10 @@ export default function HomePage() {
                   document.getElementById("cases")?.scrollIntoView({ behavior: "smooth" });
                 }}
               >
-                <div className="name">{REGION_LABELS_AR[r]}</div>
+                <div className="name">{regionLabel(r, lang)}</div>
                 <div className="num">
                   <strong>{regionCounts[r]}</strong>
-                  <span className="since">ضحيّة</span>
+                  <span className="since">{t(lang, "victim_word")}</span>
                 </div>
                 <div className="bar">
                   <div className="fl" style={{ width: `${(regionCounts[r] / maxRegion) * 100}%` }} />
@@ -237,13 +246,13 @@ export default function HomePage() {
       <section className="sec" id="years">
         <div className="wrap">
           <div className="sec-head">
-            <h2 className="sec-title">وراء كلّ رقم، إنسان</h2>
+            <h2 className="sec-title">{t(lang, "sec.years_title")}</h2>
             <div className="sec-meta">
-              كلّ علامة
+              {t(lang, "sec.years_meta_prefix")}
               <span className="tap-legend" style={{ display: "inline-flex" }}>
                 <span className="swatch" />
               </span>
-              تُمثّل ضحيّة واحدة
+              {t(lang, "sec.years_meta_suffix")}
             </div>
           </div>
 
@@ -258,31 +267,28 @@ export default function HomePage() {
                     {d.year}
                     {d.current && (
                       <span style={{ fontSize: 12, color: "var(--blood)", marginRight: 6, letterSpacing: ".04em" }}>
-                        حتى الآن
+                        {t(lang, "current_label")}
                       </span>
                     )}
                   </div>
                   <div className="tap-count">
-                    <strong>{d.n}</strong> ضحيّة
+                    <strong>{d.n}</strong> {t(lang, "victim_word")}
                   </div>
                 </div>
                 <div className="tap-dots">
                   {Array.from({ length: d.n }).map((_, i) => (
-                    <span key={i} className="dot-cell" title={`ضحيّة في ${d.year}`} />
+                    <span key={i} className="dot-cell" />
                   ))}
                 </div>
               </div>
             ))}
             {yearlyData.length === 0 && (
-              <p style={{ color: "var(--muted)" }}>لا توجد بيانات سنويّة.</p>
+              <p style={{ color: "var(--muted)" }}>{t(lang, "no_yearly")}</p>
             )}
           </div>
 
           {yearlyData.length > 0 && (
-            <p className="tap-caption">
-              كلّ علامةٍ هنا كانت إنساناً — أُماً أو أباً، ابناً أو ابنةً، صديقاً أو جاراً.
-              هذا السجلّ موجود لئلّا يُنسى أحد منهم.
-            </p>
+            <p className="tap-caption">{t(lang, "tap_caption")}</p>
           )}
         </div>
       </section>
@@ -290,21 +296,21 @@ export default function HomePage() {
       <section className="sec" id="about">
         <div className="wrap">
           <div className="sec-head">
-            <h2 className="sec-title">عن المشروع</h2>
+            <h2 className="sec-title">{t(lang, "sec.about_title")}</h2>
           </div>
 
           <div className="about-grid">
             <div className="about-col">
-              <h3>اسم لكلّ ضحيّة</h3>
-              <p>لا يُختزل أحدٌ إلى رقمٍ في إحصاء. كلّ قضيّة في هذا السجل تحمل اسماً ومدينةً وتاريخاً، وما أمكن جمعه من تفاصيل من مصادرها الأصليّة.</p>
+              <h3>{t(lang, "about.col1.h")}</h3>
+              <p>{t(lang, "about.col1.p")}</p>
             </div>
             <div className="about-col">
-              <h3>من مصادر متعدّدة</h3>
-              <p>نجمع المعلومات من مواقع إخباريّة بالعربيّة والعبريّة (عرب 48، واي نت، والّا، وغيرها)، ونحفظ الأسماء كما وردت بلغاتها الأصليّة دون تحويلها.</p>
+              <h3>{t(lang, "about.col2.h")}</h3>
+              <p>{t(lang, "about.col2.p")}</p>
             </div>
             <div className="about-col">
-              <h3>شفافيّة في الشك</h3>
-              <p>عندما تتعارض المصادر أو تكون المعلومات ناقصة، نُشير إلى ذلك بوضوح. الصدق في ما لا نعرفه جزء من احترامنا للضحايا وعائلاتهم.</p>
+              <h3>{t(lang, "about.col3.h")}</h3>
+              <p>{t(lang, "about.col3.p")}</p>
             </div>
           </div>
         </div>
@@ -312,7 +318,7 @@ export default function HomePage() {
 
       <footer className="bottom">
         <div className="wrap">
-          <p>سجلٌّ عام مستقلّ · لا يُمثّل أيّ جهةٍ رسميّة.</p>
+          <p>{t(lang, "footer.line1")}</p>
         </div>
       </footer>
     </>

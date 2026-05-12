@@ -17,7 +17,55 @@
   --blood-pale: oklch(0.55 0.075 25);
   --naskh: 'Noto Naskh Arabic', 'Geeza Pro', serif;
   --amiri: 'Amiri', 'Noto Naskh Arabic', serif;
+  --rashi: 'Frank Ruhl Libre', 'Noto Sans Hebrew', serif;
+  --sans-he: 'Noto Sans Hebrew', 'Heebo', sans-serif;
 }
+
+html[lang="he"] body {
+  font-family: var(--sans-he);
+}
+html[lang="he"] nav.top .brand,
+html[lang="he"] .hero h1,
+html[lang="he"] .hero .lede,
+html[lang="he"] .sec-title,
+html[lang="he"] .stat .num,
+html[lang="he"] .case .name,
+html[lang="he"] .region .name,
+html[lang="he"] .region .num strong,
+html[lang="he"] .tap-year,
+html[lang="he"] .tap-count strong,
+html[lang="he"] .tap-caption,
+html[lang="he"] .about-col h3,
+html[lang="he"] .case-name,
+html[lang="he"] .case-summary,
+html[lang="he"] .amiri {
+  font-family: var(--rashi);
+}
+
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--hair);
+  border-radius: 2px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.lang-toggle button {
+  background: none;
+  border: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: inherit;
+  transition: background 120ms, color 120ms;
+}
+.lang-toggle button:hover { color: var(--ink); }
+.lang-toggle button.on { background: var(--ink); color: var(--paper); }
+.lang-toggle button + button { border-right: 1px solid var(--hair); }
+
+.missing { color: var(--hair-strong); }
 
 * { box-sizing: border-box; }
 html, body {

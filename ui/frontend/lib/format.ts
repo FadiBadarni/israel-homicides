@@ -1,8 +1,11 @@
+import type { Lang } from "./language-context";
+
 /**
- * Arabic-language formatting helpers.
+ * Bilingual date formatting helpers.
  *
- * Dates use Eastern Arabic month names when known; fall back to ISO.
- * Numbers stay as Western digits per the design.
+ * Arabic uses Eastern Arabic month names; Hebrew uses Hebrew calendar
+ * month names with the "ב" prefix preposition. Numbers stay as Western
+ * digits per the design.
  */
 
 const AR_MONTHS = [
@@ -10,14 +13,27 @@ const AR_MONTHS = [
   "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
 ];
 
-export function formatArabicDate(iso: string | null): string {
+const HE_MONTHS = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+];
+
+export function formatDate(iso: string | null, lang: Lang = "ar"): string {
   if (!iso) return "";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!m) return iso;
   const year = m[1];
-  const month = AR_MONTHS[Number(m[2]) - 1];
+  const monthIdx = Number(m[2]) - 1;
   const day = String(Number(m[3]));
-  return `${day} ${month} ${year}`;
+  if (lang === "he") {
+    return `${day} ב${HE_MONTHS[monthIdx]} ${year}`;
+  }
+  return `${day} ${AR_MONTHS[monthIdx]} ${year}`;
+}
+
+// Backward-compat shim — calls formatDate with "ar"
+export function formatArabicDate(iso: string | null): string {
+  return formatDate(iso, "ar");
 }
 
 export function yearOf(iso: string | null): number | null {

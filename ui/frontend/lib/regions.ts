@@ -6,14 +6,28 @@
  * administrative districts.
  */
 
+import type { Lang } from "./language-context";
+
 export type RegionKey = "galilee" | "triangle" | "negev" | "mixed";
 
-export const REGION_LABELS_AR: Record<RegionKey, string> = {
-  galilee: "الجليل",
-  triangle: "المثلّث",
-  negev: "النقب",
-  mixed: "المدن المختلطة",
+export const REGION_LABELS: Record<Lang, Record<RegionKey, string>> = {
+  ar: {
+    galilee: "الجليل",
+    triangle: "المثلّث",
+    negev: "النقب",
+    mixed: "المدن المختلطة",
+  },
+  he: {
+    galilee: "הגליל",
+    triangle: "המשולש",
+    negev: "הנגב",
+    mixed: "הערים המעורבות",
+  },
 };
+
+export function regionLabel(key: RegionKey, lang: Lang): string {
+  return REGION_LABELS[lang][key];
+}
 
 const CITY_TO_REGION: Record<string, RegionKey> = {
   // Galilee
