@@ -352,7 +352,6 @@ def get_memorial(
                 continue
             if year_to is not None and year > year_to:
                 continue
-            incident_years.append(year)
 
         raw_city = case.get("city")
         rec = gazetteer.normalize_city(raw_city) if raw_city else None
@@ -385,6 +384,8 @@ def get_memorial(
             "incident_date": str(date) if date else None,
             "confidence_score": case.get("confidence_score"),
         })
+        if year is not None:
+            incident_years.append(year)
 
     localities = sorted(by_city.values(), key=lambda loc: -loc["death_count"])
     total_deaths = sum(loc["death_count"] for loc in localities)
