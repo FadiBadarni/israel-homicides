@@ -314,6 +314,27 @@ footer.bottom p { margin: 4px 0; }
   .region .num .since { font-size: 12px; margin-right: 4px; }
   .region .bar { margin-top: 12px; }
 
+  /* tapestry — stack the year label above the dots instead of sidebar grid.
+     Frees the full row width for dots; gets ~39 per row on a 375 px viewport
+     instead of ~22 with the 88 px sidebar. */
+  .tapestry { gap: 22px; }
+  .tap-row { grid-template-columns: 1fr; gap: 8px; }
+  .tap-label {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding-top: 0;
+  }
+  .tap-year { font-size: 18px; }
+  .tap-count { font-size: 12px; margin-top: 0; }
+  .tap-count strong { font-size: 14px; }
+  .tap-dots { padding-top: 0; gap: 2.5px; }
+  .dot-cell { width: 6px; height: 6px; }
+
+  .tap-caption { font-size: 15px; line-height: 1.75; margin-top: 28px; padding-top: 18px; }
+
   .load-more { padding: 22px 0 0; }
   .load-more a { font-size: 13px; }
 }
