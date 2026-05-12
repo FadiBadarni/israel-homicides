@@ -32,7 +32,14 @@ export function BloomCard({
     let alive = true;
     setLoading(true);
     setError(null);
-    fetchCase(locality.deaths[0].run_id, initialCaseIndex)
+    const target = locality.deaths.find((d) => d.case_index === initialCaseIndex);
+    const runId = target?.run_id ?? locality.deaths[0]?.run_id;
+    if (!runId) {
+      setError("Missing run_id");
+      setLoading(false);
+      return;
+    }
+    fetchCase(runId, initialCaseIndex)
       .then((d) => alive && setCaseDetail(d))
       .catch((e) => alive && setError(String(e)))
       .finally(() => alive && setLoading(false));

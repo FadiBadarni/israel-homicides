@@ -12,6 +12,7 @@ import { YearScrubber } from "./year-scrubber";
 
 interface MemorialMapProps {
   memorial: MemorialResponse;
+  loadError?: boolean;
 }
 
 const INITIAL_BOUNDS: [[number, number], [number, number]] = [
@@ -32,7 +33,7 @@ function slugify(city: string): string {
   return city.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-export function MemorialMap({ memorial }: MemorialMapProps) {
+export function MemorialMap({ memorial, loadError = false }: MemorialMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const [selectedLocality, setSelectedLocality] = useState<Locality | null>(null);
@@ -61,6 +62,13 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
   useEffect(() => {
     filteredLocalitiesRef.current = filteredLocalities;
   }, [filteredLocalities]);
+
+  useEffect(() => {
+    if (selectedLocality && !filteredLocalities.find((l) => l.city === selectedLocality.city)) {
+      setSelectedLocality(null);
+      setSelectedCaseIndex(null);
+    }
+  }, [filteredLocalities, selectedLocality]);
 
   // Read URL on first paint
   useEffect(() => {
@@ -235,7 +243,7 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         Crime Pipeline — Memorial
       </div>
 
-      {memorial.run_id === null && (
+      {loadError && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 text-xs text-neutral-500 bg-white/80 backdrop-blur px-2 py-1 rounded">
           Unable to load memorial data.
         </div>

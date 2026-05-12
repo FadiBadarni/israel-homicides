@@ -14,24 +14,29 @@ const EMPTY: MemorialResponse = {
 
 export default function HomePage() {
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let alive = true;
     fetchMemorial()
-      .then((m) => alive && setMemorial(m))
-      .catch(() => alive && setMemorial(EMPTY));
+      .then((m) => {
+        if (!alive) return;
+        setMemorial(m);
+        setLoadError(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMemorial(EMPTY);
+        setLoadError(true);
+      });
     return () => {
       alive = false;
     };
   }, []);
 
   if (!memorial) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center text-xs text-neutral-500">
-        Loading memorial…
-      </div>
-    );
+    return <div className="w-full h-screen" style={{ backgroundColor: "#f5f1ea" }} />;
   }
 
-  return <MemorialMap memorial={memorial} />;
+  return <MemorialMap memorial={memorial} loadError={loadError} />;
 }
