@@ -103,3 +103,42 @@ def test_memorial_includes_victim_summary_fields(memorial_client: TestClient, tm
     assert d["confidence_score"] == 0.9
     assert d["case_index"] == 0
     assert d["run_id"] == "run1"
+
+
+def test_memorial_year_filter_inclusive(memorial_client: TestClient, tmp_path: Path) -> None:
+    """year_from and year_to are both inclusive."""
+    _write_run(tmp_path, "run1", [
+        {"victim_name": "A", "victim_outcome": "died", "city": "Arraba", "incident_date": "2024-04-01"},
+        {"victim_name": "B", "victim_outcome": "died", "city": "Arraba", "incident_date": "2025-04-01"},
+        {"victim_name": "C", "victim_outcome": "died", "city": "Arraba", "incident_date": "2026-04-01"},
+    ])
+
+    resp = memorial_client.get("/api/memorial?year_from=2025&year_to=2026")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_deaths"] == 2
+
+
+def test_memorial_unresolved_count_for_unknown_city(memorial_client: TestClient, tmp_path: Path) -> None:
+    """Cases whose city is not in the gazetteer are counted in unresolved_count."""
+    _write_run(tmp_path, "run1", [
+        {"victim_name": "A", "victim_outcome": "died", "city": "Arraba",         "incident_date": "2026-04-01"},
+        {"victim_name": "B", "victim_outcome": "died", "city": "Atlantis",       "incident_date": "2026-04-02"},
+        {"victim_name": "C", "victim_outcome": "died", "city": "El Dorado",      "incident_date": "2026-04-03"},
+    ])
+
+    resp = memorial_client.get("/api/memorial")
+    data = resp.json()
+    assert data["total_deaths"] == 1
+    assert data["unresolved_count"] == 2
+
+
+def test_memorial_empty_when_no_runs(memorial_client: TestClient, tmp_path: Path) -> None:
+    """With no run files in OUTPUT_DIR, the endpoint returns an empty shell."""
+    resp = memorial_client.get("/api/memorial")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_deaths"] == 0
+    assert data["unresolved_count"] == 0
+    assert data["localities"] == []
+    assert data["run_id"] is None
