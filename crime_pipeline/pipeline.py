@@ -396,6 +396,7 @@ class Pipeline:
         # fields stay reserved for source-attested values. Runs AFTER
         # reconcile so inferred names don't participate in clustering.
         from crime_pipeline.enrichment.name_enrichment import enrich_cases
+        from crime_pipeline.models import CanonicalCaseSchema
         case_dicts_for_enrich = [c.model_dump(mode="json") for c in cases]
         case_dicts_for_enrich = enrich_cases(case_dicts_for_enrich)
         cases = [CanonicalCaseSchema(**d) for d in case_dicts_for_enrich]
