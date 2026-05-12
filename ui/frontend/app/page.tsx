@@ -6,7 +6,7 @@ import { fetchMemorial, type Locality, type MemorialResponse, type DeathSummary 
 import { regionFor, regionLabel, type RegionKey } from "@/lib/regions";
 import { formatDate, yearOf } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
-import { t, pickLangField } from "@/lib/i18n";
+import { t, pickLangField, pickNameWithTransliteration } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 interface DeathWithCity extends DeathSummary {
@@ -189,7 +189,14 @@ export default function HomePage() {
 
           <div className="cases">
             {recentCases.map((d) => {
-              const name = pickLangField(d.victim_name_ar, d.victim_name_he, lang);
+              const nameField = pickNameWithTransliteration(
+                d.victim_name_ar,
+                d.victim_name_he,
+                d.victim_name_en,
+                d.name_transliterations,
+                lang,
+              );
+              const name = nameField.value;
               const city = pickLangField(d.city_ar, d.city_he, lang);
               return (
                 <Link
@@ -198,7 +205,27 @@ export default function HomePage() {
                   className="case"
                 >
                   <div className="date">{formatDate(d.incident_date, lang)}</div>
-                  <div className={`name ${name === "—" ? "missing" : ""}`}>{name}</div>
+                  <div className={`name ${name === "—" ? "missing" : ""}`}>
+                    {name}
+                    {!nameField.isAttested && !nameField.isMissing && (
+                      <span
+                        className="inferred-pill"
+                        title={`Transliterated from ${nameField.sourceScript} (${nameField.method})`}
+                        style={{
+                          marginInlineStart: "0.5em",
+                          fontSize: "0.65em",
+                          padding: "0.15em 0.45em",
+                          borderRadius: "0.35em",
+                          border: "1px solid var(--muted, #aaa)",
+                          color: "var(--muted, #888)",
+                          fontWeight: 400,
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        ⓘ
+                      </span>
+                    )}
+                  </div>
                   <div className="meta">
                     {d.victim_age !== null && <span>{d.victim_age} {t(lang, "case.years_old")}</span>}
                     {d.victim_age !== null && <span className="sep">·</span>}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchCase, type CaseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
-import { t, pickLangField, MISSING } from "@/lib/i18n";
+import { t, pickNameWithTransliteration, MISSING } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 interface PageProps {
@@ -39,7 +39,14 @@ export default function CaseDetailPage({ params }: PageProps) {
 
   if (!c) return <div className="case-page" style={{ minHeight: "60vh" }} />;
 
-  const name = pickLangField(c.victim_name_ar, c.victim_name_he, lang);
+  const nameField = pickNameWithTransliteration(
+    c.victim_name_ar,
+    c.victim_name_he,
+    c.victim_name_en,
+    c.name_transliterations,
+    lang,
+  );
+  const name = nameField.value;
   const cityLabel = lang === "ar" ? c.city : c.city; // city is single-lang on CaseDetail; keep as-is
 
   return (
@@ -51,7 +58,31 @@ export default function CaseDetailPage({ params }: PageProps) {
 
       <header className="masthead">
         <div className="age-label">{t(lang, "case.in_memory")}</div>
-        <h1 className={`case-name ${name === MISSING ? "missing" : ""}`}>{name}</h1>
+        <h1 className={`case-name ${name === MISSING ? "missing" : ""}`}>
+          {name}
+          {!nameField.isAttested && !nameField.isMissing && (
+            <span
+              className="inferred-badge"
+              title={
+                `Transliterated from ${nameField.sourceScript} ` +
+                `(method: ${nameField.method})`
+              }
+              style={{
+                fontSize: "0.45em",
+                marginInlineStart: "0.6em",
+                padding: "0.2em 0.5em",
+                borderRadius: "0.4em",
+                border: "1px solid var(--muted, #aaa)",
+                color: "var(--muted, #888)",
+                verticalAlign: "middle",
+                fontWeight: 400,
+                letterSpacing: "0.02em",
+              }}
+            >
+              ⓘ inferred
+            </span>
+          )}
+        </h1>
         <div className="lifespan">
           {c.victim_age !== null && (
             <>

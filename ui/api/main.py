@@ -396,6 +396,10 @@ def get_memorial(
             "victim_name": case.get("victim_name"),
             "victim_name_he": case.get("victim_name_he"),
             "victim_name_ar": case.get("victim_name_ar"),
+            "victim_name_en": case.get("victim_name_en"),
+            # Pass transliterations through to the list view so the UI
+            # can show inferred names with a badge instead of MISSING.
+            "name_transliterations": case.get("name_transliterations") or [],
             "victim_age": case.get("victim_age"),
             "incident_date": str(date) if date else None,
             "confidence_score": case.get("confidence_score"),
