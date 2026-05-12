@@ -7,6 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { buildMemorialStyle } from "@/lib/map-style";
 import type { Locality, MemorialResponse } from "@/lib/api";
 import { BloomCard } from "./bloom-card";
+import { DeathCount } from "./death-count";
 
 interface MemorialMapProps {
   memorial: MemorialResponse;
@@ -141,9 +142,18 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
     };
   }, [memorial]);
 
+  const visibleCount = memorial.localities.reduce((sum, l) => sum + l.death_count, 0);
+
   return (
     <div className="relative w-full h-screen" onClick={() => setSelectedLocality(null)}>
       <div ref={containerRef} className="absolute inset-0" />
+
+      <div className="absolute top-3 left-4 z-20 text-xs font-medium text-neutral-700 tracking-wide">
+        Crime Pipeline — Memorial
+      </div>
+
+      <DeathCount count={visibleCount} />
+
       {selectedLocality && (
         <BloomCard
           locality={selectedLocality}
