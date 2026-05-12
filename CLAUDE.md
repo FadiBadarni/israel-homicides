@@ -314,6 +314,36 @@ Backward-compat Schema 1.0 helpers (`export_manifest`, `export_summary`) still e
 
 ---
 
+## Frontend — Memorial Map
+
+The frontend (`ui/frontend/`) is a single-page Next.js memorial. There is no list view,
+no filter sidebar, no review queue. The map is the index.
+
+Key files:
+- `app/page.tsx` — the only route; fetches `/api/memorial` and renders the map.
+- `components/memorial-map.tsx` — MapLibre canvas + GeoJSON locality layer + pulse loop + URL sync.
+- `components/bloom-card.tsx` — inline card with locality and case states.
+- `components/year-scrubber.tsx`, `components/death-count.tsx` — peripheral chrome.
+- `lib/map-style.ts` — cream/charcoal MapLibre style for the Protomaps source.
+- `public/tiles/israel.pmtiles` — self-hosted tile file (gitignored; see `public/tiles/README.md`).
+
+Backend dependency:
+- `GET /api/memorial` aggregates the latest run's `died` cases by locality, attaching
+  `lat`/`lng` from the gazetteer. Cases without a gazetteer match are counted in
+  `unresolved_count` and excluded.
+
+Tests:
+- Backend: `pytest tests/test_memorial_endpoint.py tests/test_gazetteer_coords.py`
+- Frontend smoke: `cd ui/frontend && npm run test:e2e` (Playwright; auto-starts dev server, stubs the API)
+
+Start order:
+```bash
+uvicorn ui.api.main:app --reload --port 8001   # backend
+cd ui/frontend && npm run dev                  # frontend (port 3000)
+```
+
+---
+
 ## Test patterns
 
 - **No `pytest-asyncio` required** — `tests/conftest.py` wraps async tests with `asyncio.run` fallback
