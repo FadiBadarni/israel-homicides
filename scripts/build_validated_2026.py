@@ -79,14 +79,29 @@ _SOURCE_RUNS = [
 # (mostly Israeli-Jewish or international cases the keyword sweeps caught
 # because the article used 'רצח' generically). Hardcoded exclusion list
 # rather than a content-based filter so this stays auditable.
+#
+# Used as EXACT-string match (full primary name equals one of these).
 _NON_ARAB_SOCIETY_NAMES = {
-    "גיא בן סימון",         # Israeli-Jewish, Kiryat Yam
-    "קוונטין דראנק",        # Lyon, France
-    "לינדה סטיבנסון",       # Wilmington, USA
-    "סيف الإسلام القذافي",  # Libya
-    "לואי רזק נתפי",        # Motorcycle accident, not homicide
-    "Saif al-Islam Gaddafi",
+    "גיא בן סימון",        # Israeli-Jewish, Kiryat Yam
+    "קוונטין דראנק",       # Lyon, France
+    "לינדה סטיבנסון",      # Wilmington, USA
+    "לואי רזק נתפי",       # Motorcycle accident, not homicide
 }
+
+# Substrings in primary name that indicate a non-Arab-society foreign
+# figure. Substring rather than exact match because the Hebrew/Arabic
+# transliterations of foreign names vary widely (סיף אל-אסלאם קדאפי vs
+# سيف الإسلام القذافي vs Saif al-Islam Gaddafi vs Gadaffi etc.).
+_NON_ARAB_SOCIETY_NAME_HINTS = [
+    # Libya
+    "קדאפי", "אלקדאפי", "القذافي", "القذاف", "Gaddafi", "Qaddafi", "Gadaffi",
+    # Iran (high-profile assassinations frequently caught by 'مقتل'/'ירי')
+    "דהקאן", "دهقان", "Dehghan",
+    "אנסארי בחטיאר", "أنصاري بختيار",  # Iranian dissident assassinations
+    "עזיזי", "عزيزي",                  # generic Iranian — keep if not Iranian
+                                       # context; safe because Arab-society
+                                       # has no עזיזי-named victims.
+]
 
 # Substrings in city that mark a non-Israeli incident location.
 # Hebrew/Arabic news outlets routinely report on homicides abroad — Iran,
@@ -111,6 +126,11 @@ _NON_ISRAEL_CITY_HINTS = [
     "אצפהאן", "אסצפהאן", "איספהאן", "اصفهان", "ספהאן",
     "טהראן", "טהרן", "طهران",
     "هرسين", "הרסין",
+    "ملارد", "מלרד", "מלארד",     # Malard, Tehran province
+    "كرج", "כרג'", "Karaj",
+    "مشهد", "משהד",
+    "شيراز", "שיראז",
+    "تبريز", "תבריז",
     # Europe
     "פריז", "פאריז", "باريس",
     "לונדון", "لندن",
@@ -171,8 +191,31 @@ def _is_israeli(case: dict) -> bool:
 
 
 def _is_arab_society_victim(case: dict) -> bool:
-    name = _best_name(case)
-    return name not in _NON_ARAB_SOCIETY_NAMES
+    """Exclude known non-Arab-society victims via name match.
+
+    Two filter modes:
+      • Exact match against ``_NON_ARAB_SOCIETY_NAMES`` (auditable list of
+        specific people seen in prior sweeps).
+      • Substring match against ``_NON_ARAB_SOCIETY_NAME_HINTS`` to
+        catch transliteration variants (e.g. Gaddafi spelled four
+        different ways across Hebrew, Arabic, and English).
+    """
+    # Check ALL name fields, not just the best one — Arabic forms may
+    # appear in victim_name_ar while Hebrew is empty (Gaddafi case).
+    names = [
+        case.get(k) for k in
+        ("victim_name", "victim_name_ar", "victim_name_he", "victim_name_en")
+    ]
+    names = [n for n in names if n]
+    if not names:
+        return True
+    if any(n in _NON_ARAB_SOCIETY_NAMES for n in names):
+        return False
+    for n in names:
+        for hint in _NON_ARAB_SOCIETY_NAME_HINTS:
+            if hint in n:
+                return False
+    return True
 
 
 def main() -> None:
