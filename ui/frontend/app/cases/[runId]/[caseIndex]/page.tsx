@@ -60,6 +60,14 @@ export default function CaseDetailPage({ params }: PageProps) {
       </div>
 
       <header className="masthead">
+        {(c.victim_gender === "M" || c.victim_gender === "F") && (
+          <figure className="portrait" aria-hidden="true">
+            <img
+              src={c.victim_gender === "F" ? "/woman-placeholder.png" : "/man-placeholder.png"}
+              alt=""
+            />
+          </figure>
+        )}
         <div className="age-label">{t(lang, "case.in_memory")}</div>
         <h1 className={`case-name ${name === MISSING ? "missing" : ""}`}>
           {name}
