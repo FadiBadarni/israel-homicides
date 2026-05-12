@@ -242,6 +242,7 @@ footer.bottom p { margin: 4px 0; }
   .regions { grid-template-columns: 1fr 1fr; }
   .region:nth-child(4n) { border-left: 1px solid var(--hair); }
   .region:nth-child(2n) { border-left: 0; }
+  .region:nth-last-child(-n+2) { border-bottom: 0; }
   .about-grid { grid-template-columns: 1fr; gap: 24px; }
 }
 
@@ -297,9 +298,13 @@ footer.bottom p { margin: 4px 0; }
   .case .summary { font-size: 13.5px; }
   .case .footer { padding-top: 12px; }
 
-  /* regions — single column on phone */
-  .regions { grid-template-columns: 1fr; }
-  .region { border-left: 0 !important; padding: 18px 16px; }
+  /* regions — keep tablet 2×2 layout; tighten sizing for phone widths */
+  .region { padding: 18px 12px; }
+  .region .name { font-size: 19px; margin-bottom: 6px; }
+  .region .num { font-size: 16px; }
+  .region .num strong { font-size: 19px; }
+  .region .num .since { font-size: 12px; margin-right: 4px; }
+  .region .bar { margin-top: 12px; }
 
   .load-more { padding: 22px 0 0; }
   .load-more a { font-size: 13px; }

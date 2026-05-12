@@ -90,6 +90,18 @@ export interface CaseDetail {
   incident_date: string | null;
   death_date: string | null;
   city: string | null;
+  // Gazetteer-normalized city record with all three scripts +
+  // district/region/lat/lng. Null when the extracted city wasn't in
+  // the gazetteer — UI must fall back to the raw ``city`` field.
+  city_normalized?: {
+    name_ar?: string | null;
+    name_he?: string | null;
+    name_en?: string | null;
+    district?: string | null;
+    region?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
   neighborhood: string | null;
   district: string | null;
   weapon_type: string | null;

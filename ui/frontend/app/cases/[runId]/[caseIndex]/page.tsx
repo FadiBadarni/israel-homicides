@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchCase, type CaseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
-import { t, pickNameWithTransliteration, MISSING } from "@/lib/i18n";
+import { t, pickNameWithTransliteration, pickCityLabel, MISSING } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 interface PageProps {
@@ -47,7 +47,10 @@ export default function CaseDetailPage({ params }: PageProps) {
     lang,
   );
   const name = nameField.value;
-  const cityLabel = lang === "ar" ? c.city : c.city; // city is single-lang on CaseDetail; keep as-is
+  // Use the gazetteer-normalized record for the user's chosen language;
+  // fall back to the raw extracted ``city`` when the gazetteer doesn't
+  // know the city or doesn't have the requested script.
+  const cityLabel = pickCityLabel(c.city, c.city_normalized, lang);
 
   return (
     <div className="case-page">

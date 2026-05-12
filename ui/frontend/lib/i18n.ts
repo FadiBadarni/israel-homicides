@@ -196,6 +196,34 @@ export function pickLangField(
   return v && v.trim() ? v : MISSING;
 }
 
+/**
+ * Pick the city name in the requested language from the gazetteer-
+ * normalized record. Falls back to the raw ``city`` field when the
+ * gazetteer doesn't know the city or doesn't have the requested
+ * script. Unlike names, all gazetteer values are source-attested
+ * (hand-curated), so no "inferred" badge is needed — just pick.
+ */
+export function pickCityLabel(
+  raw: string | null | undefined,
+  normalized: {
+    name_ar?: string | null;
+    name_he?: string | null;
+    name_en?: string | null;
+  } | null | undefined,
+  lang: Lang,
+): string {
+  const target = lang as "ar" | "he" | "en";
+  const fromGazetteer =
+    target === "ar"
+      ? normalized?.name_ar
+      : target === "he"
+      ? normalized?.name_he
+      : normalized?.name_en;
+  if (fromGazetteer && fromGazetteer.trim()) return fromGazetteer;
+  if (raw && raw.trim()) return raw;
+  return MISSING;
+}
+
 export interface NameFieldResult {
   value: string;
   /** True when the value came from a source article. False when the
