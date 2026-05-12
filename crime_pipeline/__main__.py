@@ -677,10 +677,14 @@ def cli(
         ]
         # Source compatibility — Hebrew kw on Hebrew sites, Arabic on
         # Arabic-language sites. Makan added 2026-05 after the Jan 2026
-        # truth investigation showed several victims (تيمور عطالله,
-        # بسمة أبو فريحة) had Makan coverage but no Arab48/Ynet coverage.
-        # Makan = the Arabic-language public broadcaster (Kan-affiliated).
-        _SOURCES_FOR_LANG = {"he": ["ynet"], "ar": ["arab48", "makan"]}
+        # truth investigation showed several victims (تيمور عطالله) had
+        # Makan-only coverage. Walla added shortly after to close the
+        # Bedouin/Negev femicide gap (بسمة أبو فريحة — covered by Walla
+        # by name, by Ynet/Arab48/Makan not at all).
+        _SOURCES_FOR_LANG = {
+            "he": ["ynet", "walla"],
+            "ar": ["arab48", "makan"],
+        }
 
         from datetime import date as _date
         year = cities_year or _date.today().year

@@ -149,6 +149,7 @@ sources. This is per-case Gemini-API-burning work — kept opt-in by design.
 | `models.py` | SQLAlchemy ORM tables + Pydantic v2 schemas |
 | `scrapers/base.py` | Abstract `BaseScraper` (discover + fetch + robots.txt via httpx — urllib's robotparser silently fails behind Cloudflare) |
 | `scrapers/ynet.py` | Hebrew server-rendered news |
+| `scrapers/walla.py` | Hebrew commercial news. Added 2026-05 to close the Bedouin femicide gap (Basma Abu Freiha and similar cases Ynet covered without naming). Discovery via Google News RSS; body via `<article>` selector (JSON-LD `articleBody` is empty on Walla template) |
 | `scrapers/makan.py` | Arabic public broadcaster (Kan-affiliated). Closes Bedouin/Negev coverage gap. Discovery via Google News RSS, body via `.article-content` |
 | `scrapers/police.py` | police.gov.il press releases |
 | `scrapers/panet.py` | Arabic SPA — requires Playwright shared browser |

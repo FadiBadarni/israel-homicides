@@ -66,14 +66,18 @@ def test_curated_arabic_keywords_present_in_source() -> None:
 
 
 def test_keyword_mode_routes_hebrew_to_ynet_only() -> None:
-    """Per the synthesis: Hebrew kw → Hebrew sites only (ynet); Arabic
-    kw → Arabic-language sites (arab48, makan). The Makan scraper was
-    added 2026-05 to close the Bedouin/Negev coverage gap that Arab48
-    missed (تيمور عطالله, بسمة أبو فريحة)."""
+    """Per the synthesis + later additions: Hebrew kw → Hebrew sites
+    (ynet, walla); Arabic kw → Arabic-language sites (arab48, makan).
+    Makan was added 2026-05 (Bedouin/Negev coverage gap, تيمور عطالله);
+    Walla was added shortly after to close the femicide gap on cases
+    that Ynet didn't headline by name (بسمة أبو فريحة)."""
     import crime_pipeline.__main__ as cli_mod
     src = inspect.getsource(cli_mod)
-    # The routing dict must list ynet for he and at least arab48+makan for ar.
-    assert '"he": ["ynet"]' in src
+    # Hebrew side must include ynet AND walla in some order.
+    assert (
+        '"ynet", "walla"' in src
+        or '"walla", "ynet"' in src
+    )
     # Arabic side must include both Arab48 and Makan in some order.
     assert (
         '"ar": ["arab48", "makan"]' in src
