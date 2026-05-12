@@ -5,361 +5,654 @@
     "name_he": "עראבה",
     "district": "Northern",
     "region": "Galilee",
-    "aliases_ar": ["عرّابة", "عرابه", "عرابة البطوف", "عرّابة البطوف", "عرابة-البطوف"],
-    "aliases_he": ["עראבה אל-בטוף", "עראבא", "עראבה אל בטוף", "ערבה"],
-    "aliases_en": ["Arraba al-Batof", "Arraba el-Batof", "Arrabe", "Arrabeh"]
+    "aliases_ar": [
+      "عرّابة",
+      "عرابه",
+      "عرابة البطوف",
+      "عرّابة البطوف",
+      "عرابة-البطوف"
+    ],
+    "aliases_he": [
+      "עראבה אל-בטוף",
+      "עראבא",
+      "עראבה אל בטוף",
+      "ערבה"
+    ],
+    "aliases_en": [
+      "Arraba al-Batof",
+      "Arraba el-Batof",
+      "Arrabe",
+      "Arrabeh"
+    ],
+    "lat": 32.8517,
+    "lng": 35.3361
   },
   {
     "name_en": "Sakhnin",
     "name_ar": "سخنين",
     "name_he": "סח'נין",
     "district": "Northern",
-    "aliases_ar": ["سخنين البطوف"],
-    "aliases_he": ["סחנין"]
+    "aliases_ar": [
+      "سخنين البطوف"
+    ],
+    "aliases_he": [
+      "סחנין"
+    ],
+    "lat": 32.8633,
+    "lng": 35.2961
   },
   {
     "name_en": "Deir Hanna",
     "name_ar": "دير حنا",
     "name_he": "דיר חנא",
     "district": "Northern",
-    "aliases_ar": ["دير حنّا"],
-    "aliases_he": ["דיר חנה"]
+    "aliases_ar": [
+      "دير حنّا"
+    ],
+    "aliases_he": [
+      "דיר חנה"
+    ],
+    "lat": 32.8617,
+    "lng": 35.365
   },
   {
     "name_en": "Majd al-Krum",
     "name_ar": "مجد الكروم",
     "name_he": "מג'ד אל-כרום",
     "district": "Northern",
-    "aliases_ar": ["مجد الكرُوم"],
-    "aliases_he": ["מג'ד אל כרום", "מג'ד אלכרום"]
+    "aliases_ar": [
+      "مجد الكرُوم"
+    ],
+    "aliases_he": [
+      "מג'ד אל כרום",
+      "מג'ד אלכרום"
+    ],
+    "lat": 32.9181,
+    "lng": 35.2606
   },
   {
     "name_en": "Tamra",
     "name_ar": "طمرة",
     "name_he": "טמרה",
     "district": "Northern",
-    "aliases_ar": ["طمره"],
-    "aliases_he": ["תמרה"]
+    "aliases_ar": [
+      "طمره"
+    ],
+    "aliases_he": [
+      "תמרה"
+    ],
+    "lat": 32.8533,
+    "lng": 35.1981
   },
   {
     "name_en": "Shfaram",
     "name_ar": "شفاعمرو",
     "name_he": "שפרעם",
     "district": "Northern",
-    "aliases_ar": ["شفا عمرو", "شفاعمر"],
-    "aliases_he": ["שפא עמר"]
+    "aliases_ar": [
+      "شفا عمرو",
+      "شفاعمر"
+    ],
+    "aliases_he": [
+      "שפא עמר"
+    ],
+    "lat": 32.8056,
+    "lng": 35.17
   },
   {
     "name_en": "Kafr Kanna",
     "name_ar": "كفر كنا",
     "name_he": "כפר כנא",
     "district": "Northern",
-    "aliases_ar": ["كفركنا"],
-    "aliases_he": ["כפר-כנא"]
+    "aliases_ar": [
+      "كفركنا"
+    ],
+    "aliases_he": [
+      "כפר-כנא"
+    ],
+    "lat": 32.7444,
+    "lng": 35.3417
   },
   {
     "name_en": "Nazareth",
     "name_ar": "الناصرة",
     "name_he": "נצרת",
     "district": "Northern",
-    "aliases_ar": ["ناصرة", "النصرة"],
-    "aliases_he": ["נצרת עילית", "נוף הגליל"]
+    "aliases_ar": [
+      "ناصرة",
+      "النصرة"
+    ],
+    "aliases_he": [
+      "נצרת עילית",
+      "נוף הגליל"
+    ],
+    "lat": 32.7019,
+    "lng": 35.2978
   },
   {
     "name_en": "Kafr Manda",
     "name_ar": "كفر مندا",
     "name_he": "כפר מנדא",
     "district": "Northern",
-    "aliases_ar": ["كفرمندا"],
-    "aliases_he": ["כפר-מנדא"]
+    "aliases_ar": [
+      "كفرمندا"
+    ],
+    "aliases_he": [
+      "כפר-מנדא"
+    ],
+    "lat": 32.8133,
+    "lng": 35.2547
   },
   {
     "name_en": "Iksal",
     "name_ar": "إكسال",
     "name_he": "אכסאל",
     "district": "Northern",
-    "aliases_ar": ["اكسال"],
-    "aliases_he": ["איכסאל"]
+    "aliases_ar": [
+      "اكسال"
+    ],
+    "aliases_he": [
+      "איכסאל"
+    ],
+    "lat": 32.6856,
+    "lng": 35.3133
   },
   {
     "name_en": "Yafa an-Naseriyye",
     "name_ar": "يافة الناصرة",
     "name_he": "יפיע",
     "district": "Northern",
-    "aliases_ar": ["يافة"],
-    "aliases_he": ["יפיע נצרת"]
+    "aliases_ar": [
+      "يافة"
+    ],
+    "aliases_he": [
+      "יפיע נצרת"
+    ],
+    "lat": 32.6911,
+    "lng": 35.2961
   },
   {
     "name_en": "Reineh",
     "name_ar": "الرينة",
     "name_he": "ריינה",
     "district": "Northern",
-    "aliases_ar": ["رينة"],
-    "aliases_he": ["ריינה הגלילית"]
+    "aliases_ar": [
+      "رينة"
+    ],
+    "aliases_he": [
+      "ריינה הגלילית"
+    ],
+    "lat": 32.7261,
+    "lng": 35.3056
   },
   {
     "name_en": "Kafr Yasif",
     "name_ar": "كفر ياسيف",
     "name_he": "כפר יאסיף",
     "district": "Northern",
-    "aliases_ar": ["كفرياسيف"],
-    "aliases_he": ["כפר-יאסיף"]
+    "aliases_ar": [
+      "كفرياسيف"
+    ],
+    "aliases_he": [
+      "כפר-יאסיף"
+    ],
+    "lat": 32.9544,
+    "lng": 35.1639
   },
   {
     "name_en": "Acre",
     "name_ar": "عكا",
     "name_he": "עכו",
     "district": "Northern",
-    "aliases_ar": ["عكّا"],
-    "aliases_he": ["עכא"]
+    "aliases_ar": [
+      "عكّا"
+    ],
+    "aliases_he": [
+      "עכא"
+    ],
+    "lat": 32.9281,
+    "lng": 35.0817
   },
   {
     "name_en": "Maghar",
     "name_ar": "المغار",
     "name_he": "מע'אר",
     "district": "Northern",
-    "aliases_ar": ["مغار"],
-    "aliases_he": ["מגאר"]
+    "aliases_ar": [
+      "مغار"
+    ],
+    "aliases_he": [
+      "מגאר"
+    ],
+    "lat": 32.8889,
+    "lng": 35.4083
   },
   {
     "name_en": "Bi'ina",
     "name_ar": "البعنة",
     "name_he": "בענה",
     "district": "Northern",
-    "aliases_ar": ["بعنة"],
-    "aliases_he": ["בענא"]
+    "aliases_ar": [
+      "بعنة"
+    ],
+    "aliases_he": [
+      "בענא"
+    ],
+    "lat": 32.9211,
+    "lng": 35.2972
   },
   {
     "name_en": "Nahf",
     "name_ar": "نحف",
     "name_he": "נחף",
     "district": "Northern",
-    "aliases_ar": ["النحف"],
-    "aliases_he": ["נחף הגלילית"]
+    "aliases_ar": [
+      "النحف"
+    ],
+    "aliases_he": [
+      "נחף הגלילית"
+    ],
+    "lat": 32.9367,
+    "lng": 35.305
   },
   {
     "name_en": "Rameh",
     "name_ar": "الرامة",
     "name_he": "ראמה",
     "district": "Northern",
-    "aliases_ar": ["رامة"],
-    "aliases_he": ["ראמה הגלילית"]
+    "aliases_ar": [
+      "رامة"
+    ],
+    "aliases_he": [
+      "ראמה הגלילית"
+    ],
+    "lat": 32.9381,
+    "lng": 35.3678
   },
   {
     "name_en": "Kabul",
     "name_ar": "كابول",
     "name_he": "כאבול",
     "district": "Northern",
-    "aliases_ar": ["كابُول"],
-    "aliases_he": ["כבול"]
+    "aliases_ar": [
+      "كابُول"
+    ],
+    "aliases_he": [
+      "כבול"
+    ],
+    "lat": 32.8703,
+    "lng": 35.2086
   },
   {
     "name_en": "I'billin",
     "name_ar": "إعبلين",
     "name_he": "אעבלין",
     "district": "Northern",
-    "aliases_ar": ["اعبلين"],
-    "aliases_he": ["איעבלין"]
+    "aliases_ar": [
+      "اعبلين"
+    ],
+    "aliases_he": [
+      "איעבלין"
+    ],
+    "lat": 32.8347,
+    "lng": 35.1953
   },
   {
     "name_en": "Tur'an",
     "name_ar": "طرعان",
     "name_he": "טורעאן",
     "district": "Northern",
-    "aliases_ar": ["طُرعان"],
-    "aliases_he": ["טורען"]
+    "aliases_ar": [
+      "طُرعان"
+    ],
+    "aliases_he": [
+      "טורען"
+    ],
+    "lat": 32.7853,
+    "lng": 35.3739
   },
   {
     "name_en": "Umm al-Fahm",
     "name_ar": "أم الفحم",
     "name_he": "אום אל-פחם",
     "district": "Haifa",
-    "aliases_ar": ["ام الفحم", "أمّ الفحم"],
-    "aliases_he": ["אום אל פאחם", "אום אלפחם"]
+    "aliases_ar": [
+      "ام الفحم",
+      "أمّ الفحم"
+    ],
+    "aliases_he": [
+      "אום אל פאחם",
+      "אום אלפחם"
+    ],
+    "lat": 32.5167,
+    "lng": 35.15
   },
   {
     "name_en": "Baqa al-Gharbiyye",
     "name_ar": "باقة الغربية",
     "name_he": "באקה אל-גרבייה",
     "district": "Haifa",
-    "aliases_ar": ["باقة"],
-    "aliases_he": ["באקה גרבייה", "באקה אל גרביה"]
+    "aliases_ar": [
+      "باقة"
+    ],
+    "aliases_he": [
+      "באקה גרבייה",
+      "באקה אל גרביה"
+    ],
+    "lat": 32.415,
+    "lng": 35.0367
   },
   {
     "name_en": "Jatt",
     "name_ar": "جت",
     "name_he": "ג'ת",
     "district": "Haifa",
-    "aliases_ar": ["جتّ"],
-    "aliases_he": ["גת המשולש"]
+    "aliases_ar": [
+      "جتّ"
+    ],
+    "aliases_he": [
+      "גת המשולש"
+    ],
+    "lat": 32.395,
+    "lng": 35.0517
   },
   {
     "name_en": "Ar'ara",
     "name_ar": "عرعرة",
     "name_he": "ערערה",
     "district": "Haifa",
-    "aliases_ar": ["عرعره"],
-    "aliases_he": ["ערערא"]
+    "aliases_ar": [
+      "عرعره"
+    ],
+    "aliases_he": [
+      "ערערא"
+    ],
+    "lat": 32.4942,
+    "lng": 35.1019
   },
   {
     "name_en": "Kafr Qara",
     "name_ar": "كفر قرع",
     "name_he": "כפר קרע",
     "district": "Haifa",
-    "aliases_ar": ["كفرقرع"],
-    "aliases_he": ["כפר-קרע"]
+    "aliases_ar": [
+      "كفرقرع"
+    ],
+    "aliases_he": [
+      "כפר-קרע"
+    ],
+    "lat": 32.5067,
+    "lng": 35.0833
   },
   {
     "name_en": "Haifa",
     "name_ar": "حيفا",
     "name_he": "חיפה",
     "district": "Haifa",
-    "aliases_ar": ["حيفه"],
-    "aliases_he": ["חיפא"]
+    "aliases_ar": [
+      "حيفه"
+    ],
+    "aliases_he": [
+      "חיפא"
+    ],
+    "lat": 32.794,
+    "lng": 34.9896
   },
   {
     "name_en": "Tira",
     "name_ar": "الطيرة",
     "name_he": "טירה",
     "district": "Central",
-    "aliases_ar": ["طيرة"],
-    "aliases_he": ["טירה המשולש"]
+    "aliases_ar": [
+      "طيرة"
+    ],
+    "aliases_he": [
+      "טירה המשולש"
+    ],
+    "lat": 32.2333,
+    "lng": 34.95
   },
   {
     "name_en": "Taybe",
     "name_ar": "الطيبة",
     "name_he": "טייבה",
     "district": "Central",
-    "aliases_ar": ["طيبة"],
-    "aliases_he": ["טיבה"]
+    "aliases_ar": [
+      "طيبة"
+    ],
+    "aliases_he": [
+      "טיבה"
+    ],
+    "lat": 32.2683,
+    "lng": 34.9569
   },
   {
     "name_en": "Qalansawe",
     "name_ar": "قلنسوة",
     "name_he": "קלנסווה",
     "district": "Central",
-    "aliases_ar": ["قلنسوه"],
-    "aliases_he": ["קלנסואה"]
+    "aliases_ar": [
+      "قلنسوه"
+    ],
+    "aliases_he": [
+      "קלנסואה"
+    ],
+    "lat": 32.2858,
+    "lng": 34.9839
   },
   {
     "name_en": "Lod",
     "name_ar": "اللد",
     "name_he": "לוד",
     "district": "Central",
-    "aliases_ar": ["لد"],
-    "aliases_he": ["לידא"]
+    "aliases_ar": [
+      "لد"
+    ],
+    "aliases_he": [
+      "לידא"
+    ],
+    "lat": 31.9514,
+    "lng": 34.895
   },
   {
     "name_en": "Ramla",
     "name_ar": "الرملة",
     "name_he": "רמלה",
     "district": "Central",
-    "aliases_ar": ["رملة"],
-    "aliases_he": ["רמלא"]
+    "aliases_ar": [
+      "رملة"
+    ],
+    "aliases_he": [
+      "רמלא"
+    ],
+    "lat": 31.9292,
+    "lng": 34.8669
   },
   {
     "name_en": "Jaljulia",
     "name_ar": "جلجولية",
     "name_he": "ג'לג'וליה",
     "district": "Central",
-    "aliases_ar": ["جلجوليه"],
-    "aliases_he": ["ג'לג'וליא"]
+    "aliases_ar": [
+      "جلجوليه"
+    ],
+    "aliases_he": [
+      "ג'לג'וליא"
+    ],
+    "lat": 32.1517,
+    "lng": 34.9486
   },
   {
     "name_en": "Kafr Qasim",
     "name_ar": "كفر قاسم",
     "name_he": "כפר קאסם",
     "district": "Central",
-    "aliases_ar": ["كفرقاسم"],
-    "aliases_he": ["כפר-קאסם"]
+    "aliases_ar": [
+      "كفرقاسم"
+    ],
+    "aliases_he": [
+      "כפר-קאסם"
+    ],
+    "lat": 32.1147,
+    "lng": 34.9756
   },
   {
     "name_en": "Tel Aviv",
     "name_ar": "تل أبيب",
     "name_he": "תל אביב",
     "district": "Tel Aviv",
-    "aliases_ar": ["تل ابيب", "تل أبيب-يافا"],
-    "aliases_he": ["תל-אביב", "תל אביב-יפו"]
+    "aliases_ar": [
+      "تل ابيب",
+      "تل أبيب-يافا"
+    ],
+    "aliases_he": [
+      "תל-אביב",
+      "תל אביב-יפו"
+    ],
+    "lat": 32.0853,
+    "lng": 34.7818
   },
   {
     "name_en": "Jaffa",
     "name_ar": "يافا",
     "name_he": "יפו",
     "district": "Tel Aviv",
-    "aliases_ar": ["يافه"],
-    "aliases_he": ["יאפא"]
+    "aliases_ar": [
+      "يافه"
+    ],
+    "aliases_he": [
+      "יאפא"
+    ],
+    "lat": 32.0508,
+    "lng": 34.7503
   },
   {
     "name_en": "Jerusalem",
     "name_ar": "القدس",
     "name_he": "ירושלים",
     "district": "Jerusalem",
-    "aliases_ar": ["قدس", "اورشليم"],
-    "aliases_he": ["ירושלם", "אורשלים"]
+    "aliases_ar": [
+      "قدس",
+      "اورشليم"
+    ],
+    "aliases_he": [
+      "ירושלם",
+      "אורשלים"
+    ],
+    "lat": 31.7683,
+    "lng": 35.2137
   },
   {
     "name_en": "Beit Safafa",
     "name_ar": "بيت صفافا",
     "name_he": "בית צפאפא",
     "district": "Jerusalem",
-    "aliases_ar": ["بيت صفافه"],
-    "aliases_he": ["בית-צפאפא"]
+    "aliases_ar": [
+      "بيت صفافه"
+    ],
+    "aliases_he": [
+      "בית-צפאפא"
+    ],
+    "lat": 31.7458,
+    "lng": 35.2086
   },
   {
     "name_en": "Abu Ghosh",
     "name_ar": "أبو غوش",
     "name_he": "אבו גוש",
     "district": "Jerusalem",
-    "aliases_ar": ["ابو غوش"],
-    "aliases_he": ["אבו-גוש"]
+    "aliases_ar": [
+      "ابو غوش"
+    ],
+    "aliases_he": [
+      "אבו-גוש"
+    ],
+    "lat": 31.8064,
+    "lng": 35.1075
   },
   {
     "name_en": "Rahat",
     "name_ar": "رهط",
     "name_he": "רהט",
     "district": "Southern",
-    "aliases_ar": ["رهت"],
-    "aliases_he": ["רהאט"]
+    "aliases_ar": [
+      "رهت"
+    ],
+    "aliases_he": [
+      "רהאט"
+    ],
+    "lat": 31.395,
+    "lng": 34.7561
   },
   {
     "name_en": "Hura",
     "name_ar": "حورة",
     "name_he": "חורה",
     "district": "Southern",
-    "aliases_ar": ["حوره"],
-    "aliases_he": ["חוראא"]
+    "aliases_ar": [
+      "حوره"
+    ],
+    "aliases_he": [
+      "חוראא"
+    ],
+    "lat": 31.3083,
+    "lng": 34.9389
   },
   {
     "name_en": "Tel Sheva",
     "name_ar": "تل السبع",
     "name_he": "תל שבע",
     "district": "Southern",
-    "aliases_ar": ["تل سبع"],
-    "aliases_he": ["תל-שבע"]
+    "aliases_ar": [
+      "تل سبع"
+    ],
+    "aliases_he": [
+      "תל-שבע"
+    ],
+    "lat": 31.23,
+    "lng": 34.8939
   },
   {
     "name_en": "Lakiya",
     "name_ar": "لقية",
     "name_he": "לקיה",
     "district": "Southern",
-    "aliases_ar": ["لقيه"],
-    "aliases_he": ["לקייא"]
+    "aliases_ar": [
+      "لقيه"
+    ],
+    "aliases_he": [
+      "לקייא"
+    ],
+    "lat": 31.3389,
+    "lng": 34.91
   },
   {
     "name_en": "Ksaifa",
     "name_ar": "كسيفة",
     "name_he": "כסייפה",
     "district": "Southern",
-    "aliases_ar": ["كسيفه"],
-    "aliases_he": ["כסייפא"]
+    "aliases_ar": [
+      "كسيفه"
+    ],
+    "aliases_he": [
+      "כסייפא"
+    ],
+    "lat": 31.2767,
+    "lng": 34.9947
   },
   {
     "name_en": "Beersheba",
     "name_ar": "بئر السبع",
     "name_he": "באר שבע",
     "district": "Southern",
-    "aliases_ar": ["بئر سبع"],
-    "aliases_he": ["באר-שבע"]
+    "aliases_ar": [
+      "بئر سبع"
+    ],
+    "aliases_he": [
+      "באר-שבע"
+    ],
+    "lat": 31.2517,
+    "lng": 34.7917
   },
   {
     "name_en": "Kawkab Abu al-Hija",
@@ -367,18 +660,52 @@
     "name_he": "כאוכב אבו אל-היג'א",
     "district": "Northern",
     "region": "Galilee",
-    "aliases_he": ["כאוכב", "כוכב אבו אל-היג'א", "כאוכב אבו אל-הג'ה", "כאוכב אבו-אל-היג'א"],
-    "aliases_ar": ["كوكب", "كوكب ابو الهيجاء", "كوكب ابو الهيجا", "كوكب أبو الهيجا"],
-    "aliases_en": ["Kawkab", "Kawkab Abu al-Heija", "Kawkab Abu-al-Hija", "Kaukab Abu al-Hija"]
+    "aliases_he": [
+      "כאוכב",
+      "כוכב אבו אל-היג'א",
+      "כאוכב אבו אל-הג'ה",
+      "כאוכב אבו-אל-היג'א"
+    ],
+    "aliases_ar": [
+      "كوكب",
+      "كوكب ابو الهيجاء",
+      "كوكب ابو الهيجا",
+      "كوكب أبو الهيجا"
+    ],
+    "aliases_en": [
+      "Kawkab",
+      "Kawkab Abu al-Heija",
+      "Kawkab Abu-al-Hija",
+      "Kaukab Abu al-Hija"
+    ],
+    "lat": 32.8489,
+    "lng": 35.2469
   },
   {
     "name_en": "Pardes Hanna-Karkur",
     "name_ar": "برديس حنا-كركور",
     "name_he": "פרדס חנה-כרכור",
     "district": "Haifa",
-    "aliases_he": ["פרדס חנה", "פרדס-חנה", "פרדס חנה כרכור", "פרדס-חנה-כרכור", "פרדס חנה־כרכור"],
-    "aliases_ar": ["برديس حنا", "برديس كركور", "برديس حنا كركور"],
-    "aliases_en": ["Pardes Hanna", "Pardes Hana", "Pardes-Hanna", "Pardes Hana Karkur"]
+    "aliases_he": [
+      "פרדס חנה",
+      "פרדס-חנה",
+      "פרדס חנה כרכור",
+      "פרדס-חנה-כרכור",
+      "פרדס חנה־כרכור"
+    ],
+    "aliases_ar": [
+      "برديس حنا",
+      "برديس كركور",
+      "برديس حنا كركور"
+    ],
+    "aliases_en": [
+      "Pardes Hanna",
+      "Pardes Hana",
+      "Pardes-Hanna",
+      "Pardes Hana Karkur"
+    ],
+    "lat": 32.4731,
+    "lng": 34.9747
   },
   {
     "name_en": "Yarka",
@@ -386,9 +713,18 @@
     "name_he": "ירכא",
     "district": "Northern",
     "region": "Galilee",
-    "aliases_he": ["ירכה"],
-    "aliases_ar": ["يركة"],
-    "aliases_en": ["Yirka", "Yarqa"]
+    "aliases_he": [
+      "ירכה"
+    ],
+    "aliases_ar": [
+      "يركة"
+    ],
+    "aliases_en": [
+      "Yirka",
+      "Yarqa"
+    ],
+    "lat": 32.9658,
+    "lng": 35.2125
   },
   {
     "name_en": "Arab al-Aramshe",
@@ -396,9 +732,26 @@
     "name_he": "סוואעד",
     "district": "Northern",
     "region": "Galilee",
-    "aliases_he": ["סואעד", "סוואעד-חמירה", "אל-סוואעד", "כעביה-טבאש-חג'אג'רה"],
-    "aliases_ar": ["السواعد الحميرة", "الحميرة", "الخرزة", "سواعد"],
-    "aliases_en": ["Sawa'ed", "Sawaid", "Al-Sawaid", "Sawaed Humeira"]
+    "aliases_he": [
+      "סואעד",
+      "סוואעד-חמירה",
+      "אל-סוואעד",
+      "כעביה-טבאש-חג'אג'רה"
+    ],
+    "aliases_ar": [
+      "السواعد الحميرة",
+      "الحميرة",
+      "الخرزة",
+      "سواعد"
+    ],
+    "aliases_en": [
+      "Sawa'ed",
+      "Sawaid",
+      "Al-Sawaid",
+      "Sawaed Humeira"
+    ],
+    "lat": 33.0644,
+    "lng": 35.2911
   },
   {
     "name_en": "Yanuh-Jat",
@@ -406,18 +759,41 @@
     "name_he": "יאנוח-ג'ת",
     "district": "Northern",
     "region": "Galilee",
-    "aliases_he": ["יאנוח", "ג'ת"],
-    "aliases_ar": ["يانوح", "جت"],
-    "aliases_en": ["Yanuh", "Jat"]
+    "aliases_he": [
+      "יאנוח",
+      "ג'ת"
+    ],
+    "aliases_ar": [
+      "يانوح",
+      "جت"
+    ],
+    "aliases_en": [
+      "Yanuh",
+      "Jat"
+    ],
+    "lat": 32.9989,
+    "lng": 35.2186
   },
   {
     "name_en": "Fureidis",
     "name_ar": "الفريديس",
     "name_he": "פוריידיס",
     "district": "Haifa",
-    "aliases_he": ["פורידיס", "פוריידיש", "אל-פריידיס"],
-    "aliases_ar": ["فريديس", "الفريدس"],
-    "aliases_en": ["Furedis", "Fraidis"]
+    "aliases_he": [
+      "פורידיס",
+      "פוריידיש",
+      "אל-פריידיס"
+    ],
+    "aliases_ar": [
+      "فريديس",
+      "الفريدس"
+    ],
+    "aliases_en": [
+      "Furedis",
+      "Fraidis"
+    ],
+    "lat": 32.6133,
+    "lng": 34.9389
   },
   {
     "name_en": "Shaqib al-Salam",
@@ -425,8 +801,19 @@
     "name_he": "שגב שלום",
     "district": "Southern",
     "region": "Negev",
-    "aliases_he": ["שגב-שלום"],
-    "aliases_ar": ["شقيب السلام", "سقيب السلام"],
-    "aliases_en": ["Segev Shalom", "Shaqib", "Shgev Shalom"]
+    "aliases_he": [
+      "שגב-שלום"
+    ],
+    "aliases_ar": [
+      "شقيب السلام",
+      "سقيب السلام"
+    ],
+    "aliases_en": [
+      "Segev Shalom",
+      "Shaqib",
+      "Shgev Shalom"
+    ],
+    "lat": 31.3211,
+    "lng": 34.8769
   }
 ]

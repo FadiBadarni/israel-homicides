@@ -60,3 +60,26 @@ def test_city_record_lat_lng_are_none_when_absent(tmp_path: Path) -> None:
     assert rec is not None
     assert rec.get("lat") is None
     assert rec.get("lng") is None
+
+
+def test_every_gazetteer_entry_has_coords() -> None:
+    """Every entry in data/gazetteer.json must have valid lat/lng."""
+    data = json.loads(Path("data/gazetteer.json").read_text(encoding="utf-8"))
+    missing = [e["name_en"] for e in data if e.get("lat") is None or e.get("lng") is None]
+    assert not missing, f"Gazetteer entries missing lat/lng: {missing}"
+
+
+def test_coords_are_within_israel_bbox() -> None:
+    """Sanity check: every coord should be within a generous Israel bounding box.
+
+    Bounds intentionally generous to cover West Bank, Gaza, Golan, and Sinai border.
+    """
+    data = json.loads(Path("data/gazetteer.json").read_text(encoding="utf-8"))
+    out_of_bbox = []
+    for e in data:
+        lat, lng = e.get("lat"), e.get("lng")
+        if lat is None or lng is None:
+            continue
+        if not (29.0 <= lat <= 34.0) or not (33.8 <= lng <= 36.2):
+            out_of_bbox.append((e["name_en"], lat, lng))
+    assert not out_of_bbox, f"Coords outside Israel bbox: {out_of_bbox}"
