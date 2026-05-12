@@ -270,14 +270,21 @@ def reconcile_cases(
 
         Required guards (preventing over-merging on common first names):
         - Shorter side must have ≥2 tokens (single-token names too risky)
-        - Shorter side's tokens must be a STRICT subset of the longer's
-        - First AND last tokens must match exactly (so "X Y" matches
-          "X Z Y" but not "X Y" vs "Y X" reorderings)
+        - Every short token must have a per-token Jaro ≥ 0.85 partner
+          in the long side. Fuzzy by design — Hebrew "חוסיין" romanizes
+          to ``hwsyyn`` and Arabic "حسين" to ``hsyn`` (the Hebrew
+          transliteration writes long-/i:/ as ``יי`` plus a ``ו`` vowel
+          marker that Arabic spelling drops). Bare ``set(short) < set(long_)``
+          rejects these as different tokens; per-token Jaro recognises them.
+        - First AND last tokens must align positionally (also fuzzy) so
+          "X Y" matches "X Z Y" but not "X Y" vs "Y X" reorderings.
 
         Catches the inserted-middle-name pattern that Jaro can fall below
-        threshold on for longer middle names. The primary fix for this
-        bug was the city-gazetteer comparison; this is defense in depth.
+        threshold on for longer middle names. Mirrors verify's
+        ``_verify_names_match`` fuzzy logic so reconcile and verify make
+        the same call on the same input.
         """
+        TOKEN_JARO_THRESHOLD = 0.85
         for na in names_a:
             ta = _name_tokens(na)
             for nb in names_b:
@@ -285,11 +292,20 @@ def reconcile_cases(
                 if len(ta) < 2 or len(tb) < 2 or len(ta) == len(tb):
                     continue
                 short, long_ = (ta, tb) if len(ta) < len(tb) else (tb, ta)
-                if (
-                    set(short) < set(long_)
-                    and short[0] == long_[0]
-                    and short[-1] == long_[-1]
-                ):
+                # Every short-side token has a Jaro≥0.85 partner in long.
+                all_have_partner = all(
+                    any(
+                        _jaro(st, lt) >= TOKEN_JARO_THRESHOLD
+                        for lt in long_
+                    )
+                    for st in short
+                )
+                if not all_have_partner:
+                    continue
+                # Positional anchor: first AND last tokens must align.
+                first_ok = _jaro(short[0], long_[0]) >= TOKEN_JARO_THRESHOLD
+                last_ok = _jaro(short[-1], long_[-1]) >= TOKEN_JARO_THRESHOLD
+                if first_ok and last_ok:
                     return True
         return False
 

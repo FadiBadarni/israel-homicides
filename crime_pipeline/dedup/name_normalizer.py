@@ -5,9 +5,19 @@ from anyascii import anyascii
 # Arabic tashkeel (diacritical marks) unicode range
 ARABIC_DIACRITICS = re.compile(r'[ً-ٟؐ-ؚۖ-ۜ]')
 
-# Common honorifics to strip before comparison
+# Common honorifics to strip before comparison.
+#
+# Note: ``أبو`` and ``أم`` are NOT in this list even though earlier
+# revisions had them. In Arab-society Israeli naming they're compound
+# family-name components (Abu Rakik, Abu Rish, Abu Ghazala, Abu
+# Freiha, Umm Kulthum) — integral to the surname, not standalone
+# titles. Stripping them broke cross-script dedup: Hebrew script
+# preserves אבו (transliterating to ``bw`` after the bias map), while
+# Arabic was dropping it entirely, leaving Jaro ≈ 0.6 between forms
+# of the same person and silently splitting cases like the live Feb
+# 2026 Hussein Abu Rakik (Lod) and Najib Abu Rish (Yarka).
 HONORIFICS = {
-    "ar": ["الشهيد", "المرحوم", "المغفور له", "الحاج", "أبو", "أم"],
+    "ar": ["الشهيد", "المرحوم", "المغفور له", "الحاج"],
     "he": ['ז"ל', 'הי"ד', "ר'", "רב"],
 }
 
@@ -51,7 +61,28 @@ _HEBREW_ARABIC_BIAS_MAP = str.maketrans({
     "כ": "k",   # kaf (vs anyascii's 'kh')
     "ך": "k",   # kaf sofit
     "ו": "w",   # vav as waw (vs anyascii's 'v')
+    "ק": "q",   # kof rendering Arabic qaf (vs anyascii's 'k')
+                # Fixes Hebrew "רקיק" (rkyk) ≠ Arabic "رقيق" (rqyq)
+                # on cross-script verify of Abu Rakik.
+    "צ": "s",   # tsade rendering Arabic sad (vs anyascii's 'ts')
+                # In Arab-society names ('Nassar', 'Salim') Hebrew
+                # writers don't use צ; this is a defensive map for
+                # the rare case where they do.
 })
+
+# Pre-anyascii substring replacements for Hebrew DIGRAPHS (more than one
+# char). str.maketrans only handles single-codepoint substitutions, so
+# these get a separate pass right before the bias map.
+#
+# ``ג'`` (gimel + geresh) is the Hebrew convention for representing the
+# Arabic /j/ sound (Arabic ج). Without this, Hebrew "נג'יב" romanizes
+# to 'ngyb' while Arabic "نجيب" gives 'njyb' — silent recall miss on
+# every "Najib/Jubran/Jasser" cross-script verify.
+_HEBREW_DIGRAPH_REPLACEMENTS = [
+    ("ג'", "j"),
+    ("ז'", "z"),   # used for /ʒ/ — rare but seen
+    ("ד'", "d"),   # used for /ð/ — rare
+]
 
 
 def romanize_name(name: str) -> str:
@@ -60,12 +91,14 @@ def romanize_name(name: str) -> str:
     Uses anyascii for transliteration + normalization.
 
     Hebrew letters that frequently appear in Arabic-origin names are
-    pre-mapped to their Arabic-equivalent Latin (b, k, w) before anyascii
-    runs so cross-script comparisons of the same victim land on the same
-    romanized form.
+    pre-mapped to their Arabic-equivalent Latin (b, k, w, q, s) before
+    anyascii runs so cross-script comparisons of the same victim land
+    on the same romanized form.
     """
     name = normalize_arabic(name)
     name = strip_honorifics(name)
+    for src, dst in _HEBREW_DIGRAPH_REPLACEMENTS:
+        name = name.replace(src, dst)
     name = name.translate(_HEBREW_ARABIC_BIAS_MAP)
     name = anyascii(name)
     name = re.sub(r"[^a-zA-Z\s]", "", name).lower().strip()

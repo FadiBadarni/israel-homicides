@@ -379,5 +379,54 @@
     "aliases_he": ["פרדס חנה", "פרדס-חנה", "פרדס חנה כרכור", "פרדס-חנה-כרכור", "פרדס חנה־כרכור"],
     "aliases_ar": ["برديس حنا", "برديس كركور", "برديس حنا كركور"],
     "aliases_en": ["Pardes Hanna", "Pardes Hana", "Pardes-Hanna", "Pardes Hana Karkur"]
+  },
+  {
+    "name_en": "Yarka",
+    "name_ar": "يركا",
+    "name_he": "ירכא",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_he": ["ירכה"],
+    "aliases_ar": ["يركة"],
+    "aliases_en": ["Yirka", "Yarqa"]
+  },
+  {
+    "name_en": "Arab al-Aramshe",
+    "name_ar": "السواعد",
+    "name_he": "סוואעד",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_he": ["סואעד", "סוואעד-חמירה", "אל-סוואעד", "כעביה-טבאש-חג'אג'רה"],
+    "aliases_ar": ["السواعد الحميرة", "الحميرة", "الخرزة", "سواعد"],
+    "aliases_en": ["Sawa'ed", "Sawaid", "Al-Sawaid", "Sawaed Humeira"]
+  },
+  {
+    "name_en": "Yanuh-Jat",
+    "name_ar": "يانوح-جت",
+    "name_he": "יאנוח-ג'ת",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_he": ["יאנוח", "ג'ת"],
+    "aliases_ar": ["يانوح", "جت"],
+    "aliases_en": ["Yanuh", "Jat"]
+  },
+  {
+    "name_en": "Fureidis",
+    "name_ar": "الفريديس",
+    "name_he": "פוריידיס",
+    "district": "Haifa",
+    "aliases_he": ["פורידיס", "פוריידיש", "אל-פריידיס"],
+    "aliases_ar": ["فريديس", "الفريدس"],
+    "aliases_en": ["Furedis", "Fraidis"]
+  },
+  {
+    "name_en": "Shaqib al-Salam",
+    "name_ar": "شقيب السلام",
+    "name_he": "שגב שלום",
+    "district": "Southern",
+    "region": "Negev",
+    "aliases_he": ["שגב-שלום"],
+    "aliases_ar": ["شقيب السلام", "سقيب السلام"],
+    "aliases_en": ["Segev Shalom", "Shaqib", "Shgev Shalom"]
   }
 ]
