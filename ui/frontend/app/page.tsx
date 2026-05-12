@@ -32,6 +32,7 @@ export default function HomePage() {
   const { lang } = useLanguage();
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
   const [activeFilter, setActiveFilter] = useState<RegionKey | "all" | "current-year">("all");
+  const featuredYear = 2026;
 
   useEffect(() => {
     fetchMemorial()
@@ -40,7 +41,10 @@ export default function HomePage() {
         run_id: null,
         year_range: { from: null, to: null },
         total_deaths: 0,
+        documented_deaths: 0,
+        under_40_pct: 0,
         unresolved_count: 0,
+        year_counts: {},
         localities: [],
       }));
   }, []);
@@ -51,13 +55,19 @@ export default function HomePage() {
   );
 
   const currentYear = new Date().getFullYear();
-  const totalAll = memorial?.total_deaths ?? 0;
-  const currentYearCount = allDeaths.filter((d) => yearOf(d.incident_date) === currentYear).length;
-  const lastYearCount = allDeaths.filter((d) => yearOf(d.incident_date) === currentYear - 1).length;
+  const totalAll = memorial?.documented_deaths ?? memorial?.total_deaths ?? 0;
+  const currentYearCount =
+    memorial?.year_counts[String(currentYear)] ??
+    allDeaths.filter((d) => yearOf(d.incident_date) === currentYear).length;
+  const featuredYearCount =
+    memorial?.year_counts[String(featuredYear)] ??
+    allDeaths.filter((d) => yearOf(d.incident_date) === featuredYear).length;
   const ageData = allDeaths.filter((d) => d.victim_age !== null);
-  const under40Pct = ageData.length === 0
-    ? 0
-    : Math.round((ageData.filter((d) => (d.victim_age ?? 0) < 40).length / ageData.length) * 100);
+  const under40Pct =
+    memorial?.under_40_pct ??
+    (ageData.length === 0
+      ? 0
+      : Math.round((ageData.filter((d) => (d.victim_age ?? 0) < 40).length / ageData.length) * 100));
 
   const regionCounts = useMemo(() => {
     const c: Record<RegionKey, number> = { galilee: 0, triangle: 0, negev: 0, mixed: 0 };
@@ -125,9 +135,9 @@ export default function HomePage() {
 
       <section className="stats wrap">
         <div className="stat">
-          <div className="num">{lastYearCount || "—"}</div>
+          <div className="num">{featuredYearCount || "—"}</div>
           <div className="label">
-            <strong>{t(lang, "stats.last_year", { year: currentYear - 1 })}</strong>
+            <strong>{t(lang, "stats.last_year", { year: featuredYear })}</strong>
           </div>
         </div>
         <div className="stat">

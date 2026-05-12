@@ -26,7 +26,10 @@ export interface MemorialResponse {
   run_id: string | null;
   year_range: { from: number | null; to: number | null };
   total_deaths: number;
+  documented_deaths: number;
+  under_40_pct: number;
   unresolved_count: number;
+  year_counts: Record<string, number>;
   localities: Locality[];
 }
 

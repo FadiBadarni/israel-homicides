@@ -322,7 +322,10 @@ def get_memorial(
             "run_id": None,
             "year_range": {"from": None, "to": None},
             "total_deaths": 0,
+            "documented_deaths": 0,
+            "under_40_pct": 0,
             "unresolved_count": 0,
+            "year_counts": {},
             "localities": [],
         }
 
@@ -334,6 +337,10 @@ def get_memorial(
     by_city: dict[str, dict] = {}
     unresolved = 0
     incident_years: list[int] = []
+    year_counts: dict[str, int] = {}
+    documented_deaths = 0
+    age_known_count = 0
+    under_40_count = 0
 
     for idx, case in enumerate(data.get("cases", [])):
         if case.get("victim_outcome") != "died":
@@ -352,6 +359,15 @@ def get_memorial(
                 continue
             if year_to is not None and year > year_to:
                 continue
+            year_key = str(year)
+            year_counts[year_key] = year_counts.get(year_key, 0) + 1
+
+        documented_deaths += 1
+        victim_age = case.get("victim_age")
+        if isinstance(victim_age, int):
+            age_known_count += 1
+            if victim_age < 40:
+                under_40_count += 1
 
         raw_city = case.get("city")
         rec = gazetteer.normalize_city(raw_city) if raw_city else None
@@ -389,6 +405,11 @@ def get_memorial(
 
     localities = sorted(by_city.values(), key=lambda loc: -loc["death_count"])
     total_deaths = sum(loc["death_count"] for loc in localities)
+    under_40_pct = (
+        round((under_40_count / age_known_count) * 100)
+        if age_known_count
+        else 0
+    )
 
     return {
         "run_id": run_id,
@@ -397,7 +418,10 @@ def get_memorial(
             "to": max(incident_years) if incident_years else None,
         },
         "total_deaths": total_deaths,
+        "documented_deaths": documented_deaths,
+        "under_40_pct": under_40_pct,
         "unresolved_count": unresolved,
+        "year_counts": dict(sorted(year_counts.items())),
         "localities": localities,
     }
 

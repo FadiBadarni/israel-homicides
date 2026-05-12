@@ -2,7 +2,10 @@
   "run_id": "test-run",
   "year_range": { "from": 2024, "to": 2026 },
   "total_deaths": 3,
+  "documented_deaths": 3,
+  "under_40_pct": 67,
   "unresolved_count": 0,
+  "year_counts": { "2024": 1, "2025": 1, "2026": 1 },
   "localities": [
     {
       "city": "Tira",
