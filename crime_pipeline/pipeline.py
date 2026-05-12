@@ -585,6 +585,27 @@ class Pipeline:
                     self.stats["extracted"] += 1
                 else:
                     self.stats["extraction_failed"] += 1
+                    # Write a failure sentinel so the article state is
+                    # observable in the DB. Without this row, the funnel
+                    # CLI can't distinguish "extraction was attempted and
+                    # failed" from "extraction never ran" (e.g. triage
+                    # dropped it). The extracted_json is empty {} — the
+                    # error text lives in the structured log only, since
+                    # extracted_records has no error column.
+                    failure_data = {
+                        "article_id": inp["article_id"],
+                        "extracted_json": {},
+                        "validation_status": "invalid",
+                        "llm_model": self.settings.llm_model,
+                        "input_tokens": res.get("input_tokens", 0) or 0,
+                        "output_tokens": res.get("output_tokens", 0) or 0,
+                        "cache_hit": res.get("cache_hit", False),
+                        "latency_ms": res.get("latency_ms", 0) or 0,
+                        "extraction_status": "failed",
+                    }
+                    save_extraction(
+                        session, inp["article_id"], failure_data
+                    )
                     log.warning(
                         "extraction_failed",
                         article_id=inp["article_id"][:8],
@@ -786,27 +807,61 @@ class Pipeline:
                 dropped_duplicates=len(extractions) - len(unique_extractions),
             )
 
-        # Construct dedup-input records.
+        # Construct dedup-input records. For each extraction we may emit
+        # multiple records (1 per named victim) when additional_victims is
+        # non-empty. Each gets a composite id ``f"{ext.id}#{victim_index}"``
+        # so virtual_lookup can recover the (ext, victim_index) pair later
+        # during merge. Same article_id on every virtual record from the
+        # same extraction — the dedup stage uses that to enforce
+        # intra-article exclusion.
+        from crime_pipeline.extraction.multivictim import explode_extraction
+
         dedup_records: list[dict[str, Any]] = []
+        virtual_lookup: dict[str, dict[str, Any]] = {}
+        total_virtuals = 0
         for ext in unique_extractions:
             article = article_lookup.get(ext.article_id)
             if article is None:
                 continue
             data = ext.extracted_json or {}
-            dedup_records.append(
-                {
-                    "id": ext.id,
-                    "article_id": ext.article_id,
-                    "victim_name": data.get("victim_name"),
-                    "incident_date": data.get("incident_date"),
-                    "city": data.get("city"),
-                    # Truncate to keep embedding latency bounded; multilingual
-                    # encoders typically use the first 512 tokens anyway.
-                    "article_text": (article.article_text or "")[:2000],
-                    "source": article.source,
-                    "url": article.url,
-                    "confidence_score": data.get("confidence_score", 0.5),
+            virtuals = explode_extraction(data)
+            total_virtuals += len(virtuals)
+            for vdata in virtuals:
+                vidx = vdata.get("victim_index", 0)
+                composite_id = f"{ext.id}#{vidx}"
+                virtual_lookup[composite_id] = {
+                    "ext_id": ext.id,
+                    "victim_index": vidx,
+                    "virtual_extraction": vdata,
                 }
+                dedup_records.append(
+                    {
+                        "id": composite_id,
+                        "article_id": ext.article_id,
+                        "victim_name": vdata.get("victim_name"),
+                        "incident_date": vdata.get("incident_date"),
+                        "city": vdata.get("city"),
+                        # Truncate to keep embedding latency bounded; multilingual
+                        # encoders typically use the first 512 tokens anyway.
+                        "article_text": (article.article_text or "")[:2000],
+                        "source": article.source,
+                        "url": article.url,
+                        "confidence_score": vdata.get("confidence_score", 0.5),
+                    }
+                )
+
+        if total_virtuals > len(unique_extractions):
+            log.info(
+                "multivictim_explode",
+                extractions=len(unique_extractions),
+                virtual_records=total_virtuals,
+                multi_victim_articles=sum(
+                    1 for ext in unique_extractions
+                    if (ext.extracted_json or {}).get("additional_victims")
+                ),
+            )
+            self.stats["multivictim_extra_records"] = (
+                total_virtuals - len(unique_extractions)
             )
 
         if not dedup_records:
@@ -878,15 +933,27 @@ class Pipeline:
                           canonical_id=canonical_id[:8] if canonical_id else None)
             cluster_input: list[dict[str, Any]] = []
             for rec_id in group:
-                ext = ext_lookup.get(rec_id)
+                # rec_id is the composite "ext.id#victim_index" produced
+                # by the explode step. virtual_lookup resolves it back to
+                # the original ext + the per-victim view of extracted_json.
+                vinfo = virtual_lookup.get(rec_id)
                 rec = rec_lookup.get(rec_id)
-                if not ext or not rec:
+                if not vinfo or not rec:
+                    continue
+                ext = ext_lookup.get(vinfo["ext_id"])
+                if not ext:
                     continue
                 article = article_lookup.get(ext.article_id)
                 if not article:
                     continue
                 try:
-                    extraction_obj = ExtractedArticleData(**ext.extracted_json)
+                    # Build the extraction from the VIRTUAL per-victim dict
+                    # (primary fields swapped for additional_victims[i] when
+                    # victim_index > 0). additional_victims is already
+                    # stripped in explode_extraction so merging is clean.
+                    extraction_obj = ExtractedArticleData(
+                        **vinfo["virtual_extraction"]
+                    )
                 except Exception as e:
                     log.warning(
                         "invalid_extraction_in_merge",

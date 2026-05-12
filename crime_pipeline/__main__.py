@@ -231,6 +231,25 @@ def configure_logging(level: str) -> None:
     ),
 )
 @click.option(
+    "--show-pipeline-funnel",
+    "show_pipeline_funnel",
+    default=None,
+    help=(
+        "Print stage-by-stage drop-off counts for a given pipeline_run_id and "
+        "exit. Accepts a run_id substring (matches all runs starting with it) "
+        "or 'all' for every run in the DB. Use --funnel-format=jsonl for "
+        "machine-readable output."
+    ),
+)
+@click.option(
+    "--funnel-format",
+    "funnel_format",
+    default="table",
+    show_default=True,
+    type=click.Choice(["table", "jsonl"], case_sensitive=False),
+    help="Output format for --show-pipeline-funnel.",
+)
+@click.option(
     "--stage",
     "stages",
     multiple=True,
@@ -295,6 +314,8 @@ def cli(
     keyword_mode: str | None,
     verify_truth: str | None,
     verify_run: str | None,
+    show_pipeline_funnel: str | None,
+    funnel_format: str,
     stages: tuple[str, ...],
     jaro_threshold: float | None,
     cosine_threshold: float | None,
@@ -303,6 +324,26 @@ def cli(
 ) -> None:
     """Run the homicide-news scraping/AI pipeline end-to-end."""
     configure_logging(log_level)
+
+    # ── Pipeline funnel diagnostic (no API key needed) ───────────────────
+    # Reads counts straight from the SQLite checkpoints. Useful for
+    # spotting where articles drop in a sweep without re-running anything.
+    if show_pipeline_funnel:
+        from crime_pipeline.diagnostics import (
+            format_funnel_as_jsonl, format_funnel_as_table, gather_funnel,
+        )
+        rows = gather_funnel(show_pipeline_funnel)
+        if not rows:
+            click.echo(
+                f"No pipeline_run_id matched {show_pipeline_funnel!r}.",
+                err=True,
+            )
+            sys.exit(1)
+        if funnel_format.lower() == "jsonl":
+            click.echo(format_funnel_as_jsonl(rows))
+        else:
+            click.echo(format_funnel_as_table(rows))
+        sys.exit(0)
 
     # ── Reconcile mode (no API key needed) ───────────────────────────────
     if reconcile:
@@ -622,8 +663,18 @@ def cli(
         # إطلاق نار / طعن) catches articles whose titles describe the
         # method rather than naming the crime — pushes recall higher
         # at the cost of more noise the triage filter then drops.
+        # Expanded after the Jan 2026 truth investigation showed that
+        # several murder cases were covered on Arab48 under verbs we
+        # weren't searching for: قتل (bare killing verb), تصفية
+        # ("liquidation" — gangland framing), أردى ("shot dead"), and
+        # جثة ("body" — used in body-found articles). The triage filter
+        # rejects non-homicide noise these broader terms surface, so
+        # adding them lifts recall without polluting the dataset.
         _HE_KEYWORDS = ["רצח", "נרצח", "ירי", "דקירה"]
-        _AR_KEYWORDS = ["جريمة قتل", "مقتل", "إطلاق نار", "طعن"]
+        _AR_KEYWORDS = [
+            "جريمة قتل", "مقتل", "إطلاق نار", "طعن",
+            "قتل", "تصفية", "أردى", "جثة",
+        ]
         # Source compatibility — Hebrew kw on Hebrew site, Arabic on Arabic.
         _SOURCE_FOR_LANG = {"he": "ynet", "ar": "arab48"}
 

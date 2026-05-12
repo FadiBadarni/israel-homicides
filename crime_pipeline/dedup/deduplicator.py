@@ -230,6 +230,18 @@ class Deduplicator:
             'distinct' – records are clearly different
             'review'   – ambiguous; requires human adjudication
         """
+        # Intra-article exclusion: when one article describes multiple
+        # distinct named victims (a triple murder, a week-in-review summary),
+        # _explode_multivictim emits N records that share the same article_id.
+        # Their article_text is identical, so cosine ≈ 1.0 and they would
+        # otherwise all collapse into one cluster — destroying every victim
+        # except the first. Reject same-article pairs unconditionally; each
+        # exploded record can still merge with records from OTHER articles.
+        art_a = rec_a.get("article_id")
+        art_b = rec_b.get("article_id")
+        if art_a and art_b and art_a == art_b:
+            return "distinct"
+
         name_a = rec_a.get("victim_name")
         name_b = rec_b.get("victim_name")
         either_name_missing = not name_a or not name_b

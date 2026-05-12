@@ -293,10 +293,32 @@ def reconcile_cases(
                     return True
         return False
 
+    def _source_urls(case: dict) -> set[str]:
+        """All source URLs cited by a case. Used to enforce intra-article
+        exclusion at reconcile time: two cases that share a source URL
+        are different victims of a multi-victim article (the only way one
+        URL can appear in two cases is via the multi-victim explode), and
+        must not be re-merged here. Without this guard, the
+        cross-article cluster of N sibling virtual records re-collapses
+        the very victims the explode step worked to separate."""
+        urls = set()
+        for s in (case.get("sources") or []):
+            u = s.get("url")
+            if u:
+                urls.add(u)
+        return urls
+
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             a, b = cases[i], cases[j]
             if _city_conflicts(a, b) or _date_conflicts(a, b):
+                continue
+
+            # Intra-article exclusion (mirrors the dedup stage's rule for
+            # multi-victim records). Two cases sharing any source URL
+            # describe distinct victims of one article — merging them
+            # silently re-collapses the multi-victim explode.
+            if _source_urls(a) & _source_urls(b):
                 continue
 
             names_a = _all_names(a)

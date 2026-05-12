@@ -30,6 +30,11 @@ python -m crime_pipeline \
 python -m crime_pipeline --query "Arraba 2026" \
     --stage extract --stage dedup --stage merge --stage export
 
+# Pipeline funnel diagnostic — where did articles drop in a sweep?
+python -m crime_pipeline --show-pipeline-funnel kw_ar_           # prefix
+python -m crime_pipeline --show-pipeline-funnel all              # everything
+python -m crime_pipeline --show-pipeline-funnel kw_ --funnel-format=jsonl
+
 # Second-pass enrichment on an existing canonical case
 python -m crime_pipeline --enrich-case output/<run_id>.json
 
@@ -41,14 +46,28 @@ python scripts/demo_media_real.py
 
 ## Architecture
 
-Nine stages. Stages 1–5 + 9 are checkpointed to SQLite (`data/pipeline.db`); stages
-6–8 are deterministic in-memory transforms. Any stage can be skipped via
+Ten stages. Stages 1–4 + 10 are checkpointed to SQLite (`data/pipeline.db`); stages
+5–9 are deterministic in-memory transforms. Any stage can be skipped via
 `--stage`; for the persisted stages this pulls inputs from the DB, for the
 in-memory cleanup stages it simply no-ops.
 
 ```
-Discover → Fetch → Extract → Dedup → Merge → Sanity → Quality → Reconcile → Export
+Discover → Fetch → Triage → Extract → Dedup → Merge → Sanity → Quality → Reconcile → Export
 ```
+
+**Triage** is a cheap LLM pre-filter (Gemini 2.5-flash, thinking disabled) that
+classifies each fetched article as homicide/attempted_homicide/other before
+the expensive full-extraction stage. ~90% of articles are dropped here at
+zero downstream cost.
+
+**Multi-victim extraction** (added 2026-05): when one article describes
+multiple named victims (triple murders, week-in-review summaries like
+"13 قتيلا منذ بدء العام"), the LLM populates `additional_victims` on the
+extraction. Between extract and dedup, `_explode_multivictim` flattens the
+extraction into N+1 virtual per-victim records (composite IDs
+`ext_id#victim_index`). The dedup stage enforces same-article exclusion so
+the N records from one article never merge with each other but each can
+still merge with cross-source articles about the same individual.
 
 The last three (Sanity, Quality, Reconcile) are **deterministic, zero-API-cost
 cleanup stages** that previously only ran inside `--enrich-case` mode. Default
@@ -66,7 +85,8 @@ sources. This is per-case Gemini-API-burning work — kept opt-in by design.
 
 | File | Responsibility |
 |------|---------------|
-| `pipeline.py` | Six-stage async orchestrator |
+| `pipeline.py` | Ten-stage async orchestrator (incl. multi-victim explode between extract and dedup) |
+| `diagnostics.py` | `--show-pipeline-funnel` SQL counts: discover → fetch → triage → extract per (run_id, source) |
 | `config.py` | `pydantic-settings` — reads `.env` |
 | `models.py` | SQLAlchemy ORM tables + Pydantic v2 schemas |
 | `scrapers/base.py` | Abstract `BaseScraper` (discover + fetch + robots.txt) |
@@ -76,7 +96,8 @@ sources. This is per-case Gemini-API-burning work — kept opt-in by design.
 | `scrapers/google_news.py` | Google News RSS aggregator; language detection via Unicode blocks |
 | `scrapers/tier_registry.py` | Three-tier source classification; per-field tier preferences; coverage-gap flags |
 | `extraction/extractor.py` | Async Gemini client; one auto-retry on validation failure |
-| `extraction/prompts.py` | System + user prompt builders (700+ lines of extraction rules) |
+| `extraction/multivictim.py` | Pure-function explode: 1 multi-victim extraction → N+1 virtual records |
+| `extraction/prompts.py` | System + user prompt builders (700+ lines of extraction rules incl. MULTI-VICTIM RULE) |
 | `extraction/validator.py` | JSON repair → Pydantic validation → retry-prompt builder |
 | `dedup/deduplicator.py` | Blocking → Jaro (pre-filter) → cosine (decision gate) orchestrator |
 | `dedup/embedder.py` | `paraphrase-multilingual-MiniLM-L12-v2`; batch encode, L2-normalised |

@@ -46,6 +46,29 @@ These are NOT contradictions — Arraba is in BOTH Northern District AND Galilee
 
 When the article references the SAME PERSON in multiple scripts, capture each spelling in its own field. Capture additional variants in victim_aliases.
 
+MULTI-VICTIM RULE (CRITICAL):
+Most articles describe ONE victim — leave additional_victims as []. But some articles enumerate MULTIPLE distinct named victims:
+  - Multi-target shootings: "ياسر حجيرات وكامل حجيرات وخالد غدير قتلوا في عرابة"
+  - Week / month-in-review summaries: "13 قتيلا منذ بدء العام" listing names
+  - Family / household cases where 2+ named members were killed in one act
+  - Negev/Galilee region reports listing multiple recent homicides by name
+
+When multiple distinct NAMED victims appear:
+  1. Place the most prominently featured victim (usually the headline subject)
+     in the primary victim_name_* / victim_age / city / incident_date / victim_outcome fields.
+  2. Place every OTHER named victim in additional_victims as a slim record:
+     {victim_name_ar/he/en, victim_age, victim_gender, city, incident_date, victim_outcome}.
+  3. num_victims must equal 1 + len(additional_victims) when victims are named.
+
+Rules of restraint:
+  - Spawn an additional_victims entry ONLY from an EXPLICIT NAMED person.
+  - NEVER spawn one from a pronoun ("his brother", "another man", "one of them"),
+    an unnamed reference ("the second victim"), or a count alone ("33 people were killed").
+  - Aggregate-count articles WITHOUT names (e.g. "33 Arabs from the Negev killed
+    by criminal organizations") → additional_victims must stay []. We only
+    extract identifiable individuals, not aggregate statistics.
+  - additional_victims is always a list — never null, never omitted. Empty list is the default.
+
 INCIDENT TYPE — pick one (this drives whether the case enters the dataset):
 - "homicide": confirmed deliberate killing — current case (e.g. נרצח / قُتل / مقتل with named victim, criminal investigation)
 - "attempted_homicide": deliberate attempt that did NOT kill (yet) — wounded, critical, in hospital after a shooting/stabbing/assault. ניסיון רצח / محاولة قتل / إطلاق نار / طعن without confirmed death.
@@ -71,6 +94,20 @@ JSON Schema you must follow:
   "victim_name_he": string | null,                        // Hebrew-script form if present
   "victim_name_en": string | null,                        // Latin/English form if present
   "victim_aliases": [string],                             // additional variants / nicknames
+
+  "additional_victims": [                                 // OTHER named victims in same article. Empty list [] when only one victim. See MULTI-VICTIM RULE above.
+    {
+      "victim_name": string | null,
+      "victim_name_ar": string | null,
+      "victim_name_he": string | null,
+      "victim_name_en": string | null,
+      "victim_age": integer | null,
+      "victim_gender": "M" | "F" | "unknown" | null,
+      "city": string | null,
+      "incident_date": "YYYY-MM-DD" | null,
+      "victim_outcome": "died" | "survived" | "critical" | "unknown" | null
+    }
+  ],
 
   "victim_age": integer | null,
   "victim_gender": "M" | "F" | "unknown" | null,

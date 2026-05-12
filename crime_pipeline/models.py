@@ -226,6 +226,47 @@ class EvidenceItem(BaseModel):
     type: Optional[Literal["weapon", "physical", "digital", "testimony", "other"]] = None
 
 
+class AdditionalVictim(BaseModel):
+    """A secondary named victim mentioned in a multi-victim article.
+
+    Used for week-in-review summaries ("13 قتيلا منذ بدء العام"), triple
+    murders ("ياسر حجيرات, كامل حجيرات, خالد غدير"), and Negev/Galilee
+    region reports listing several recent homicides.
+
+    Intentionally slim — only the fields needed for downstream identity
+    resolution (dedup) and verify-against-truth matching. Suspect,
+    evidence, motive, media, and provenance live on the parent
+    ``ExtractedArticleData`` because they describe the article, not the
+    individual victim. Cross-victim suspect/motive attribution is a
+    future-work problem; for now we accept that secondary victims share
+    the parent's incident metadata.
+    """
+
+    victim_name: Optional[str] = None
+    victim_name_ar: Optional[str] = None
+    victim_name_he: Optional[str] = None
+    victim_name_en: Optional[str] = None
+    victim_age: Optional[int] = Field(default=None, ge=0, le=120)
+    victim_gender: Optional[Literal["M", "F", "unknown"]] = None
+    city: Optional[str] = None
+    incident_date: Optional[date] = None
+    victim_outcome: Optional[Literal["died", "survived", "critical", "unknown"]] = None
+
+    @field_validator("incident_date", mode="before")
+    @classmethod
+    def _coerce_partial_date(cls, v: Any) -> Any:
+        """Same partial-date tolerance as the parent extraction — accept
+        ``"2026-01-XX"`` or ``"????-??-??"`` as None rather than rejecting
+        the whole record."""
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return None
+            if any(ch in s.upper() for ch in ("X", "?")):
+                return None
+        return v
+
+
 class ExtractedArticleData(BaseModel):
     """Structured data extracted from a single crime news article by the LLM."""
 
@@ -252,6 +293,12 @@ class ExtractedArticleData(BaseModel):
     victim_name_he: Optional[str] = None  # Hebrew spelling if present
     victim_name_en: Optional[str] = None  # Latin/English spelling if present
     victim_aliases: list[str] = Field(default_factory=list)  # Other name variants
+
+    # Additional named victims in the SAME article (multi-victim case).
+    # Empty by default. When non-empty, the pipeline's _explode_multivictim
+    # step (between extract and dedup) flattens this into N+1 records so
+    # each victim gets its own canonical case.
+    additional_victims: list[AdditionalVictim] = Field(default_factory=list)
 
     victim_age: Optional[int] = Field(default=None, ge=0, le=120)
     victim_gender: Optional[Literal["M", "F", "unknown"]] = None
