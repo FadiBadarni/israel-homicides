@@ -1,22 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import maplibregl, { Map } from "maplibre-gl";
+import { useEffect, useRef, useState } from "react";
+import maplibregl, { Map, MapLayerMouseEvent } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildMemorialStyle } from "@/lib/map-style";
-import type { MemorialResponse } from "@/lib/api";
+import type { Locality, MemorialResponse } from "@/lib/api";
+import { BloomCard } from "./bloom-card";
 
 interface MemorialMapProps {
   memorial: MemorialResponse;
 }
 
-// Israel + West Bank + Gaza + Golan bounding box
 const INITIAL_BOUNDS: [[number, number], [number, number]] = [
-  [34.2, 29.5], // SW
-  [35.9, 33.5], // NE
+  [34.2, 29.5],
+  [35.9, 33.5],
 ];
-
 const TILES_URL = "/tiles/israel.pmtiles";
 
 function pulseWeight(mostRecentIncidentDate: string | null): number {
@@ -30,6 +29,9 @@ function pulseWeight(mostRecentIncidentDate: string | null): number {
 export function MemorialMap({ memorial }: MemorialMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
+  const [selectedLocality, setSelectedLocality] = useState<Locality | null>(null);
+  const [selectedCaseIndex, setSelectedCaseIndex] = useState<number | null>(null);
+  const [screenPos, setScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -46,7 +48,6 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
       maxPitch: 0,
       dragRotate: false,
     });
-
     mapRef.current = map;
 
     map.on("load", () => {
@@ -65,7 +66,23 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         data: { type: "FeatureCollection", features },
       });
 
-      // Static inner dot — radius scales with sqrt(death_count)
+      map.addLayer({
+        id: "locality-pulse",
+        type: "circle",
+        source: "localities",
+        paint: {
+          "circle-color": "transparent",
+          "circle-stroke-color": "#8b2a1f",
+          "circle-stroke-width": 2,
+          "circle-stroke-opacity": 0,
+          "circle-radius": [
+            "min",
+            28,
+            ["+", 8, ["*", 4, ["sqrt", ["get", "death_count"]]]],
+          ],
+        },
+      });
+
       map.addLayer({
         id: "locality-dot",
         type: "circle",
@@ -82,28 +99,10 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         },
       });
 
-      // Pulse ring — outer circle whose opacity oscillates
-      map.addLayer({
-        id: "locality-pulse",
-        type: "circle",
-        source: "localities",
-        paint: {
-          "circle-color": "transparent",
-          "circle-stroke-color": "#8b2a1f",
-          "circle-stroke-width": 2,
-          "circle-stroke-opacity": 0,
-          "circle-radius": [
-            "min",
-            28,
-            ["+", 8, ["*", 4, ["sqrt", ["get", "death_count"]]]],
-          ],
-        },
-      }, "locality-dot");  // insert beneath the solid dot
-
       let raf = 0;
       const tick = () => {
         const t = performance.now() / 1000;
-        const sine = (Math.sin(t * 1.8) + 1) / 2; // 0..1 at ~0.3 Hz
+        const sine = (Math.sin(t * 1.8) + 1) / 2;
         map.setPaintProperty("locality-pulse", "circle-stroke-opacity", [
           "*",
           sine * 0.45,
@@ -112,8 +111,27 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
-
       map.once("remove", () => cancelAnimationFrame(raf));
+
+      map.on("mouseenter", "locality-dot", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "locality-dot", () => {
+        map.getCanvas().style.cursor = "";
+      });
+
+      map.on("click", "locality-dot", (e: MapLayerMouseEvent) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const cityName = f.properties?.city as string | undefined;
+        if (!cityName) return;
+        const locality = memorial.localities.find((l) => l.city === cityName);
+        if (!locality) return;
+        const pt = e.point;
+        setScreenPos({ x: pt.x, y: pt.y });
+        setSelectedLocality(locality);
+        setSelectedCaseIndex(null);
+      });
     });
 
     return () => {
@@ -123,5 +141,18 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
     };
   }, [memorial]);
 
-  return <div ref={containerRef} className="w-full h-screen" />;
+  return (
+    <div className="relative w-full h-screen" onClick={() => setSelectedLocality(null)}>
+      <div ref={containerRef} className="absolute inset-0" />
+      {selectedLocality && (
+        <BloomCard
+          locality={selectedLocality}
+          initialCaseIndex={selectedCaseIndex}
+          screenPos={screenPos}
+          onClose={() => setSelectedLocality(null)}
+          onSelectCase={setSelectedCaseIndex}
+        />
+      )}
+    </div>
+  );
 }
