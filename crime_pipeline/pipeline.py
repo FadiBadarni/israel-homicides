@@ -96,9 +96,14 @@ class Pipeline:
         run_id: str | None = None,
         strict_city: bool = False,
         strict_date: bool = False,
+        run_narration: bool = True,
     ) -> None:
         self.settings = settings
         self.run_id = run_id or str(uuid.uuid4())[:12]
+        # When False, the narrate stage is skipped (no Gemini summaries).
+        # Default ON so production --build-canonical produces narratives.
+        # --no-narrate at the CLI sets this to False.
+        self.run_narration = run_narration
         # When True, post-merge cases whose normalized city doesn't match
         # the queried city are dropped (or kept with a `city_filter_unverified`
         # flag if the gazetteer can't validate). Only meaningful in city-mode
@@ -279,9 +284,31 @@ class Pipeline:
         if any(s in stages for s in ("sanity", "quality", "reconcile")):
             cases = await asyncio.to_thread(self._run_cleanup, cases, stages)
 
+        # ── Narrate ───────────────────────────────────────────────────
+        # LLM-generated 2-3 sentence memorial summary per case (ar/he/en).
+        # Cached per (canonical_case_id, sources_hash) so re-runs are free.
+        # Skipped when ``narrate`` is not in the requested stages or when
+        # --no-narrate disabled the stage at the CLI.
+        if cases and self.run_narration and "narrate" in stages:
+            from crime_pipeline.enrichment.narrator import narrate_cases
+            from crime_pipeline.models import CanonicalCaseSchema
+            case_dicts = [c.model_dump(mode="json") for c in cases]
+            try:
+                counter = await narrate_cases(
+                    case_dicts,
+                    api_key=self.settings.gemini_api_key,
+                    session_factory=db_module.SessionLocal,
+                    model=self.settings.llm_model,
+                )
+                self.stats["narration"] = counter
+                cases = [CanonicalCaseSchema(**d) for d in case_dicts]
+            except Exception as exc:  # noqa: BLE001
+                log.warning("narration_stage_failed", error=str(exc))
+                self.stats["narration_error"] = str(exc)
+
         # Persist the final canonical representation after deterministic cleanup
         # so SQLite and exported JSON describe the same cases.
-        if cases and any(s in stages for s in ("dedup", "merge", "sanity", "quality", "reconcile")):
+        if cases and any(s in stages for s in ("dedup", "merge", "sanity", "quality", "reconcile", "narrate")):
             await asyncio.to_thread(self._persist_canonical_cases, cases)
 
         # Stamp finished_at BEFORE export so the consolidated JSON's run
@@ -445,6 +472,31 @@ class Pipeline:
             after=len(cases),
             dropped=before_filter - len(cases),
         )
+
+        # ── Stage I: Narrate ──────────────────────────────────────────
+        # 2-3 sentence memorial summary per case in ar/he/en. Cached by
+        # (canonical_case_id, sources_hash) so re-runs only spend API
+        # calls on new or source-changed cases. Mutates ``cases`` (which
+        # are pydantic models) by populating case_narrative_{ar,he,en}.
+        if cases and self.run_narration:
+            from crime_pipeline.enrichment.narrator import narrate_cases
+            case_dicts = [c.model_dump(mode="json") for c in cases]
+            try:
+                counter = await narrate_cases(
+                    case_dicts,
+                    api_key=self.settings.gemini_api_key,
+                    session_factory=db_module.SessionLocal,
+                    model=self.settings.llm_model,
+                )
+                self.stats["narration"] = counter
+            except Exception as exc:  # noqa: BLE001
+                log.warning("narration_stage_failed", error=str(exc))
+                self.stats["narration_error"] = str(exc)
+            # Reconstruct from the (potentially partially mutated) dicts
+            # whether or not the stage succeeded — any narratives that
+            # were generated before an error are still present on the
+            # dicts and must not be dropped.
+            cases = [CanonicalCaseSchema(**d) for d in case_dicts]
 
         # ── Persist + export ──────────────────────────────────────────
         if cases:

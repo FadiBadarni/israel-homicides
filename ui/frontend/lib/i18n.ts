@@ -331,6 +331,28 @@ export function pickLangField(
 }
 
 /**
+ * Pick the language-specific case narrative for the current UI language,
+ * falling back across languages and finally to the legacy single
+ * ``case_narrative`` field. Returns null when nothing is available —
+ * callers can then choose not to render the summary block at all.
+ */
+export function pickNarrative(
+  ar: string | null | undefined,
+  he: string | null | undefined,
+  en: string | null | undefined,
+  legacy: string | null | undefined,
+  lang: Lang,
+): string | null {
+  const order =
+    lang === "ar" ? [ar, he, en] : lang === "he" ? [he, ar, en] : [en, ar, he];
+  for (const v of order) {
+    if (v && v.trim()) return v;
+  }
+  if (legacy && legacy.trim()) return legacy;
+  return null;
+}
+
+/**
  * Pick the city name in the requested language from the gazetteer-
  * normalized record. Falls back to the raw ``city`` field when the
  * gazetteer doesn't know the city or doesn't have the requested

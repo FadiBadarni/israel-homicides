@@ -375,6 +375,15 @@ footer.bottom p { margin: 4px 0; }
 
   .tap-caption { font-size: 15px; line-height: 1.75; margin-top: 28px; padding-top: 18px; }
 
+  /* about — already collapses to 1-col at tablet; tighten type for phone.
+     Reading-width paragraphs need slightly bigger body than the meta text. */
+  .about-grid { gap: 22px; }
+  .about-col h3 { font-size: 18px; margin-bottom: 10px; }
+  .about-col p { font-size: 14.5px; line-height: 1.75; }
+
+  /* footer — pull the bottom rhythm in proportionally */
+  footer.bottom { padding: 36px 0 56px; font-size: 12px; line-height: 1.7; }
+
   .load-more { padding: 22px 0 0; }
   .load-more a { font-size: 13px; }
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchCase, type CaseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
-import { t, pickNameWithTransliteration, pickCityLabel, translateEnum, MISSING } from "@/lib/i18n";
+import { t, pickNameWithTransliteration, pickCityLabel, pickNarrative, translateEnum, MISSING } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 interface PageProps {
@@ -91,7 +91,16 @@ export default function CaseDetailPage({ params }: PageProps) {
         </div>
       </header>
 
-      {c.case_narrative && <p className="case-summary">{c.case_narrative}</p>}
+      {(() => {
+        const narrative = pickNarrative(
+          c.case_narrative_ar,
+          c.case_narrative_he,
+          c.case_narrative_en,
+          c.case_narrative,
+          lang,
+        );
+        return narrative ? <p className="case-summary">{narrative}</p> : null;
+      })()}
 
       <div className="rule" />
 

@@ -256,14 +256,26 @@ def configure_logging(level: str) -> None:
     type=click.Choice(
         [
             "discover", "fetch", "triage", "extract", "dedup", "merge",
-            "sanity", "quality", "reconcile", "export",
+            "sanity", "quality", "reconcile", "narrate", "export",
         ],
         case_sensitive=False,
     ),
     help=(
-        "Run only specific stages (repeatable). Default: all ten stages "
+        "Run only specific stages (repeatable). Default: all stages "
         "(discover, fetch, triage, extract, dedup, merge, sanity, quality, "
-        "reconcile, export)."
+        "reconcile, narrate, export)."
+    ),
+)
+@click.option(
+    "--no-narrate",
+    "no_narrate",
+    is_flag=True,
+    default=False,
+    help=(
+        "Skip the narrate stage (per-case LLM-generated memorial summary). "
+        "Equivalent to omitting 'narrate' from --stage. Use for "
+        "development runs where you want to avoid the small Gemini cost; "
+        "the production --build-canonical run should leave this off."
     ),
 )
 @click.option(
@@ -342,6 +354,7 @@ def cli(
     show_pipeline_funnel: str | None,
     funnel_format: str,
     stages: tuple[str, ...],
+    no_narrate: bool,
     jaro_threshold: float | None,
     cosine_threshold: float | None,
     log_level: str,
@@ -480,7 +493,12 @@ def cli(
             sys.exit(2)
 
         canonical_run_id = run_id or f"canonical_{date_from}_{date_to}"
-        pipeline = Pipeline(settings, run_id=canonical_run_id, strict_date=False)
+        pipeline = Pipeline(
+            settings,
+            run_id=canonical_run_id,
+            strict_date=False,
+            run_narration=not no_narrate,
+        )
         click.echo(f"--build-canonical: window {date_from} to {date_to}")
         try:
             stats = asyncio.run(pipeline.build_canonical(date_from, date_to))
@@ -676,9 +694,11 @@ def cli(
         if stages
         else {
             "discover", "fetch", "triage", "extract", "dedup", "merge",
-            "sanity", "quality", "reconcile", "export",
+            "sanity", "quality", "reconcile", "narrate", "export",
         }
     )
+    if no_narrate:
+        stage_set.discard("narrate")
 
     # ── --cities backfill mode ──────────────────────────────────────────
     # Loops the pipeline once per (city, source). Each call gets a fresh
@@ -735,6 +755,7 @@ def cli(
                 pipeline = Pipeline(
                     settings, run_id=pair_run_id,
                     strict_city=strict_city, strict_date=strict_date,
+                    run_narration=not no_narrate,
                 )
                 try:
                     pair_stats = asyncio.run(
@@ -865,6 +886,7 @@ def cli(
 
             pipeline = Pipeline(
                 settings, run_id=pair_run_id, strict_date=strict_date,
+                run_narration=not no_narrate,
             )
             try:
                 pair_stats = asyncio.run(
@@ -937,6 +959,7 @@ def cli(
     pipeline = Pipeline(
         settings, run_id=run_id,
         strict_city=strict_city, strict_date=strict_date,
+        run_narration=not no_narrate,
     )
 
     click.echo(f"Pipeline starting | run_id={pipeline.run_id}")
