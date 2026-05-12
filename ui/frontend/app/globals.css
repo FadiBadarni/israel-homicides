@@ -193,27 +193,25 @@ footer.bottom p { margin: 4px 0; }
 .case-page a:hover { text-decoration-color: var(--accent); }
 .breadcrumb { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 56px; border-bottom: 1px solid var(--hair); }
 .breadcrumb a { color: var(--muted); }
-.masthead { text-align: center; padding: 72px 0 40px; position: relative; isolation: isolate; }
+.masthead { text-align: center; padding: 72px 0 40px; position: relative; }
 .portrait {
   position: absolute;
   top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 320px;
-  height: 320px;
+  right: -8px;
+  transform: translateY(-50%);
+  width: 150px;
+  height: 150px;
   margin: 0;
   pointer-events: none;
-  z-index: -1;
-  opacity: 0.11;
-  filter: grayscale(0.5);
+  opacity: 0.85;
 }
 .portrait img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 35%, transparent 85%);
-  mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 35%, transparent 85%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
 }
 .masthead .age-label,
 .masthead .case-name,
@@ -370,5 +368,5 @@ footer.bottom p { margin: 4px 0; }
   .fact:nth-child(odd) { padding-left: 4px; border-left: 0; }
   .fact:nth-child(even) { padding-right: 4px; }
   .rule { margin: 56px auto; }
-  .portrait { width: 240px; height: 240px; }
+  .portrait { width: 104px; height: 104px; right: -4px; }
 }
