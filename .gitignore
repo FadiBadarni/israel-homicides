@@ -81,3 +81,9 @@ out/
 
 # Protomaps tile file — too large for git; rebuild via public/tiles/README.md
 ui/frontend/public/tiles/*.pmtiles
+
+# Playwright test runtime outputs
+ui/frontend/test-results/
+ui/frontend/playwright-report/
+ui/frontend/blob-report/
+ui/frontend/.playwright/

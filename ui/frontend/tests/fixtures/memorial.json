@@ -1,0 +1,60 @@
+{
+  "run_id": "test-run",
+  "year_range": { "from": 2024, "to": 2026 },
+  "total_deaths": 3,
+  "unresolved_count": 0,
+  "localities": [
+    {
+      "city": "Tira",
+      "city_he": "טירה",
+      "city_ar": "الطيرة",
+      "lat": 32.2333,
+      "lng": 34.9500,
+      "death_count": 2,
+      "most_recent_incident_date": "2026-04-19",
+      "deaths": [
+        {
+          "case_index": 0,
+          "run_id": "test-run",
+          "victim_name": "Alice",
+          "victim_name_he": "אליס",
+          "victim_name_ar": "أليس",
+          "victim_age": 24,
+          "incident_date": "2026-04-19",
+          "confidence_score": 0.9
+        },
+        {
+          "case_index": 1,
+          "run_id": "test-run",
+          "victim_name": "Bob",
+          "victim_name_he": null,
+          "victim_name_ar": null,
+          "victim_age": 33,
+          "incident_date": "2025-12-01",
+          "confidence_score": 0.85
+        }
+      ]
+    },
+    {
+      "city": "Arraba",
+      "city_he": "עראבה",
+      "city_ar": "عرابة",
+      "lat": 32.8517,
+      "lng": 35.3361,
+      "death_count": 1,
+      "most_recent_incident_date": "2024-08-10",
+      "deaths": [
+        {
+          "case_index": 2,
+          "run_id": "test-run",
+          "victim_name": "Carol",
+          "victim_name_he": null,
+          "victim_name_ar": null,
+          "victim_age": 41,
+          "incident_date": "2024-08-10",
+          "confidence_score": 0.92
+        }
+      ]
+    }
+  ]
+}
