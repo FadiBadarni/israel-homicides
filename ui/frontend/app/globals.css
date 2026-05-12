@@ -280,13 +280,31 @@ footer.bottom p { margin: 4px 0; }
 @media (max-width: 520px) {
   .wrap { padding: 0 20px; }
 
-  /* nav reflows onto two lines, language toggle wraps below the links */
-  nav.top { padding: 14px 0; }
-  nav.top .row { flex-wrap: wrap; gap: 12px; justify-content: center; }
-  nav.top .brand { font-size: 18px; }
-  nav.top .links { font-size: 13px; gap: 16px; flex-wrap: wrap; justify-content: center; row-gap: 8px; }
+  /* nav — brand keeps its right edge; links + lang toggle wrap below it
+     when they don't fit on the same line (375 px viewport is the binding case).
+     space-between with one item per wrapped line still flex-starts each
+     line, so both end up right-aligned in the RTL flow. */
+  nav.top { padding: 12px 0; }
+  nav.top .row {
+    flex-wrap: wrap;
+    column-gap: 18px;
+    row-gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  nav.top .brand { font-size: 17px; }
+  nav.top .links {
+    font-size: 13px;
+    column-gap: 16px;
+    row-gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  /* slightly larger tap target without changing visual line-height */
+  nav.top .links a { padding: 4px 0; }
+
   .lang-toggle { font-size: 12px; }
-  .lang-toggle button { padding: 5px 10px; }
+  .lang-toggle button { padding: 6px 10px; min-height: 32px; }
 
   /* hero — tightens vertical rhythm and steps the type down */
   .hero { padding: 44px 0 40px; }
