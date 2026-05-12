@@ -126,14 +126,28 @@ export default function CaseDetailPage({ params }: PageProps) {
           <section>
             <div className="section-label">{t(lang, "case.sources_label")}</div>
             <div className="sources-list">
-              {c.sources.map((s, i) => (
-                <div className="source-item" key={i}>
-                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="source-pub">
-                    {s.title || s.domain}
-                  </a>
-                  <span className="source-date">{s.published_at || ""}</span>
-                </div>
-              ))}
+              {c.sources.map((s, i) => {
+                const label =
+                  s.title ||
+                  s.source_name ||
+                  s.actual_publisher ||
+                  s.domain ||
+                  (() => {
+                    try {
+                      return new URL(s.url).hostname.replace(/^www\./, "");
+                    } catch {
+                      return s.url;
+                    }
+                  })();
+                return (
+                  <div className="source-item" key={i}>
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="source-pub">
+                      {label}
+                    </a>
+                    <span className="source-date">{formatDate(s.published_at, lang)}</span>
+                  </div>
+                );
+              })}
             </div>
           </section>
         </>
