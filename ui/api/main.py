@@ -5,7 +5,7 @@ Reads Schema 2.0 JSON files from the output/ directory and serves them
 as a REST API consumed by the Next.js frontend.
 
 Start with:
-    uvicorn ui.api.main:app --reload --port 8000
+    uvicorn ui.api.main:app --reload --port 8001
 """
 from __future__ import annotations
 

@@ -675,8 +675,12 @@ def cli(
             "جريمة قتل", "مقتل", "إطلاق نار", "طعن",
             "قتل", "تصفية", "أردى", "جثة",
         ]
-        # Source compatibility — Hebrew kw on Hebrew site, Arabic on Arabic.
-        _SOURCE_FOR_LANG = {"he": "ynet", "ar": "arab48"}
+        # Source compatibility — Hebrew kw on Hebrew sites, Arabic on
+        # Arabic-language sites. Makan added 2026-05 after the Jan 2026
+        # truth investigation showed several victims (تيمور عطالله,
+        # بسمة أبو فريحة) had Makan coverage but no Arab48/Ynet coverage.
+        # Makan = the Arabic-language public broadcaster (Kan-affiliated).
+        _SOURCES_FOR_LANG = {"he": ["ynet"], "ar": ["arab48", "makan"]}
 
         from datetime import date as _date
         year = cities_year or _date.today().year
@@ -684,10 +688,12 @@ def cli(
         plan: list[tuple[str, str, str]] = []  # (keyword, source, lang)
         if mode_lower in ("hebrew", "both"):
             for kw in _HE_KEYWORDS:
-                plan.append((kw, _SOURCE_FOR_LANG["he"], "he"))
+                for src in _SOURCES_FOR_LANG["he"]:
+                    plan.append((kw, src, "he"))
         if mode_lower in ("arabic", "both"):
             for kw in _AR_KEYWORDS:
-                plan.append((kw, _SOURCE_FOR_LANG["ar"], "ar"))
+                for src in _SOURCES_FOR_LANG["ar"]:
+                    plan.append((kw, src, "ar"))
 
         click.echo(f"--keyword-mode={mode_lower}: {len(plan)} (keyword, source) pairs")
         click.echo(f"  Year tag:    {year}")
@@ -696,10 +702,13 @@ def cli(
 
         summary_rows: list[dict] = []
         for kw, source, lang in plan:
-            # Slug the keyword for run_id (transliterate non-ASCII to short hash)
+            # Slug the keyword for run_id (transliterate non-ASCII to short hash).
+            # Include the source in the run_id so makan and arab48 sweeps
+            # of the same keyword don't collide on a shared run_id (which
+            # would mix their articles in the SQLite checkpoints).
             import hashlib
             slug = hashlib.md5(kw.encode()).hexdigest()[:8]
-            pair_run_id = f"kw_{lang}_{slug}_{year}"
+            pair_run_id = f"kw_{lang}_{source}_{slug}_{year}"
             click.echo(f"▶ keyword={kw!r} → {source} (run_id={pair_run_id})")
 
             pipeline = Pipeline(
