@@ -32,11 +32,15 @@ export interface MemorialResponse {
 
 export interface Source {
   url: string;
-  domain: string;
+  domain?: string | null;
+  source_name?: string | null;
+  actual_publisher?: string | null;
+  discovery_source?: string | null;
+  language?: string | null;
   published_at: string | null;
-  title: string | null;
-  role: string | null;
-  tier: number | null;
+  title?: string | null;
+  role?: string | null;
+  tier?: number | null;
 }
 
 export interface MediaItem {
@@ -66,7 +70,8 @@ export interface CaseDetail {
   case_narrative: string | null;
   sources: Source[];
   media_evidence: MediaItem[];
-  conflict_map: Record<string, unknown> | null;
+  conflicts?: Record<string, unknown> | null;
+  conflict_map?: Record<string, unknown> | null;
 }
 
 export async function fetchMemorial(): Promise<MemorialResponse> {
