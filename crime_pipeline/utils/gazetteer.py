@@ -29,7 +29,7 @@ from typing import TypedDict
 _DEFAULT_GAZETTEER_PATH = Path("data/gazetteer.json")
 
 # In-memory index built by load_gazetteer()
-_index: dict[str, dict[str, str]] = {}
+_index: dict[str, CityRecord] = {}
 
 
 class CityRecord(TypedDict, total=False):
@@ -87,12 +87,12 @@ def load_gazetteer(path: Path = _DEFAULT_GAZETTEER_PATH) -> None:
         # Index primary names
         for name in (record["name_ar"], record["name_he"], record["name_en"]):
             if name:
-                _index[_normalise_key(name)] = record  # type: ignore[assignment]
+                _index[_normalise_key(name)] = record
 
         # Index aliases (Arabic / Hebrew / English)
         for key in ("aliases_ar", "aliases_he", "aliases_en"):
             for alias in entry.get(key, []) or []:
-                _index[_normalise_key(str(alias))] = record  # type: ignore[assignment]
+                _index[_normalise_key(str(alias))] = record
 
 
 def normalize_city(raw: str) -> CityRecord | None:
@@ -108,13 +108,14 @@ def normalize_city(raw: str) -> CityRecord | None:
 
     Returns:
         A ``CityRecord`` dict with keys ``name_ar``, ``name_he``, ``name_en``,
-        ``district``, or ``None`` if the name is not in the gazetteer.
+        ``district``, and optional ``region``, ``lat``, ``lng``, or ``None``
+        if the name is not in the gazetteer.
     """
     if not _index:
         load_gazetteer()
 
     key = _normalise_key(raw)
-    return _index.get(key)  # type: ignore[return-value]
+    return _index.get(key)
 
 
 def list_all_cities() -> list[CityRecord]:
