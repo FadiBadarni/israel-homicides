@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { Map, MapLayerMouseEvent } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -8,6 +8,7 @@ import { buildMemorialStyle } from "@/lib/map-style";
 import type { Locality, MemorialResponse } from "@/lib/api";
 import { BloomCard } from "./bloom-card";
 import { DeathCount } from "./death-count";
+import { YearScrubber } from "./year-scrubber";
 
 interface MemorialMapProps {
   memorial: MemorialResponse;
@@ -34,6 +35,29 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
   const [selectedCaseIndex, setSelectedCaseIndex] = useState<number | null>(null);
   const [screenPos, setScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  const yearMin = memorial.year_range.from ?? new Date().getFullYear();
+  const yearMax = memorial.year_range.to ?? new Date().getFullYear();
+  const [yearFrom, setYearFrom] = useState(yearMin);
+  const [yearTo, setYearTo] = useState(yearMax);
+
+  const filteredLocalities = useMemo(() => {
+    return memorial.localities
+      .map((loc) => {
+        const deaths = loc.deaths.filter((d) => {
+          if (!d.incident_date) return true;
+          const y = Number(d.incident_date.slice(0, 4));
+          return y >= yearFrom && y <= yearTo;
+        });
+        return { ...loc, deaths, death_count: deaths.length };
+      })
+      .filter((l) => l.death_count > 0);
+  }, [memorial, yearFrom, yearTo]);
+
+  const filteredLocalitiesRef = useRef(filteredLocalities);
+  useEffect(() => {
+    filteredLocalitiesRef.current = filteredLocalities;
+  }, [filteredLocalities]);
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -52,7 +76,7 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
     mapRef.current = map;
 
     map.on("load", () => {
-      const features = memorial.localities.map((loc) => ({
+      const features = filteredLocalities.map((loc) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [loc.lng, loc.lat] },
         properties: {
@@ -126,7 +150,7 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
         if (!f) return;
         const cityName = f.properties?.city as string | undefined;
         if (!cityName) return;
-        const locality = memorial.localities.find((l) => l.city === cityName);
+        const locality = filteredLocalitiesRef.current.find((l) => l.city === cityName);
         if (!locality) return;
         const pt = e.point;
         setScreenPos({ x: pt.x, y: pt.y });
@@ -142,7 +166,24 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
     };
   }, [memorial]);
 
-  const visibleCount = memorial.localities.reduce((sum, l) => sum + l.death_count, 0);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const src = map.getSource("localities");
+    if (!src || src.type !== "geojson") return;
+    const features = filteredLocalities.map((loc) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [loc.lng, loc.lat] },
+      properties: {
+        city: loc.city,
+        death_count: loc.death_count,
+        pulse_weight: pulseWeight(loc.most_recent_incident_date),
+      },
+    }));
+    (src as maplibregl.GeoJSONSource).setData({ type: "FeatureCollection", features });
+  }, [filteredLocalities]);
+
+  const visibleCount = filteredLocalities.reduce((sum, l) => sum + l.death_count, 0);
 
   return (
     <div className="relative w-full h-screen" onClick={() => setSelectedLocality(null)}>
@@ -153,6 +194,17 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
       </div>
 
       <DeathCount count={visibleCount} />
+
+      <YearScrubber
+        min={yearMin}
+        max={yearMax}
+        from={yearFrom}
+        to={yearTo}
+        onChange={(f, t) => {
+          setYearFrom(f);
+          setYearTo(t);
+        }}
+      />
 
       {selectedLocality && (
         <BloomCard
