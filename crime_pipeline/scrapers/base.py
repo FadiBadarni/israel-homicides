@@ -52,24 +52,58 @@ class BaseScraper(ABC):
         pass
 
     def can_fetch(self, url: str) -> bool:
-        """Check robots.txt. Returns True if allowed or respect_robots=False."""
+        """Check robots.txt. Returns True if allowed or respect_robots=False.
+
+        Fetches the robots.txt via ``httpx`` (with a real browser User-Agent)
+        rather than ``urllib.robotparser.RobotFileParser.read()``, because
+        some hosts (Cloudflare-fronted sites like Makan/Kan) return 403 or
+        an empty body to urllib's default UA. When ``rp.read()`` fails
+        silently, the parser is left with no default_entry and ALL
+        ``can_fetch`` calls return False — silently blocking the scraper
+        from every URL.
+        """
         if not self.respect_robots:
             return True
         from urllib.parse import urlparse
         from urllib.robotparser import RobotFileParser
+
+        import httpx
 
         parsed = urlparse(url)
         robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
         if robots_url not in self._robots_cache:
             rp = RobotFileParser()
             rp.set_url(robots_url)
+            body: str | None = None
             try:
-                rp.read()
-                self._robots_cache[robots_url] = rp
-            except Exception:
-                # If we can't read robots.txt, be permissive
-                return True
-        return self._robots_cache[robots_url].can_fetch("*", url)
+                resp = httpx.get(
+                    robots_url,
+                    headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        ),
+                    },
+                    timeout=10.0,
+                    follow_redirects=True,
+                )
+                if resp.status_code == 200:
+                    body = resp.text
+            except httpx.HTTPError:
+                body = None
+
+            if body is not None:
+                rp.parse(body.splitlines())
+            else:
+                # No robots.txt or unreachable — fall back to permissive.
+                # Mark as a sentinel so we don't retry every URL.
+                rp = None  # type: ignore[assignment]
+            self._robots_cache[robots_url] = rp
+        cached = self._robots_cache[robots_url]
+        if cached is None:
+            return True
+        return cached.can_fetch("*", url)
 
     def _extract_clean_text(
         self, html: str, title_selector: str, body_selectors: list[str]
