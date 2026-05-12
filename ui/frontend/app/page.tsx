@@ -207,24 +207,6 @@ export default function HomePage() {
                   <div className="date">{formatDate(d.incident_date, lang)}</div>
                   <div className={`name ${name === "—" ? "missing" : ""}`}>
                     {name}
-                    {!nameField.isAttested && !nameField.isMissing && (
-                      <span
-                        className="inferred-pill"
-                        title={`Transliterated from ${nameField.sourceScript} (${nameField.method})`}
-                        style={{
-                          marginInlineStart: "0.5em",
-                          fontSize: "0.65em",
-                          padding: "0.15em 0.45em",
-                          borderRadius: "0.35em",
-                          border: "1px solid var(--muted, #aaa)",
-                          color: "var(--muted, #888)",
-                          fontWeight: 400,
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        ⓘ
-                      </span>
-                    )}
                   </div>
                   <div className="meta">
                     {d.victim_age !== null && <span>{d.victim_age} {t(lang, "case.years_old")}</span>}

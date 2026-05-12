@@ -63,28 +63,6 @@ export default function CaseDetailPage({ params }: PageProps) {
         <div className="age-label">{t(lang, "case.in_memory")}</div>
         <h1 className={`case-name ${name === MISSING ? "missing" : ""}`}>
           {name}
-          {!nameField.isAttested && !nameField.isMissing && (
-            <span
-              className="inferred-badge"
-              title={
-                `Transliterated from ${nameField.sourceScript} ` +
-                `(method: ${nameField.method})`
-              }
-              style={{
-                fontSize: "0.45em",
-                marginInlineStart: "0.6em",
-                padding: "0.2em 0.5em",
-                borderRadius: "0.4em",
-                border: "1px solid var(--muted, #aaa)",
-                color: "var(--muted, #888)",
-                verticalAlign: "middle",
-                fontWeight: 400,
-                letterSpacing: "0.02em",
-              }}
-            >
-              ⓘ inferred
-            </span>
-          )}
         </h1>
         <div className="lifespan">
           {c.victim_age !== null && (
