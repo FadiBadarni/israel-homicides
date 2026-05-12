@@ -19,6 +19,14 @@ const INITIAL_BOUNDS: [[number, number], [number, number]] = [
 
 const TILES_URL = "/tiles/israel.pmtiles";
 
+function pulseWeight(mostRecentIncidentDate: string | null): number {
+  if (!mostRecentIncidentDate) return 0;
+  const incident = new Date(mostRecentIncidentDate).getTime();
+  if (isNaN(incident)) return 0;
+  const days = (Date.now() - incident) / (1000 * 60 * 60 * 24);
+  return Math.max(0, 1 - days / 30);
+}
+
 export function MemorialMap({ memorial }: MemorialMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -41,15 +49,46 @@ export function MemorialMap({ memorial }: MemorialMapProps) {
 
     mapRef.current = map;
 
+    map.on("load", () => {
+      const features = memorial.localities.map((loc) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [loc.lng, loc.lat] },
+        properties: {
+          city: loc.city,
+          death_count: loc.death_count,
+          pulse_weight: pulseWeight(loc.most_recent_incident_date),
+        },
+      }));
+
+      map.addSource("localities", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features },
+      });
+
+      // Static inner dot — radius scales with sqrt(death_count)
+      map.addLayer({
+        id: "locality-dot",
+        type: "circle",
+        source: "localities",
+        paint: {
+          "circle-color": "#8b2a1f",
+          "circle-radius": [
+            "min",
+            14,
+            ["+", 3, ["*", 2.5, ["sqrt", ["get", "death_count"]]]],
+          ],
+          "circle-stroke-width": 0.5,
+          "circle-stroke-color": "#5a1b13",
+        },
+      });
+    });
+
     return () => {
       maplibregl.removeProtocol("pmtiles");
       map.remove();
       mapRef.current = null;
     };
-  }, []);
-
-  // memorial prop is unused here; consumed by the dot layer in a later task
-  void memorial;
+  }, [memorial]);
 
   return <div ref={containerRef} className="w-full h-screen" />;
 }
