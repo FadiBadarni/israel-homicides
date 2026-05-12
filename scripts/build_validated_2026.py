@@ -89,10 +89,49 @@ _NON_ARAB_SOCIETY_NAMES = {
 }
 
 # Substrings in city that mark a non-Israeli incident location.
+# Hebrew/Arabic news outlets routinely report on homicides abroad — Iran,
+# US, EU, Russia, Gaza, West Bank — and our keyword sweeps catch those
+# with words like "רצח" / "مقتل". This is a literal-substring blocklist
+# rather than a positive-allowlist because the gazetteer can never list
+# every legitimate small Israeli town, but the foreign cities are finite
+# and well-known.
 _NON_ISRAEL_CITY_HINTS = [
-    "غزة", "دير البلح", "بيت لاهيا", "ا-זנתאן", "א-זנתאן", "الزنتان",
-    "ليون", "ووילمינגטון", "ליון", "ווילמינגטון", "الخرزة", "الحميرة",
-    "تركيا",
+    # Gaza Strip + West Bank
+    "غزة", "ע'זה", "עזה", "دير البلح", "בית-לאהיא", "بيت لاهيا",
+    "خان يونس", "ח'אן יונס", "رفح", "רפיח", "نابلس", "שכם",
+    # Other Arab states
+    "الزنتان", "ا-זנתאן", "א-זנתאן",         # Libya
+    "تركيا", "טורקיה", "أنقرة", "אנקרה",     # Turkey
+    "بيروت", "ביירות",                       # Lebanon
+    "دمشق", "דמשק", "حلب", "חאלב",          # Syria
+    "بغداد", "בגדאד",                        # Iraq
+    "القاهرة", "קהיר",                       # Egypt
+    "عمّان", "עמאן",                         # Jordan
+    # Iran
+    "אצפהאן", "אסצפהאן", "איספהאן", "اصفهان", "ספהאן",
+    "טהראן", "טהרן", "طهران",
+    "هرسين", "הרסין",
+    # Europe
+    "פריז", "פאריז", "باريس",
+    "לונדון", "لندن",
+    "ברלין", "برلين",
+    "מדריד", "مدريد",
+    "רומא", "روما",
+    "בודפשט", "בודאפסט", "بودابست",
+    "מוסקווה", "موسكو",
+    "ליון", "ליאון", "ليون",
+    # North America
+    "ניו יורק", "نيويورك",
+    "וושינגטון", "ושינגטון", "واشنطن",
+    "ووילמינגטון", "ווילמינגטון", "וילמינגטון", "ويلمنغتون",
+    "שיקגו", "شيكاغو",
+    "מיניאפוליס", "מיניאפולס", "مينيابوليس", "مينيابولس",
+    "טורונטו", "تورنتو",
+    # Other
+    "פקיסטן", "باكستان",
+    "אפגניסטן", "أفغانستان",
+    "אוקראינה", "أوكرانيا",
+    "רוסיה", "روسيا",
 ]
 
 
