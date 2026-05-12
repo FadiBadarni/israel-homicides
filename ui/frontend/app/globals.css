@@ -263,15 +263,14 @@ footer.bottom p { margin: 4px 0; }
   .hero h1 { font-size: 30px; line-height: 1.45; margin-bottom: 18px; max-width: none; padding: 0 4px; }
   .hero .lede { font-size: 16px; line-height: 1.7; padding: 0 4px; }
 
-  /* stats — same 2×2 grid as tablet, tightened for phone widths.
-     Constraints: cells must hold a 3–5 digit number in Amiri without overflowing
-     a ~160 px column on a 375 px viewport (20 px wrap padding + 10 px cell padding × 2). */
+  /* stats — same 2×2 grid as tablet; centered content + tighter type for phone.
+     Centering balances multi-line labels in the narrow ~155 px column on a 375 px viewport. */
   .stats { padding: 36px 0; }
-  .stat { padding: 18px 12px; }
-  .stat:first-child { padding-right: 12px; }
-  .stat:first-child .num { font-size: 56px; }
-  .stat .num { font-size: 44px; margin-bottom: 6px; line-height: 1; }
-  .stat .label { font-size: 13px; line-height: 1.5; }
+  .stat { padding: 20px 10px; text-align: center; }
+  .stat:first-child { padding-right: 10px; }
+  .stat:first-child .num { font-size: 48px; }
+  .stat .num { font-size: 40px; margin-bottom: 8px; line-height: 1; }
+  .stat .label { font-size: 13.5px; line-height: 1.55; }
 }
 @media (max-width: 600px) {
   .case-page { padding: 24px 22px 64px; }
