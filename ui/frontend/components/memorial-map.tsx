@@ -25,6 +25,20 @@ export function MemorialMap({ memorial, loadError }: MemorialMapProps) {
   const [yearFrom, setYearFrom] = useState(yearMin);
   const [yearTo, setYearTo] = useState(yearMax);
 
+  const [cityPolygons, setCityPolygons] = useState<Record<string, [number, number][]> | undefined>(undefined);
+
+  useEffect(() => {
+    fetch("/city-polygons.json", { cache: "force-cache" })
+      .then((r) => (r.ok ? r.json() : { polygons: {} }))
+      .then((data: { polygons?: Record<string, [number, number][]> }) => {
+        setCityPolygons(data.polygons ?? {});
+      })
+      .catch(() => {
+        // Missing or malformed polygon file: render the map without polygons.
+        setCityPolygons({});
+      });
+  }, []);
+
   const filteredLocalities = useMemo(() => {
     return memorial.localities
       .map((loc) => {
@@ -112,6 +126,7 @@ export function MemorialMap({ memorial, loadError }: MemorialMapProps) {
           <IsraelMap
             localities={filteredLocalities}
             selectedCity={selectedLocality?.city ?? null}
+            cityPolygons={cityPolygons}
             onSelect={handleSelectCity}
           />
         </div>

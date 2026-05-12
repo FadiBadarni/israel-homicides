@@ -132,3 +132,17 @@ export function clusterGeometry(cluster: { lat: number; lng: number }[]): {
   const r = Math.max(...pts.map((p) => Math.hypot(p.x - cx, p.y - cy))) + 18;
   return { cx, cy, r };
 }
+
+export interface CityPolygons {
+  polygons: Record<string, [number, number][]>;
+}
+
+/**
+ * Project a ring of [lng, lat] WGS84 points into SVG-space polyline string.
+ */
+export function projectRing(ring: [number, number][]): string {
+  return ring
+    .map(([lng, lat]) => projectLatLng(lat, lng))
+    .map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`)
+    .join(" ");
+}

@@ -84,3 +84,6 @@ ui/frontend/test-results/
 ui/frontend/playwright-report/
 ui/frontend/blob-report/
 ui/frontend/.playwright/
+
+# City-polygons data: refetch from OSM via scripts/fetch_city_polygons.py
+ui/frontend/public/city-polygons.json

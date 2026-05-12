@@ -8,11 +8,13 @@ import {
   clusterGeometry,
   findClusters,
   projectLatLng,
+  projectRing,
 } from "@/lib/project";
 
 interface IsraelMapProps {
   localities: Locality[];
   selectedCity: string | null;
+  cityPolygons?: Record<string, [number, number][]>;
   onSelect: (city: string) => void;
 }
 
@@ -32,7 +34,12 @@ function ringRadius(count: number): number {
   return Math.min(30, 10 + 4 * Math.sqrt(count));
 }
 
-export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps) {
+export function IsraelMap({
+  localities,
+  selectedCity,
+  cityPolygons,
+  onSelect,
+}: IsraelMapProps) {
   const outlinePoints = ISRAEL_OUTLINE_LATLNG
     .map(([lat, lng]) => projectLatLng(lat, lng))
     .map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`)
@@ -66,7 +73,28 @@ export function IsraelMap({ localities, selectedCity, onSelect }: IsraelMapProps
         strokeLinejoin="round"
       />
 
-      {/* Cluster rings (dashed, faint, behind the dots) */}
+      {/* Affected-city polygons (faint, just under the dots) */}
+      {cityPolygons &&
+        localities.map((loc) => {
+          const ring = cityPolygons[loc.city];
+          if (!ring) return null;
+          const points = projectRing(ring);
+          const selected = loc.city === selectedCity;
+          return (
+            <polygon
+              key={`poly-${loc.city}`}
+              points={points}
+              fill={selected ? "#e0d4bf" : "#e3d8c5"}
+              stroke="#b9ac96"
+              strokeWidth={0.4}
+              strokeDasharray={selected ? "0" : "1.5 1.5"}
+              opacity={selected ? 0.95 : 0.7}
+              pointerEvents="none"
+            />
+          );
+        })}
+
+      {/* Cluster rings (dashed, behind dots) */}
       {clusters.map((cluster, i) => {
         const { cx, cy, r } = clusterGeometry(cluster);
         return (
