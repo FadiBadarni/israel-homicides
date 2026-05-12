@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import memorialFixture from "./fixtures/memorial.json";
 
-test("bloom card opens, lists victims, swaps to case detail, closes on ESC", async ({ page }) => {
+test("clicking a case navigates to the case detail page", async ({ page }) => {
   await page.route("**/api/memorial", (route) =>
     route.fulfill({ json: memorialFixture })
   );
@@ -24,7 +24,7 @@ test("bloom card opens, lists victims, swaps to case detail, closes on ESC", asy
         weapon_type: "firearm",
         suspect_status: null,
         legal_status: null,
-        case_narrative: "A test narrative.",
+        case_narrative: "تفاصيل القضيّة.",
         sources: [],
         media_evidence: [],
         conflict_map: null,
@@ -32,16 +32,9 @@ test("bloom card opens, lists victims, swaps to case detail, closes on ESC", asy
     })
   );
 
-  await page.goto("/?locality=tira");
-  await expect(page.getByTestId("israel-map")).toBeVisible({ timeout: 10_000 });
+  await page.goto("/");
+  await page.getByText("أليس").click();
 
-  // BidiName prefers Hebrew when present; Alice's fixture has victim_name_he set.
-  await expect(page.getByText("אליס")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Bob")).toBeVisible();
-
-  await page.getByText("אליס").click();
-  await expect(page.getByText("A test narrative.")).toBeVisible({ timeout: 10_000 });
-
-  await page.keyboard.press("Escape");
-  await expect(page.getByText("A test narrative.")).toBeHidden();
+  await expect(page.getByText("في ذكرى")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("تفاصيل القضيّة.")).toBeVisible();
 });
