@@ -89,8 +89,9 @@ sources. This is per-case Gemini-API-burning work — kept opt-in by design.
 | `diagnostics.py` | `--show-pipeline-funnel` SQL counts: discover → fetch → triage → extract per (run_id, source) |
 | `config.py` | `pydantic-settings` — reads `.env` |
 | `models.py` | SQLAlchemy ORM tables + Pydantic v2 schemas |
-| `scrapers/base.py` | Abstract `BaseScraper` (discover + fetch + robots.txt) |
+| `scrapers/base.py` | Abstract `BaseScraper` (discover + fetch + robots.txt via httpx — urllib's robotparser silently fails behind Cloudflare) |
 | `scrapers/ynet.py` | Hebrew server-rendered news |
+| `scrapers/makan.py` | Arabic public broadcaster (Kan-affiliated). Closes Bedouin/Negev coverage gap. Discovery via Google News RSS, body via `.article-content` |
 | `scrapers/police.py` | police.gov.il press releases |
 | `scrapers/panet.py` | Arabic SPA — requires Playwright shared browser |
 | `scrapers/google_news.py` | Google News RSS aggregator; language detection via Unicode blocks |
