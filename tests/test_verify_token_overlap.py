@@ -85,6 +85,38 @@ def test_three_token_containment_overrides_low_jaro() -> None:
     assert _verify_match(truth, case) is True
 
 
+def test_son_named_after_grandfather_does_not_match_father() -> None:
+    """The actual live FN: truth 'نظيم نصار' is a 15-year-old son named
+    after his grandfather. His father's name 'أدهم نظيم نصار' (Adham,
+    34) is the truth file's separate entry. Both were killed together
+    in Nazareth on 2026-01-05 (Makan article 987086).
+
+    Bare token-subset containment WOULD accept this match: [nadhim,
+    nassar] ⊂ [adham, nadhim, nassar]. But these are TWO DIFFERENT
+    people. The positional-anchor refinement (first AND last token must
+    align) rejects the pair because the son's first token 'نظيم' does
+    NOT match the father's first token 'أدهم'."""
+    truth = {"victim_name_ar": "نظيم نصار"}            # the 15yo son
+    case = {"victim_name_ar": "أدهم نظيم نصار"}        # the 34yo father
+    assert _verify_match(truth, case) is False
+
+
+def test_son_truth_still_matches_son_case() -> None:
+    """The son's own case (where the LLM extracted him as primary or
+    via additional_victims) must still match the truth entry exactly."""
+    truth = {"victim_name_ar": "نظيم نصار"}
+    case = {"victim_name_ar": "نظيم نصار"}
+    assert _verify_match(truth, case) is True
+
+
+def test_first_token_anchor_keeps_middle_name_insertion_working() -> None:
+    """The وفاء middle-name-insertion case must still match after the
+    positional anchor was added — first AND last tokens align."""
+    truth = {"victim_name_ar": "وفاء بدران حصارمة"}
+    case = {"victim_name_ar": "وفاء محمود بدران - حصارمة"}
+    assert _verify_match(truth, case) is True
+
+
 def test_cross_script_bakr_still_matches() -> None:
     """Cross-script (post-romanization fix) Jaro=1.0 — auto-accept."""
     truth = {"victim_name_ar": "بكر محمود ياسين"}

@@ -180,11 +180,43 @@ def _verify_names_match(truth_names: list[str], case_names: list[str]) -> bool:
                 shared += 1
                 break
 
-    # Containment escape hatch: every short-side token has a partner.
-    # Requires short ≥ 2 to avoid the single-family-name collision
-    # pattern ('Bakr' alone matching 'Bakr Mahmoud Yassin').
-    if len(short) >= 2 and shared == len(short):
-        return True
+    # When the short side is STRICTLY shorter than the long side AND
+    # every short token has a partner in the long side, this is a
+    # "subset" case — short is potentially a substring of long. The
+    # subset case has TWO failure modes the bare overlap-count rule
+    # can't tell apart:
+    #
+    #   (a) Legit subset — same person, different name granularity:
+    #         بكر ياسين            ⊂ بكر محمود ياسين      (Bakr middle-name)
+    #         وفاء بدران حصارمة   ⊂ وفاء محمود بدران حصارمة (Wafa middle-name)
+    #         Both have first AND last tokens aligned positionally.
+    #
+    #   (b) Father↔son collision (Arab naming pattern: son named after
+    #       grandfather — son's full name is a token-subset of father's):
+    #         نظيم نصار (son, 15yo)  ⊂  أدهم نظيم نصار (dad, 34yo)
+    #         The son's first token "Nadhim" does NOT match the dad's
+    #         first token "Adham". The positional anchor rejects this.
+    #
+    # Anchor on first AND last token positionally to discriminate. This
+    # mirrors reconciler._token_containment_match.
+    is_strict_subset = len(short) < len(long_) and shared == len(short)
+    if is_strict_subset:
+        first_match = (
+            jaro_winkler_similarity(short[0], long_[0])
+            >= _VERIFY_TOKEN_JARO_THRESHOLD
+        )
+        last_match = (
+            jaro_winkler_similarity(short[-1], long_[-1])
+            >= _VERIFY_TOKEN_JARO_THRESHOLD
+        )
+        # Subset with positional anchor → accept (overrides the < 0.85
+        # full-string reject for the middle-name-insertion case).
+        if len(short) >= 2 and first_match and last_match:
+            return True
+        # Subset WITHOUT positional anchor → reject regardless of how
+        # many tokens match. Without this, the ambiguous-zone fallback
+        # below would still accept father↔son via shared >= 2.
+        return False
 
     if best < _VERIFY_NAME_JARO_LOW:
         return False
