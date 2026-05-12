@@ -52,7 +52,10 @@ export type TranslationKey =
   | "case.footer2"
   | "case.breadcrumb"
   | "case.load_failed"
-  | "badge.documenting";
+  | "badge.documenting"
+  | "pagination.prev"
+  | "pagination.next"
+  | "pagination.page_of";
 
 const T: Record<Lang, Record<TranslationKey, string>> = {
   ar: {
@@ -112,6 +115,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "case.breadcrumb": "سجل ضحايا الجريمة في المجتمع العربي في إسرائيل",
     "case.load_failed": "تعذّر تحميل القضيّة.",
     "badge.documenting": "قيد التوثيق",
+    "pagination.prev": "السابق",
+    "pagination.next": "التالي",
+    "pagination.page_of": "صفحة {page} من {total}",
   },
   he: {
     "brand": "רישום הקרבנות",
@@ -170,6 +176,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "case.breadcrumb": "רישום קרבנות הפשע בחברה הערבית בישראל",
     "case.load_failed": "טעינת התיק נכשלה.",
     "badge.documenting": "בתהליך תיעוד",
+    "pagination.prev": "הקודם",
+    "pagination.next": "הבא",
+    "pagination.page_of": "עמוד {page} מתוך {total}",
   },
 };
 

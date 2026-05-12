@@ -28,10 +28,13 @@ function flattenDeaths(localities: Locality[]): DeathWithCity[] {
   );
 }
 
+const CASES_PER_PAGE = 9;
+
 export default function HomePage() {
   const { lang } = useLanguage();
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
   const [activeFilter, setActiveFilter] = useState<RegionKey | "all" | "current-year">("all");
+  const [casesPage, setCasesPage] = useState(0);
   const featuredYear = 2026;
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export default function HomePage() {
   }, [allDeaths]);
   const maxRegion = Math.max(1, ...Object.values(regionCounts));
 
-  const recentCases = useMemo(() => {
+  const filteredCases = useMemo(() => {
     let filtered = allDeaths;
     if (activeFilter === "current-year") {
       filtered = allDeaths.filter((d) => yearOf(d.incident_date) === currentYear);
@@ -87,9 +90,19 @@ export default function HomePage() {
     }
     return filtered
       .slice()
-      .sort((a, b) => (b.incident_date ?? "").localeCompare(a.incident_date ?? ""))
-      .slice(0, 9);
+      .sort((a, b) => (b.incident_date ?? "").localeCompare(a.incident_date ?? ""));
   }, [allDeaths, activeFilter, currentYear]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCases.length / CASES_PER_PAGE));
+  const currentPage = Math.min(casesPage, totalPages - 1);
+  const recentCases = useMemo(
+    () => filteredCases.slice(currentPage * CASES_PER_PAGE, (currentPage + 1) * CASES_PER_PAGE),
+    [filteredCases, currentPage]
+  );
+
+  useEffect(() => {
+    setCasesPage(0);
+  }, [activeFilter]);
 
   const yearlyData = useMemo(() => {
     const byYear = new Map<number, number>();
@@ -226,6 +239,28 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="filter"
+                onClick={() => setCasesPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+              >
+                {t(lang, "pagination.prev")}
+              </button>
+              <span className="pagination-status">
+                {t(lang, "pagination.page_of", { page: currentPage + 1, total: totalPages })}
+              </span>
+              <button
+                className="filter"
+                onClick={() => setCasesPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+              >
+                {t(lang, "pagination.next")}
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
