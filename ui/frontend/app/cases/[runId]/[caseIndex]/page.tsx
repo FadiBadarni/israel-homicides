@@ -5,7 +5,7 @@ import Link from "next/link";
 import { fetchCase, type CaseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
-import { t, pickNameWithTransliteration, pickCityLabel, MISSING } from "@/lib/i18n";
+import { t, pickNameWithTransliteration, pickCityLabel, translateEnum, MISSING } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 interface PageProps {
@@ -97,15 +97,17 @@ export default function CaseDetailPage({ params }: PageProps) {
           <div className="fact">
             <div className="k">{t(lang, "case.facts.location")}</div>
             <div className="v">{cityLabel || MISSING}</div>
-            {c.district && <div className="sub">{c.district}</div>}
+            {c.district && (
+              <div className="sub">{translateEnum("district", c.district, lang)}</div>
+            )}
           </div>
           <div className="fact">
             <div className="k">{t(lang, "case.facts.cause")}</div>
-            <div className="v">{c.weapon_type || MISSING}</div>
+            <div className="v">{translateEnum("weapon_type", c.weapon_type, lang)}</div>
           </div>
           <div className="fact">
             <div className="k">{t(lang, "case.facts.suspect_status")}</div>
-            <div className="v small">{c.suspect_status || MISSING}</div>
+            <div className="v small">{translateEnum("suspect_status", c.suspect_status, lang)}</div>
           </div>
         </div>
       </section>

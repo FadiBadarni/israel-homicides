@@ -184,6 +184,131 @@ export function t(lang: Lang, key: TranslationKey, vars?: Record<string, string 
 }
 
 /**
+ * Enum translation maps. The data layer keeps canonical English
+ * Literal values (``"firearm"``, ``"at_large"``, ``"Haifa District"``);
+ * the UI translates them at render time for the chosen language.
+ *
+ * Schema/source of truth: see ``ExtractedArticleData`` and
+ * ``CanonicalCaseSchema`` in ``crime_pipeline/models.py``. Adding a
+ * new Literal value there means adding it here too.
+ */
+type EnumKind =
+  | "weapon_type"
+  | "suspect_status"
+  | "legal_status"
+  | "police_investigation_status"
+  | "victim_outcome"
+  | "district"
+  | "exact_place_type"
+  | "region"
+  | "incident_geography"
+  | "incident_type";
+
+const ENUM_TRANSLATIONS: Record<EnumKind, Record<string, Partial<Record<Lang, string>>>> = {
+  weapon_type: {
+    firearm:    { ar: "سلاح ناري",  he: "כלי ירייה" },
+    knife:      { ar: "سكين",       he: "סכין" },
+    blunt:      { ar: "أداة حادة",  he: "כלי קהה" },
+    explosive:  { ar: "متفجرات",    he: "חומר נפץ" },
+    vehicle:    { ar: "مركبة",      he: "כלי רכב" },
+    other:      { ar: "أخرى",       he: "אחר" },
+    unknown:    { ar: "غير معروف",  he: "לא ידוע" },
+  },
+  suspect_status: {
+    unknown:           { ar: "غير معروف",      he: "לא ידוע" },
+    at_large:          { ar: "طليق",            he: "נמלט" },
+    wanted:            { ar: "مطلوب",           he: "מבוקש" },
+    arrested:          { ar: "معتقل",           he: "נעצר" },
+    released_on_bail:  { ar: "أُفرج عنه بكفالة", he: "שוחרר בערבות" },
+    in_custody:        { ar: "في الحجز",        he: "במעצר" },
+  },
+  legal_status: {
+    pre_indictment: { ar: "قبل لائحة الاتهام",  he: "טרם הגשת כתב אישום" },
+    indicted:       { ar: "تم توجيه اتهام",     he: "הוגש כתב אישום" },
+    on_trial:       { ar: "قيد المحاكمة",       he: "במשפט" },
+    convicted:      { ar: "أُدين",               he: "הורשע" },
+    acquitted:      { ar: "بُرّئ",                he: "זוכה" },
+    case_closed:    { ar: "أُغلق الملف",         he: "התיק נסגר" },
+  },
+  police_investigation_status: {
+    open:               { ar: "مفتوح",           he: "פתוח" },
+    suspect_identified: { ar: "حُدد المشتبه به",  he: "זוהה חשוד" },
+    completed:          { ar: "اكتمل",           he: "הסתיים" },
+    indictment_filed:   { ar: "تم رفع لائحة اتهام", he: "הוגש כתב אישום" },
+    closed:             { ar: "مغلق",             he: "נסגר" },
+  },
+  victim_outcome: {
+    died:     { ar: "تُوفّي",       he: "נפטר" },
+    survived: { ar: "نجا",          he: "שרד" },
+    critical: { ar: "حالته حرجة",   he: "מצב אנוש" },
+    unknown:  { ar: "غير معروف",    he: "לא ידוע" },
+  },
+  district: {
+    "Northern District":  { ar: "اللواء الشمالي",  he: "מחוז הצפון" },
+    "Central District":   { ar: "اللواء المركزي",  he: "מחוז המרכז" },
+    "Haifa District":     { ar: "لواء حيفا",       he: "מחוז חיפה" },
+    "Tel Aviv District":  { ar: "لواء تل أبيب",    he: "מחוז תל אביב" },
+    "Jerusalem District": { ar: "لواء القدس",      he: "מחוז ירושלים" },
+    "Southern District":  { ar: "اللواء الجنوبي",  he: "מחוז הדרום" },
+  },
+  region: {
+    Galilee:        { ar: "الجليل",       he: "הגליל" },
+    Negev:          { ar: "النقب",        he: "הנגב" },
+    Sharon:         { ar: "الشارون",      he: "השרון" },
+    Carmel:         { ar: "الكرمل",       he: "הכרמל" },
+    "Jordan Valley":{ ar: "غور الأردن",   he: "בקעת הירדן" },
+    Triangle:       { ar: "المثلث",        he: "המשולש" },
+  },
+  exact_place_type: {
+    family_home: { ar: "بيت العائلة", he: "בית המשפחה" },
+    apartment:   { ar: "شقة",          he: "דירה" },
+    street:      { ar: "الشارع",       he: "רחוב" },
+    vehicle:     { ar: "مركبة",        he: "כלי רכב" },
+    commercial:  { ar: "محل تجاري",    he: "מקום מסחרי" },
+    open_area:   { ar: "منطقة مفتوحة", he: "שטח פתוח" },
+    school:      { ar: "مدرسة",        he: "בית ספר" },
+    other:       { ar: "آخر",          he: "אחר" },
+    unknown:     { ar: "غير معروف",    he: "לא ידוע" },
+  },
+  incident_geography: {
+    israel_arab_society:     { ar: "المجتمع العربي في إسرائيل",  he: "החברה הערבית בישראל" },
+    israel_jewish_society:   { ar: "المجتمع اليهودي في إسرائيل", he: "החברה היהודית בישראל" },
+    israel_other:            { ar: "إسرائيل — أخرى",             he: "ישראל — אחר" },
+    palestinian_territories: { ar: "الأراضي الفلسطينية",         he: "השטחים הפלסטיניים" },
+    abroad:                  { ar: "خارج البلاد",                he: "בחו״ל" },
+    unknown:                 { ar: "غير معروف",                  he: "לא ידוע" },
+  },
+  incident_type: {
+    homicide:           { ar: "جريمة قتل",       he: "רצח" },
+    attempted_homicide: { ar: "محاولة قتل",      he: "ניסיון רצח" },
+    accident:           { ar: "حادث",             he: "תאונה" },
+    suicide:            { ar: "انتحار",            he: "התאבדות" },
+    historical:         { ar: "تاريخي",            he: "היסטורי" },
+    other_crime:        { ar: "جريمة أخرى",       he: "עבירה אחרת" },
+    non_crime:          { ar: "ليس جريمة",        he: "אינו עבירה" },
+    unknown:            { ar: "غير معروف",         he: "לא ידוע" },
+  },
+};
+
+/**
+ * Translate an enum value for the requested language. Falls back to
+ * the raw value when no translation exists — better to show the
+ * English token than an empty string. English (``en``) always
+ * returns the raw value because the canonical values are already
+ * English-like.
+ */
+export function translateEnum(
+  kind: EnumKind,
+  value: string | null | undefined,
+  lang: Lang,
+): string {
+  if (!value) return MISSING;
+  if ((lang as string) === "en") return value;
+  const v = ENUM_TRANSLATIONS[kind]?.[value]?.[lang];
+  return v ?? value;
+}
+
+/**
  * Pick the language-matching field, or return MISSING when null/empty.
  * Strict: does NOT fall back to the other language.
  */
