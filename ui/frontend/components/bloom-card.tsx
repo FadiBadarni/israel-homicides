@@ -8,7 +8,6 @@ import { BidiName } from "./bidi-name";
 interface BloomCardProps {
   locality: Locality;
   initialCaseIndex: number | null;
-  screenPos: { x: number; y: number };
   onClose: () => void;
   onSelectCase: (caseIndex: number | null) => void;
 }
@@ -16,7 +15,6 @@ interface BloomCardProps {
 export function BloomCard({
   locality,
   initialCaseIndex,
-  screenPos,
   onClose,
   onSelectCase,
 }: BloomCardProps) {
@@ -29,9 +27,6 @@ export function BloomCard({
       setCaseDetail(null);
       return;
     }
-    let alive = true;
-    setLoading(true);
-    setError(null);
     const target = locality.deaths.find((d) => d.case_index === initialCaseIndex);
     const runId = target?.run_id ?? locality.deaths[0]?.run_id;
     if (!runId) {
@@ -39,6 +34,9 @@ export function BloomCard({
       setLoading(false);
       return;
     }
+    let alive = true;
+    setLoading(true);
+    setError(null);
     fetchCase(runId, initialCaseIndex)
       .then((d) => alive && setCaseDetail(d))
       .catch((e) => alive && setError(String(e)))
@@ -56,23 +54,8 @@ export function BloomCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Edge-aware placement: flip if too close to right edge
-  const FLIP_THRESHOLD = 360;
-  const flipped = typeof window !== "undefined" && screenPos.x > window.innerWidth - FLIP_THRESHOLD;
-  const style: React.CSSProperties = {
-    position: "absolute",
-    top: screenPos.y + 16,
-    left: flipped ? undefined : screenPos.x + 16,
-    right: flipped ? window.innerWidth - screenPos.x + 16 : undefined,
-    zIndex: 30,
-  };
-
   return (
-    <div
-      style={style}
-      className="w-80 max-h-[80vh] overflow-y-auto rounded-lg border border-neutral-300 bg-white shadow-xl"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="max-w-md mx-auto bg-white rounded-lg border border-neutral-300 shadow-sm">
       <header className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
         <div className="space-y-0.5">
           <h2 className="text-sm font-semibold">
@@ -82,7 +65,11 @@ export function BloomCard({
             {locality.death_count} {locality.death_count === 1 ? "name" : "names"}
           </p>
         </div>
-        <button onClick={onClose} aria-label="Close" className="text-neutral-400 hover:text-neutral-700">
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="text-neutral-400 hover:text-neutral-700"
+        >
           ×
         </button>
       </header>

@@ -8,7 +8,7 @@ test("renders the memorial map with the death count", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("israel-map")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Crime Pipeline — Memorial")).toBeVisible();
 
   const deathCount = page.getByTestId("death-count");

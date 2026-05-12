@@ -49,3 +49,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes pulse-ring-anim {
+  0%, 100% { stroke-opacity: 0; }
+  50% { stroke-opacity: calc(0.5 * var(--w, 1)); }
+}
+
+.pulse-ring {
+  animation: pulse-ring-anim 3.2s ease-in-out infinite;
+}

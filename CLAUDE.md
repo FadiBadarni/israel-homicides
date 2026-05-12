@@ -320,12 +320,12 @@ The frontend (`ui/frontend/`) is a single-page Next.js memorial. There is no lis
 no filter sidebar, no review queue. The map is the index.
 
 Key files:
-- `app/page.tsx` — the only route; fetches `/api/memorial` and renders the map.
-- `components/memorial-map.tsx` — MapLibre canvas + GeoJSON locality layer + pulse loop + URL sync.
-- `components/bloom-card.tsx` — inline card with locality and case states.
+- `app/page.tsx` — the only route; fetches `/api/memorial` and renders the layout.
+- `components/memorial-map.tsx` — left/right layout shell, year filter, URL sync.
+- `components/israel-map.tsx` — pure SVG of Israel; locality dots positioned via lat/lng projection.
+- `components/bloom-card.tsx` — right-side panel: locality state → case state.
 - `components/year-scrubber.tsx`, `components/death-count.tsx` — peripheral chrome.
-- `lib/map-style.ts` — cream/charcoal MapLibre style for the Protomaps source.
-- `public/tiles/israel.pmtiles` — self-hosted tile file (gitignored; see `public/tiles/README.md`).
+- `lib/project.ts` — equirectangular projection + the Israel-outline polygon coordinates.
 
 Backend dependency:
 - `GET /api/memorial` aggregates the latest run's `died` cases by locality, attaching

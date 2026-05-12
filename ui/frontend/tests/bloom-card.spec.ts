@@ -33,7 +33,7 @@ test("bloom card opens, lists victims, swaps to case detail, closes on ESC", asy
   );
 
   await page.goto("/?locality=tira");
-  await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("israel-map")).toBeVisible({ timeout: 10_000 });
 
   // BidiName prefers Hebrew when present; Alice's fixture has victim_name_he set.
   await expect(page.getByText("אליס")).toBeVisible({ timeout: 10_000 });

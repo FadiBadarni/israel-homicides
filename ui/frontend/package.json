@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint app components lib tests --ext .ts,.tsx",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -20,9 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
-    "maplibre-gl": "^4.7.1",
     "next": "^16.2.6",
-    "pmtiles": "^3.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.5.5"
