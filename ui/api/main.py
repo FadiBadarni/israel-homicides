@@ -17,6 +17,8 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from crime_pipeline.utils import gazetteer
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = ROOT / "output"
 
@@ -302,6 +304,101 @@ def get_review_pairs() -> dict:
         }
     except Exception:
         return {"run_id": None, "pairs": []}
+
+
+@app.get("/api/memorial")
+def get_memorial(
+    year_from: Optional[int] = Query(None, description="Inclusive lower bound on incident year"),
+    year_to: Optional[int] = Query(None, description="Inclusive upper bound on incident year"),
+) -> dict:
+    """Return the memorial payload: died-outcome cases grouped by locality.
+
+    Only the most recent pipeline run contributes. Cases without a gazetteer
+    match are counted in `unresolved_count` and excluded from `localities`.
+    """
+    runs = _list_runs()
+    if not runs:
+        return {
+            "run_id": None,
+            "year_range": {"from": None, "to": None},
+            "total_deaths": 0,
+            "unresolved_count": 0,
+            "localities": [],
+        }
+
+    run_path = runs[0]
+    data = _load_run(run_path)
+    run_id = data.get("pipeline_run_id", run_path.stem)
+
+    # Group died cases by canonical city (via the gazetteer)
+    by_city: dict[str, dict] = {}
+    unresolved = 0
+    incident_years: list[int] = []
+
+    for idx, case in enumerate(data.get("cases", [])):
+        if case.get("victim_outcome") != "died":
+            continue
+
+        # Year filter
+        date = case.get("incident_date")
+        year: int | None = None
+        if date and len(str(date)) >= 4:
+            try:
+                year = int(str(date)[:4])
+            except ValueError:
+                year = None
+        if year is not None:
+            if year_from is not None and year < year_from:
+                continue
+            if year_to is not None and year > year_to:
+                continue
+            incident_years.append(year)
+
+        raw_city = case.get("city")
+        rec = gazetteer.normalize_city(raw_city) if raw_city else None
+        if not rec or rec.get("lat") is None or rec.get("lng") is None:
+            unresolved += 1
+            continue
+
+        canonical = rec.get("name_en") or raw_city
+        bucket = by_city.setdefault(canonical, {
+            "city": canonical,
+            "city_he": rec.get("name_he") or None,
+            "city_ar": rec.get("name_ar") or None,
+            "lat": rec["lat"],
+            "lng": rec["lng"],
+            "death_count": 0,
+            "most_recent_incident_date": None,
+            "deaths": [],
+        })
+        bucket["death_count"] += 1
+        most_recent = bucket["most_recent_incident_date"]
+        if date and (most_recent is None or str(date) > most_recent):
+            bucket["most_recent_incident_date"] = str(date)
+        bucket["deaths"].append({
+            "case_index": idx,
+            "run_id": run_id,
+            "victim_name": case.get("victim_name"),
+            "victim_name_he": case.get("victim_name_he"),
+            "victim_name_ar": case.get("victim_name_ar"),
+            "victim_age": case.get("victim_age"),
+            "incident_date": str(date) if date else None,
+            "confidence_score": case.get("confidence_score"),
+        })
+
+    localities = sorted(by_city.values(), key=lambda loc: -loc["death_count"])
+    total_deaths = sum(loc["death_count"] for loc in localities)
+
+    return {
+        "run_id": run_id,
+        "year_range": {
+            "from": min(incident_years) if incident_years else None,
+            "to": max(incident_years) if incident_years else None,
+        },
+        "total_deaths": total_deaths,
+        "unresolved_count": unresolved,
+        "localities": localities,
+    }
 
 
 @app.get("/health")
