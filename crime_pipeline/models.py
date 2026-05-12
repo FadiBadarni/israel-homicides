@@ -507,6 +507,11 @@ class CanonicalCaseSchema(BaseModel):
     victim_name_he: Optional[str] = None
     victim_name_en: Optional[str] = None
     aliases: list[str] = Field(default_factory=list)
+    # Post-merge transliteration fills for missing language fields.
+    # ``victim_name_*`` above stay reserved for source-attested values;
+    # inferred forms land here with explicit provenance so the UI can
+    # render them with a "ⓘ inferred" badge. Empty by default.
+    name_transliterations: list[TransliteratedName] = Field(default_factory=list)
     victim_age: Optional[int] = Field(default=None, ge=0, le=120)
     victim_gender: Optional[Literal["M", "F", "unknown"]] = None
     victim_profession: Optional[str] = None

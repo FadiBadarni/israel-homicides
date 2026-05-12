@@ -263,16 +263,15 @@ footer.bottom p { margin: 4px 0; }
   .hero h1 { font-size: 30px; line-height: 1.45; margin-bottom: 18px; max-width: none; padding: 0 4px; }
   .hero .lede { font-size: 16px; line-height: 1.7; padding: 0 4px; }
 
-  /* stats — collapse to a single stacked column with hairline dividers */
-  .stats { grid-template-columns: 1fr; padding: 32px 0; }
-  .stat { border-left: 0; padding: 22px 0; border-bottom: 1px solid var(--hair); }
-  .stat:nth-child(odd) { border-left: 0; padding-left: 0; }
-  .stat:nth-last-child(-n+2) { border-bottom: 1px solid var(--hair); }
-  .stat:last-child { border-bottom: 0; padding-bottom: 4px; }
-  .stat:first-child { padding-top: 4px; padding-right: 0; }
-  .stat:first-child .num { font-size: 64px; }
-  .stat .num { font-size: 52px; margin-bottom: 6px; line-height: 1; }
-  .stat .label { font-size: 14px; line-height: 1.55; }
+  /* stats — same 2×2 grid as tablet, tightened for phone widths.
+     Constraints: cells must hold a 3–5 digit number in Amiri without overflowing
+     a ~160 px column on a 375 px viewport (20 px wrap padding + 10 px cell padding × 2). */
+  .stats { padding: 36px 0; }
+  .stat { padding: 18px 12px; }
+  .stat:first-child { padding-right: 12px; }
+  .stat:first-child .num { font-size: 56px; }
+  .stat .num { font-size: 44px; margin-bottom: 6px; line-height: 1; }
+  .stat .label { font-size: 13px; line-height: 1.5; }
 }
 @media (max-width: 600px) {
   .case-page { padding: 24px 22px 64px; }

@@ -389,6 +389,23 @@ class Pipeline:
             self._run_cleanup, cases, cleanup_stages
         )
 
+        # ── Stage G2: Name transliteration enrichment ────────────────
+        # For any case still missing a victim_name_ar/he/en field after
+        # cross-source merge, generate a transliteration and stash it
+        # in name_transliterations (with provenance). Source-of-truth
+        # fields stay reserved for source-attested values. Runs AFTER
+        # reconcile so inferred names don't participate in clustering.
+        from crime_pipeline.enrichment.name_enrichment import enrich_cases
+        case_dicts_for_enrich = [c.model_dump(mode="json") for c in cases]
+        case_dicts_for_enrich = enrich_cases(case_dicts_for_enrich)
+        cases = [CanonicalCaseSchema(**d) for d in case_dicts_for_enrich]
+        enriched_n = sum(
+            1 for c in cases
+            if getattr(c, "name_transliterations", None)
+        )
+        self.stats["names_transliterated"] = enriched_n
+        log.info("build_canonical_transliterations", cases_enriched=enriched_n)
+
         # ── Stage H: Final declarative filter ─────────────────────────
         # The whole-dataset gate. Drop anything that isn't:
         #   • died
