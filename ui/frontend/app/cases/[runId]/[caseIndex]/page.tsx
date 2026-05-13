@@ -57,13 +57,17 @@ export default function CaseDetailPage({ params }: PageProps) {
   const cityLabel = pickCityLabel(c.city, c.city_normalized, lang);
 
   // Build the displayable photo set.
-  //   1. Always include items the classifier flagged as evidence.
-  //   2. From the decorative ``media`` bucket, pull anything categorized
-  //      as a real case asset (portrait / crime scene / weapon / police).
-  //      Skip ``type: "other"`` — those are sidebar promos and unrelated
-  //      article thumbnails (TV shows, related-news, podcast promos).
-  //   3. Dedupe by primary_url. Sort by classifier_tier (keyword first)
-  //      then by confidence. Cap at 8.
+  //   1. Keep evidence items + decorative items of meaningful types
+  //      (portrait / crime scene / weapon / police / suspect / courtroom).
+  //      Skip ``type: "other"`` — sidebar promos and unrelated thumbnails.
+  //   2. Drop items whose caption explicitly names a DIFFERENT victim.
+  //      Roundup articles ("13 dead since New Year") carry photos for
+  //      many victims; the type-classifier promotes them all even though
+  //      the caption tells us they belong to someone else.
+  //   3. Dedupe by primary_url. Sort: keyword tier > clip tier, then by
+  //      confidence. Cap each type at 2 items so a single category
+  //      doesn't flood the gallery (e.g. the same weapon syndicated
+  //      across 3 publishers). Final cap at 8.
   const MEANINGFUL_TYPES = new Set([
     "victim_portrait",
     "crime_scene",
@@ -72,13 +76,60 @@ export default function CaseDetailPage({ params }: PageProps) {
     "suspect",
     "courtroom",
   ]);
+  // Arabic + Hebrew victim/deceased-marker words. Singular, plural,
+  // dual, with and without the definite article. Loose by design — a
+  // false positive here just means "filter must check a caption that
+  // didn't actually identify a victim" (cheap), while a false negative
+  // means a wrong-victim photo slips through.
+  const VICTIM_MARKERS = /(المرحوم|مرحوم|المغدور|مغدور|الضحية|ضحية|الضحايا|ضحايا|ضحيتا|الشهيد|شهيد|الراحل|القتيل|الشاب|המנוח|הקרבן|הקרבנות)/;
+  // Use SURNAME-only matching (last token of each victim name). Middle
+  // names like "محمود" / "מחמוד" are too common across families and
+  // would falsely match a different victim's photo.
+  const caseVictimSurnames = (
+    [c.victim_name_ar, c.victim_name_he, c.victim_name_en, c.victim_name, ...(c.aliases ?? [])]
+      .filter((n): n is string => Boolean(n))
+      .map((n) => n.trim().split(/\s+/).pop() ?? "")
+      .filter((t) => t.length >= 3)
+  );
+  const captionNamesOtherVictim = (m: { alt_text?: string | null; caption?: string | null }): boolean => {
+    const text = `${m.alt_text ?? ""} ${m.caption ?? ""}`.trim();
+    if (!text || !VICTIM_MARKERS.test(text)) return false;
+    return !caseVictimSurnames.some((s) => text.includes(s));
+  };
+  // City tokens for location-mismatch filtering. Includes the raw city
+  // string plus normalized variants from the gazetteer (name_ar/he/en).
+  const caseCityTokens = (
+    [c.city, ...Object.values(c.city_normalized ?? {})]
+      .filter((v): v is string => typeof v === "string" && v.length > 0)
+      .flatMap((s) => s.split(/\s+/))
+      .filter((t) => t.length >= 3)
+  );
+  // For location-typed photos (crime_scene / police_activity), if the
+  // caption is non-empty, require this case's city to appear in it.
+  // Catches captions like "من موقع الجريمة المُرتكبة في الناصرة" when
+  // the case city is Arraba — those photos belong to other incidents
+  // pulled in from multi-victim roundup articles.
+  const captionMentionsOtherLocation = (m: {
+    type?: string | null;
+    alt_text?: string | null;
+    caption?: string | null;
+  }): boolean => {
+    if (m.type !== "crime_scene" && m.type !== "police_activity") return false;
+    const text = `${m.alt_text ?? ""} ${m.caption ?? ""}`.trim();
+    if (!text) return false;
+    return !caseCityTokens.some((tok) => text.includes(tok));
+  };
+
   const allMedia = [...(c.media_evidence ?? []), ...(c.media ?? [])];
-  const seen = new Set<string>();
+  const seenUrl = new Set<string>();
+  const perTypeCount: Record<string, number> = {};
   const photos = allMedia
     .filter((m) => {
-      if (!m.primary_url || seen.has(m.primary_url)) return false;
+      if (!m.primary_url || seenUrl.has(m.primary_url)) return false;
       if (!m.is_evidence && !MEANINGFUL_TYPES.has(m.type ?? "")) return false;
-      seen.add(m.primary_url);
+      if (captionNamesOtherVictim(m)) return false;
+      if (captionMentionsOtherLocation(m)) return false;
+      seenUrl.add(m.primary_url);
       return true;
     })
     .sort((a, b) => {
@@ -86,6 +137,11 @@ export default function CaseDetailPage({ params }: PageProps) {
       const tb = b.classifier_tier === "keyword" ? 0 : b.classifier_tier === "clip" ? 1 : 2;
       if (ta !== tb) return ta - tb;
       return (b.confidence ?? 0) - (a.confidence ?? 0);
+    })
+    .filter((m) => {
+      const key = m.type ?? "other";
+      perTypeCount[key] = (perTypeCount[key] ?? 0) + 1;
+      return perTypeCount[key] <= 2;
     })
     .slice(0, 8);
 
