@@ -40,6 +40,20 @@ log = structlog.get_logger()
 _ARABIC_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
 _TOKEN_RE = re.compile(r"[A-Za-z0-9\u0590-\u05FF\u0600-\u06FF]+", re.UNICODE)
 
+# Classifier output categories worth keeping as decorative media when
+# the article itself is already verified-relevant by source_relevance.
+# Excludes ``other`` (uncategorised) and ``generic_stock`` (banners, logos).
+_MEANINGFUL_CLASSIFICATIONS = frozenset({
+    "victim_portrait",
+    "suspect_portrait",
+    "crime_scene",
+    "weapon",
+    "police_activity",
+    "court",
+    "funeral",
+    "cctv",
+})
+
 _PERSON_MARKERS = (
     "victim", "deceased", "the late", "killed",
     "המנוח", "הנרצח", "הקורבן", "ז״ל", 'ז"ל',
@@ -246,9 +260,14 @@ class MediaPipeline:
     ) -> bool:
         """Final precision gate before persisting CanonicalMedia.
 
-        Evidence items survive. Decorative media must still carry some
-        case-specific text signal; otherwise roundup/related-article images
-        enter every exploded victim case.
+        Evidence items survive. Decorative media must carry either a
+        case-specific text signal in its own caption, OR a meaningful
+        classification (victim_portrait, crime_scene, weapon, etc.) from
+        an article that already passed the upstream ``source_relevance``
+        check. That check enforces article-to-case attribution before
+        media even runs, so the historical concern about roundup/related
+        articles polluting clusters no longer applies; trusting the lead
+        image of a verified-relevant article is safe.
         """
         if self._mismatch_reason(rep, ctx):
             return False
@@ -259,20 +278,22 @@ class MediaPipeline:
 
         text = self._candidate_text(rep)
         if not text:
-            return self._is_captionless_case_named_lead(rep, cluster, ctx)
+            if self._is_captionless_case_named_lead(rep, cluster, ctx):
+                return True
+            # Captionless lead from a verified-relevant article (source_relevance
+            # already gated the cluster). Trust the classifier's meaningful
+            # category; drop only "other" / generic items.
+            return rep.classification in _MEANINGFUL_CLASSIFICATIONS
 
         text_norm = self._normalise(text)
         if self._contains_case_signal(text_norm, ctx):
             return True
 
-        # Unverified lead images are intentionally not persisted in precision
-        # mode; they are often publisher chrome or roundup thumbnails.
-        if rep.evidence_reason == "og_image_lead:single_publisher_unverified":
-            return False
-
-        # A meaningful category without any victim/city signal is still too
-        # loose for canonical output.
-        return False
+        # Caption present but no victim/city tokens — accept if the
+        # classifier marked a meaningful type. The article itself is
+        # already verified-relevant; the lack of a name in this specific
+        # caption doesn't make the photo unrelated.
+        return rep.classification in _MEANINGFUL_CLASSIFICATIONS
 
     def _suppress_captionless_lead_type(self, rep: MediaCandidate) -> None:
         """Avoid over-labeling source-approved leads with no image caption."""
