@@ -164,22 +164,27 @@ export default function HomePage() {
       </header>
 
       <section className="stats wrap">
+        {/* Stat 1 — Scale. The total in the register since documentation began.
+            Gets the dominant 1.4fr column + 128px font via .stat:first-child. */}
         <div className="stat">
-          <div className="num">{featuredYearCount || "—"}</div>
-          <div className="label">
-            <strong>{t(lang, "stats.last_year", { year: featuredYear })}</strong>
-          </div>
+          <div className="num">{totalAll}</div>
+          <div className="label">{t(lang, "stats.total")}</div>
         </div>
+        {/* Stat 2 — Urgency. Current year so far, in blood-red. */}
         <div className="stat">
           <div className="num" style={{ color: "var(--blood)" }}>{currentYearCount}</div>
           <div className="label">
             {t(lang, "stats.current_year_prefix")} {currentYear} {t(lang, "stats.current_year_suffix")}
           </div>
         </div>
+        {/* Stat 3 — Context. Most recent completed year. */}
         <div className="stat">
-          <div className="num">{totalAll}</div>
-          <div className="label">{t(lang, "stats.total")}</div>
+          <div className="num">{featuredYearCount || "—"}</div>
+          <div className="label">
+            {t(lang, "stats.last_year", { year: featuredYear })}
+          </div>
         </div>
+        {/* Stat 4 — Demographic. Share of victims under 40. */}
         <div className="stat">
           <div className="num">{under40Pct}%</div>
           <div className="label">{t(lang, "stats.under_40_pct")}</div>
