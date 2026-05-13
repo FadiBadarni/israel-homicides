@@ -35,7 +35,11 @@ export default function HomePage() {
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
   const [activeFilter, setActiveFilter] = useState<RegionKey | "all" | "current-year">("all");
   const [casesPage, setCasesPage] = useState(0);
-  const featuredYear = 2026;
+  // The "featured year" stat is meant to be the most recent COMPLETED year,
+  // shown next to the in-progress current year for an at-a-glance comparison.
+  // Was hardcoded to 2026; that duplicated the current-year stat once 2026
+  // arrived. Deriving from `new Date()` keeps the two stats distinct.
+  const featuredYear = new Date().getFullYear() - 1;
 
   useEffect(() => {
     fetchMemorial()

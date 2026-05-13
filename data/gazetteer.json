@@ -1063,5 +1063,114 @@
     ],
     "lat": 32.706,
     "lng": 35.392
+  },
+  {
+    "name_en": "Hadera",
+    "name_ar": "الخضيرة",
+    "name_he": "חדרה",
+    "district": "Haifa",
+    "region": "Coastal Plain",
+    "aliases_ar": [
+      "حدرة"
+    ],
+    "aliases_he": [
+      "חדרא"
+    ],
+    "aliases_en": [
+      "Hadera"
+    ],
+    "lat": 32.434,
+    "lng": 34.918
+  },
+  {
+    "name_en": "Sde Warburg",
+    "name_ar": "سدي فاربورج",
+    "name_he": "שדה ורבורג",
+    "district": "Central",
+    "region": "Sharon",
+    "aliases_ar": [
+      "سديه وربورج"
+    ],
+    "aliases_he": [
+      "שדה-ורבורג"
+    ],
+    "aliases_en": [
+      "Sde Varburg"
+    ],
+    "lat": 32.224,
+    "lng": 34.911
+  },
+  {
+    "name_en": "Holon",
+    "name_ar": "حولون",
+    "name_he": "חולון",
+    "district": "Tel Aviv",
+    "region": "Coastal Plain",
+    "aliases_ar": [
+      "هولون"
+    ],
+    "aliases_he": [],
+    "aliases_en": [
+      "Cholon"
+    ],
+    "lat": 32.011,
+    "lng": 34.776
+  },
+  {
+    "name_en": "Ofakim",
+    "name_ar": "أوفاكيم",
+    "name_he": "אופקים",
+    "district": "Southern",
+    "region": "Negev",
+    "aliases_ar": [
+      "اوفاكيم"
+    ],
+    "aliases_he": [
+      "אפקים"
+    ],
+    "aliases_en": [
+      "Ofaqim"
+    ],
+    "lat": 31.317,
+    "lng": 34.62
+  },
+  {
+    "name_en": "Hatzor HaGlilit",
+    "name_ar": "حتسور هجليليت",
+    "name_he": "חצור הגלילית",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_ar": [
+      "حتسور الجليلية",
+      "حصور الجليلية"
+    ],
+    "aliases_he": [
+      "חצור גלילית"
+    ],
+    "aliases_en": [
+      "Hatzor HaGalilit",
+      "Hazor HaGlilit"
+    ],
+    "lat": 32.978,
+    "lng": 35.541
+  },
+  {
+    "name_en": "Petah Tikva",
+    "name_ar": "بتاح تكفا",
+    "name_he": "פתח תקווה",
+    "district": "Central",
+    "region": "Coastal Plain",
+    "aliases_ar": [
+      "بيتح تكفا"
+    ],
+    "aliases_he": [
+      "פתח תקוה"
+    ],
+    "aliases_en": [
+      "Petach Tikva",
+      "Petah Tiqwa"
+    ],
+    "lat": 32.09,
+    "lng": 34.886
   }
 ]
