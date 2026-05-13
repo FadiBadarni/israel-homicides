@@ -341,14 +341,34 @@ def reconcile_cases(
                 urls.add(u)
         return urls
 
+    _STRONG_NAME_JARO = 0.95
+
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             a, b = cases[i], cases[j]
-            if _city_conflicts(a, b) or _date_conflicts(a, b):
+            if _date_conflicts(a, b):
                 continue
 
             names_a = _all_names(a)
             names_b = _all_names(b)
+
+            # City conflict is normally a hard veto. But the same victim
+            # is often described via different geographic angles across
+            # publishers — residence vs incident-site vs funeral-city vs
+            # hospital-city. Bypass the city veto when the cross-script
+            # romanized name match is very strong (Jaro ≥ 0.95) or the
+            # token-containment match fires; those signals alone are
+            # already strong enough that nearby-city ambiguity is far
+            # more likely than a same-name different-victim collision.
+            if _city_conflicts(a, b):
+                strong_name_match = False
+                if names_a and names_b:
+                    strong_name_match = (
+                        _best_jaro(names_a, names_b) >= _STRONG_NAME_JARO
+                        or _token_containment_match(names_a, names_b)
+                    )
+                if not strong_name_match:
+                    continue
 
             # Intra-article exclusion (mirrors the dedup stage's rule
             # for multi-victim records). Two cases sharing any source
