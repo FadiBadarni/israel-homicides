@@ -239,6 +239,49 @@ class TestHarvester:
         assert "https://example.com/main.jpg" in urls
         assert "https://example.com/short.jpg" not in urls
 
+    def test_arab48_source_harvester_is_case_aware(self, settings):
+        """Arab48 uses a source-specific path before generic classification."""
+        lead = "https://data.arab48.com/data/news/2026/01/03/facebook_waterMark/bakr.png"
+        scene = "https://data.arab48.com/data/news/2026/01/03/bodyImages/images/scene.jpg"
+        wrong_victim = (
+            "https://data.arab48.com/data/news/2026/01/05/bodyImages/images/"
+            "wrong-victim.jpg"
+        )
+        related = "https://data.arab48.com/data/news/2026/01/03/280-211/related.jpg"
+        share_icon = "https://data.arab48.com/assets/v2/images/whatsapp-green1.svg"
+        html = f"""
+        <html>
+          <head>
+            <meta property="og:title" content="مقتل بكر ياسين في عرابة" />
+            <meta property="og:image" content="{lead}" />
+          </head>
+          <body>
+            <aside><img src="{share_icon}" /></aside>
+            <div class="article-content">
+              <figure>
+                <img src="{scene}" />
+                <figcaption>من موقع الجريمة في عرابة</figcaption>
+              </figure>
+              <figure>
+                <img src="{wrong_victim}" />
+                <figcaption>ضحية جريمة القتل في كفر قرع، الشاب محمود غاوي</figcaption>
+              </figure>
+              <img src="{related}" alt="related article" />
+            </div>
+          </body>
+        </html>
+        """
+        ctx = ArticleContext(
+            article_url="https://www.arab48.com/محليات/2026/01/03/بكر-ياسين",
+            victim_names=["بكر ياسين"],
+            city_names=["عرابة"],
+        )
+        h = MediaHarvester(settings)
+        cands = h.harvest(html, ctx.article_url, ctx)
+        urls = {c.source_url for c in cands}
+        assert urls == {lead, scene}
+        assert all(c.discovery_selector.startswith("arab48:") for c in cands)
+
 
 # ---------------------------------------------------------------------------
 # Classifier
@@ -671,11 +714,11 @@ async def test_pipeline_promotes_og_image_signal_across_cluster(monkeypatch, set
 
 @pytest.mark.asyncio
 async def test_pipeline_demotes_single_publisher_og_image(monkeypatch, settings):
-    """An og:image from a SINGLE publisher must be demoted to decorative.
+    """An og:image from a SINGLE publisher must be dropped in precision mode.
 
     This protects against publisher-brand images, column hero photos, and
-    byline-style author headshots being silently promoted as case evidence.
-    Real lead photos cross publishers; brand chrome doesn't.
+    byline-style author headshots entering canonical media. Real lead photos
+    need a case-specific text signal or cross-publisher corroboration.
     """
     article = """
     <html><head>
@@ -693,13 +736,228 @@ async def test_pipeline_demotes_single_publisher_og_image(monkeypatch, settings)
         [{"raw_html": article, "url": "https://haaretz.co.il/news/single"}],
         ctx,
     )
-    # Single-publisher og:image must NOT land in media_evidence.
+    assert media == []
+    assert evidence == []
+
+
+@pytest.mark.asyncio
+async def test_pipeline_precision_filters_arab48_roundup_images_for_bakr_yassin(
+    monkeypatch, settings,
+):
+    """Bakr Yassin regression: Arab48 roundup photos for other victims/cities
+    must not attach to Bakr's canonical case."""
+    lead = "https://data.arab48.com/data/news/2026/01/03/facebook_waterMark/bakr.png"
+    wrong_victim = (
+        "https://data.arab48.com/data/news/2026/01/05/bodyImages/images/"
+        "mahmoud-ghawi.jpg"
+    )
+    wrong_city = (
+        "https://data.arab48.com/data/news/2026/01/05/bodyImages/images/"
+        "nazareth-scene.jpg"
+    )
+    arraba_scene = (
+        "https://data.arab48.com/data/news/2026/01/03/bodyImages/images/"
+        "arraba-scene.jpg"
+    )
+    related_thumb = (
+        "https://data.arab48.com/data/news/2026/01/03/280-211/"
+        "related.jpg"
+    )
+    article = f"""
+    <html>
+      <head>
+        <meta property="og:image" content="{lead}" />
+        <meta property="og:image:alt" content="المرحوم بكر محمود ياسين" />
+      </head>
+      <body>
+        <div class="article-content">
+          <figure>
+            <img src="{wrong_victim}" />
+            <figcaption>ضحية جريمة القتل في كفر قرع، الشاب محمود غاوي</figcaption>
+          </figure>
+          <figure>
+            <img src="{wrong_city}" />
+            <figcaption>من موقع الجريمة المُرتكبة في الناصرة</figcaption>
+          </figure>
+          <figure>
+            <img src="{arraba_scene}" />
+            <figcaption>من موقع الجريمة في عرابة</figcaption>
+          </figure>
+          <img src="{related_thumb}" />
+        </div>
+      </body>
+    </html>
+    """
+    _patch_downloader(monkeypatch, {
+        lead: ("bakr_sha", "1111111111111111"),
+        wrong_victim: ("wrong_victim_sha", "2222222222222222"),
+        wrong_city: ("wrong_city_sha", "3333333333333333"),
+        arraba_scene: ("arraba_scene_sha", "4444444444444444"),
+        related_thumb: ("related_sha", "5555555555555555"),
+    })
+
+    pipe = MediaPipeline(settings)
+    ctx = ArticleContext(
+        article_url="https://www.arab48.com/محليات/2026/01/03/بكر-ياسين",
+        victim_names=["بكر محمود ياسين", "Bakr Yassin"],
+        city_names=["عرابة", "Arraba"],
+    )
+    media, evidence = await pipe.run_for_case(
+        [{"raw_html": article, "url": ctx.article_url}],
+        ctx,
+    )
+
+    urls = {m.primary_url for m in media + evidence}
+    assert urls == {lead, arraba_scene}
+    assert all(m.is_evidence for m in evidence)
+    assert media == []
+
+
+@pytest.mark.asyncio
+async def test_pipeline_precision_keeps_arab48_case_named_lead_image(
+    monkeypatch, settings,
+):
+    """Arab48 often has no useful image alt/caption. A lead image on an
+    article whose page title names the victim is precise enough to keep as media,
+    but not strong enough to promote to evidence."""
+    lead = "https://data.arab48.com/data/news/2026/02/05/facebook_waterMark/bakr.png"
+    article = f"""
+    <html>
+      <head>
+        <meta property="og:title" content="مقتل بكر ياسين في عرابة" />
+        <meta property="og:image" content="{lead}" />
+      </head>
+      <body><div class="article-content"><p>...</p></div></body>
+    </html>
+    """
+    _patch_downloader(monkeypatch, {
+        lead: ("bakr_lead_sha", "6666666666666666"),
+    })
+
+    pipe = MediaPipeline(settings)
+    ctx = ArticleContext(
+        article_url="https://www.arab48.com/محليات/2026/02/05/article-12345",
+        victim_names=["بكر ياسين"],
+        city_names=["عرابة"],
+    )
+    media, evidence = await pipe.run_for_case(
+        [{"raw_html": article, "url": ctx.article_url}],
+        ctx,
+    )
+
     assert evidence == []
     assert len(media) == 1
-    assert media[0].is_evidence is False
-    assert media[0].evidence_reason == "og_image_lead:single_publisher_unverified"
-    # appearance_count reflects distinct articles, not cluster size.
-    assert media[0].appearance_count == 1
+    assert media[0].primary_url == lead
+
+
+@pytest.mark.asyncio
+async def test_pipeline_precision_filters_unrelated_arab48_source_merge_for_tarabin(
+    monkeypatch, settings,
+):
+    """Tarabin regression: even if an upstream merge includes Shريف Hadid
+    Arab48 articles, media extraction should only keep Tarabin images."""
+    wrong_lead = (
+        "https://data.arab48.com/data/news/2026/01/09/"
+        "facebook_waterMark/shareef.png"
+    )
+    wrong_body = (
+        "https://data.arab48.com/data/news/2026/01/09/bodyImages/images/"
+        "shareef-body.jpg"
+    )
+    tarabin_lead = (
+        "https://data.arab48.com/data/news/2026/01/04/"
+        "facebook_waterMark/tarabin.png"
+    )
+    tarabin_body = (
+        "https://data.arab48.com/data/news/2026/01/04/bodyImages/images/"
+        "tarabin-body.jpg"
+    )
+    old_related_thumb = (
+        "https://data.arab48.com/data/news/2026/01/04/280-211/"
+        "tarabin-related.jpg"
+    )
+    wrong_article = f"""
+    <html>
+      <head>
+        <meta property="og:title" content="مقتل الشاب شريف حديد من دالية الكرمل" />
+        <meta property="og:image" content="{wrong_lead}" />
+      </head>
+      <body>
+        <div class="article-content">
+          <figure>
+            <img src="{wrong_body}" />
+            <figcaption>الضحية شريف حديد من دالية الكرمل</figcaption>
+          </figure>
+        </div>
+      </body>
+    </html>
+    """
+    tarabin_article = f"""
+    <html>
+      <head>
+        <meta property="og:title"
+              content="ترابين الصانع: مقتل محمد حسين الترابين برصاص الشرطة" />
+        <meta property="og:image" content="{tarabin_lead}" />
+      </head>
+      <body>
+        <div class="article-content">
+          <figure>
+            <img src="{tarabin_body}" />
+            <figcaption>الضحية محمد حسين الترابين</figcaption>
+          </figure>
+          <img src="{old_related_thumb}" />
+        </div>
+      </body>
+    </html>
+    """
+    _patch_downloader(monkeypatch, {
+        wrong_lead: ("wrong_lead_sha", "1111111111111111"),
+        wrong_body: ("wrong_body_sha", "2222222222222222"),
+        tarabin_lead: ("tarabin_lead_sha", "3333333333333333"),
+        tarabin_body: ("tarabin_body_sha", "4444444444444444"),
+        old_related_thumb: ("related_thumb_sha", "5555555555555555"),
+    })
+
+    pipe = MediaPipeline(settings)
+
+    async def fake_classify(cand, _ctx):
+        if cand.source_url == tarabin_lead:
+            cand.classification = "cctv"
+            cand.classification_confidence = 0.8
+            cand.classification_evidence.append("test:clip:cctv")
+        elif cand.source_url == tarabin_body:
+            cand.classification = "victim_portrait"
+            cand.classification_confidence = 0.92
+            cand.classification_evidence.append("test:caption:victim")
+        else:
+            cand.classification = "other"
+            cand.classification_confidence = 0.2
+        return cand
+
+    pipe.classifier.classify = fake_classify
+    ctx = ArticleContext(
+        article_url="https://www.arab48.com/الأخبار/2026/01/04/ترابين-الصانع",
+        victim_names=["محمد حسين الترابين", "Mohammed Hussein al-Trabin"],
+        city_names=["ترابين الصانع", "رهط", "النقب"],
+    )
+    media, evidence = await pipe.run_for_case(
+        [
+            {
+                "raw_html": wrong_article,
+                "url": "https://www.arab48.com/محليات/2026/01/09/شريف-حديد",
+            },
+            {
+                "raw_html": tarabin_article,
+                "url": ctx.article_url,
+            },
+        ],
+        ctx,
+    )
+
+    assert {m.primary_url for m in media} == {tarabin_lead}
+    assert media[0].type == "other"
+    assert any("captionless_lead_type_suppressed" in ev for ev in media[0].classification_evidence)
+    assert {m.primary_url for m in evidence} == {tarabin_body}
 
 
 @pytest.mark.asyncio

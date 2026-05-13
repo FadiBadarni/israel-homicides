@@ -35,6 +35,11 @@ from crime_pipeline.media import ArticleContext, MediaPipeline, MediaSettings
 from crime_pipeline.merging.merger import CaseMerger
 from crime_pipeline.models import ExtractedArticleData
 from crime_pipeline.scrapers import get_scraper
+from crime_pipeline.source_relevance import (
+    best_victim_name,
+    is_weak_body_only_virtual,
+    refine_source_groups,
+)
 from crime_pipeline.storage import db as db_module
 from crime_pipeline.storage.db import init_db
 from crime_pipeline.storage.repository import (
@@ -144,6 +149,9 @@ class Pipeline:
             "quality_applied": 0,
             "reconcile_merged": 0,
             "reconcile_audit_path": None,
+            "source_relevance_split_groups": 0,
+            "source_relevance_groups_added": 0,
+            "source_relevance_weak_virtuals_dropped": 0,
             "cases_exported": 0,
             "non_fatal_excluded": 0,
             "media_canonical": 0,
@@ -1105,8 +1113,25 @@ class Pipeline:
             data = ext.extracted_json or {}
             virtuals = explode_extraction(data)
             total_virtuals += len(virtuals)
+            primary_virtual = virtuals[0] if virtuals else {}
             for vdata in virtuals:
                 vidx = vdata.get("victim_index", 0)
+                drop_virtual, drop_reason = is_weak_body_only_virtual(
+                    vdata,
+                    primary_virtual,
+                    article_title=article.title,
+                    article_url=article.url,
+                )
+                if drop_virtual:
+                    self.stats["source_relevance_weak_virtuals_dropped"] += 1
+                    log.info(
+                        "source_relevance_virtual_dropped",
+                        article_id=ext.article_id[:8],
+                        victim=best_victim_name(vdata),
+                        reason=drop_reason,
+                        url=article.url,
+                    )
+                    continue
                 composite_id = f"{ext.id}#{vidx}"
                 virtual_lookup[composite_id] = {
                     "ext_id": ext.id,
@@ -1117,12 +1142,13 @@ class Pipeline:
                     {
                         "id": composite_id,
                         "article_id": ext.article_id,
-                        "victim_name": vdata.get("victim_name"),
+                        "victim_name": best_victim_name(vdata),
                         "incident_date": vdata.get("incident_date"),
                         "city": vdata.get("city"),
                         # Truncate to keep embedding latency bounded; multilingual
                         # encoders typically use the first 512 tokens anyway.
                         "article_text": (article.article_text or "")[:2000],
+                        "title": article.title,
                         "source": article.source,
                         "url": article.url,
                         "confidence_score": vdata.get("confidence_score", 0.5),
@@ -1190,9 +1216,20 @@ class Pipeline:
         merger = CaseMerger()
         cases: list = []
 
-        all_groups: list[list[str]] = list(result["clusters"]) + [
+        raw_groups: list[list[str]] = list(result["clusters"]) + [
             [s] for s in result["singletons"]
         ]
+        all_groups = refine_source_groups(raw_groups, rec_lookup)
+        added_groups = len(all_groups) - len(raw_groups)
+        if added_groups > 0:
+            self.stats["source_relevance_split_groups"] = added_groups
+            self.stats["source_relevance_groups_added"] = added_groups
+            log.info(
+                "source_relevance_refine_complete",
+                input_groups=len(raw_groups),
+                output_groups=len(all_groups),
+                added_groups=added_groups,
+            )
 
         for group in all_groups:
             # For multi-record clusters, identify the canonical record (highest

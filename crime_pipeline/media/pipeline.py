@@ -14,8 +14,9 @@ Per-case flow:
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import structlog
 
@@ -34,6 +35,24 @@ from crime_pipeline.media.splitter import split_media
 from crime_pipeline.models import CanonicalMedia
 
 log = structlog.get_logger()
+
+
+_ARABIC_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
+_TOKEN_RE = re.compile(r"[A-Za-z0-9\u0590-\u05FF\u0600-\u06FF]+", re.UNICODE)
+
+_PERSON_MARKERS = (
+    "victim", "deceased", "the late", "killed",
+    "המנוח", "הנרצח", "הקורבן", "ז״ל", 'ז"ל',
+    "المرحوم", "المغدور", "الضحية", "ضحية", "الشهيد", "الراحل",
+    "القتيل", "قتيل", "ضحيّتا", "ضحيتا",
+)
+
+_LOCATION_MARKERS = (
+    "crime scene", "shooting scene", "shooting site", "scene of the crime",
+    "זירת הרצח", "זירת הירי", "מקום האירוע", "זירה",
+    "موقع الجريمة", "مكان الجريمة", "موقع إطلاق النار", "مكان الحادث",
+    "مسرح الجريمة",
+)
 
 
 class MediaPipeline:
@@ -71,7 +90,7 @@ class MediaPipeline:
             if not html or not base_url:
                 continue
             try:
-                cands = self.harvester.harvest(html, base_url)
+                cands = self.harvester.harvest(html, base_url, ctx)
             except Exception as e:
                 log.warning("media_harvest_error", url=base_url, error=str(e))
                 continue
@@ -81,6 +100,15 @@ class MediaPipeline:
             return [], []
 
         # ── 2. Cap per case ───────────────────────────────────────────
+        if self.settings.precision_mode:
+            before = len(all_cands)
+            all_cands = self._drop_explicit_mismatches(all_cands, ctx)
+            dropped = before - len(all_cands)
+            if dropped:
+                log.info("media_precision_prefilter", dropped=dropped, kept=len(all_cands))
+            if not all_cands:
+                return [], []
+
         if len(all_cands) > self.settings.max_images_per_case:
             log.info(
                 "media_cap_applied",
@@ -167,6 +195,10 @@ class MediaPipeline:
         media_canon: list[CanonicalMedia] = []
         evidence_canon: list[CanonicalMedia] = []
         for rep, cluster in reps_with_clusters:
+            if self.settings.precision_mode:
+                if not self._keep_precise_media(rep, cluster, ctx):
+                    continue
+                self._suppress_captionless_lead_type(rep)
             cm = self._build_canonical(rep, cluster)
             if rep.is_evidence:
                 evidence_canon.append(cm)
@@ -181,6 +213,180 @@ class MediaPipeline:
             evidence=len(evidence_canon),
         )
         return media_canon, evidence_canon
+
+    # ------------------------------------------------------------------
+    # Precision filters
+    # ------------------------------------------------------------------
+
+    def _drop_explicit_mismatches(
+        self,
+        candidates: list[MediaCandidate],
+        ctx: ArticleContext,
+    ) -> list[MediaCandidate]:
+        """Drop candidates whose own caption/alt clearly points elsewhere."""
+        out: list[MediaCandidate] = []
+        for cand in candidates:
+            reason = self._mismatch_reason(cand, ctx)
+            if reason:
+                log.debug(
+                    "media_precision_drop",
+                    reason=reason,
+                    source_url=cand.source_url,
+                    article_url=cand.source_article_url,
+                )
+                continue
+            out.append(cand)
+        return out
+
+    def _keep_precise_media(
+        self,
+        rep: MediaCandidate,
+        cluster: list[MediaCandidate],
+        ctx: ArticleContext,
+    ) -> bool:
+        """Final precision gate before persisting CanonicalMedia.
+
+        Evidence items survive. Decorative media must still carry some
+        case-specific text signal; otherwise roundup/related-article images
+        enter every exploded victim case.
+        """
+        if self._mismatch_reason(rep, ctx):
+            return False
+        if rep.is_evidence:
+            return True
+        if rep.classification == "generic_stock":
+            return False
+
+        text = self._candidate_text(rep)
+        if not text:
+            return self._is_captionless_case_named_lead(rep, cluster, ctx)
+
+        text_norm = self._normalise(text)
+        if self._contains_case_signal(text_norm, ctx):
+            return True
+
+        # Unverified lead images are intentionally not persisted in precision
+        # mode; they are often publisher chrome or roundup thumbnails.
+        if rep.evidence_reason == "og_image_lead:single_publisher_unverified":
+            return False
+
+        # A meaningful category without any victim/city signal is still too
+        # loose for canonical output.
+        return False
+
+    def _suppress_captionless_lead_type(self, rep: MediaCandidate) -> None:
+        """Avoid over-labeling source-approved leads with no image caption."""
+        if self._candidate_text(rep):
+            return
+        if rep.is_evidence:
+            return
+        if not rep.discovery_selector.startswith("arab48:case_named_lead"):
+            return
+        if rep.classification in (None, "other", "generic_stock"):
+            return
+        rep.classification_evidence.append(
+            f"precision:captionless_lead_type_suppressed:{rep.classification}"
+        )
+        rep.classification = "other"
+        rep.classification_confidence = min(rep.classification_confidence, 0.35)
+
+    def _mismatch_reason(self, cand: MediaCandidate, ctx: ArticleContext) -> str | None:
+        text = self._candidate_text(cand)
+        if not text:
+            return None
+        text_norm = self._normalise(text)
+
+        if self._has_marker(text_norm, _PERSON_MARKERS) and ctx.victim_names:
+            if not self._contains_identity_signal(text_norm, ctx):
+                return "caption_names_other_victim"
+
+        city_tokens = self._tokens(ctx.city_names)
+        if self._has_marker(text_norm, _LOCATION_MARKERS) and city_tokens:
+            if not self._contains_any(text_norm, city_tokens):
+                return "caption_mentions_other_location"
+
+        return None
+
+    def _is_captionless_case_named_lead(
+        self,
+        rep: MediaCandidate,
+        cluster: list[MediaCandidate],
+        ctx: ArticleContext,
+    ) -> bool:
+        if self._candidate_text(rep):
+            return False
+        if rep.classification == "generic_stock":
+            return False
+        if rep.discovery_selector.startswith("arab48:case_named_lead"):
+            return True
+
+        if not rep.discovery_selector.startswith(("meta:og:image", "meta:twitter:image")):
+            return False
+
+        for cand in cluster:
+            article_norm = self._normalise(unquote(cand.source_article_url or ""))
+            if self._contains_identity_signal(article_norm, ctx):
+                return True
+        return False
+
+    @staticmethod
+    def _candidate_text(cand: MediaCandidate) -> str:
+        return " ".join(
+            part for part in (
+                cand.figcaption, cand.caption, cand.alt_text, cand.surrounding_text,
+            )
+            if part
+        ).strip()
+
+    @classmethod
+    def _contains_case_signal(cls, text_norm: str, ctx: ArticleContext) -> bool:
+        return (
+            cls._contains_identity_signal(text_norm, ctx)
+            or cls._contains_any(text_norm, cls._tokens(ctx.city_names))
+        )
+
+    @classmethod
+    def _contains_identity_signal(cls, text_norm: str, ctx: ArticleContext) -> bool:
+        for name in ctx.victim_names + ctx.suspect_names:
+            tokens = cls._tokens([name])
+            if not tokens:
+                continue
+            matched = sum(1 for token in tokens if token in text_norm)
+            required = 1 if len(tokens) == 1 else 2
+            if matched >= required:
+                return True
+        return False
+
+    @classmethod
+    def _tokens(cls, values: list[str]) -> set[str]:
+        tokens: set[str] = set()
+        for value in values:
+            value_norm = cls._normalise(value)
+            for token in _TOKEN_RE.findall(value_norm):
+                if len(token) >= 3:
+                    tokens.add(token)
+        return tokens
+
+    @classmethod
+    def _contains_any(cls, text_norm: str, tokens: set[str]) -> bool:
+        return any(token in text_norm for token in tokens)
+
+    @classmethod
+    def _has_marker(cls, text_norm: str, markers: tuple[str, ...]) -> bool:
+        return any(cls._normalise(marker) in text_norm for marker in markers)
+
+    @staticmethod
+    def _normalise(value: str) -> str:
+        out = _ARABIC_DIACRITICS_RE.sub("", value.lower())
+        return (
+            out.replace("أ", "ا")
+            .replace("إ", "ا")
+            .replace("آ", "ا")
+            .replace("ى", "ي")
+            .replace("ة", "ه")
+            .replace("ؤ", "و")
+            .replace("ئ", "ي")
+        )
 
     # ------------------------------------------------------------------
     # Cluster → CanonicalMedia

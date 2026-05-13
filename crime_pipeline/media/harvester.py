@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any, Iterable, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import structlog
 from bs4 import BeautifulSoup, Tag
@@ -81,6 +81,23 @@ _AUTHOR_CONTAINER_RE = re.compile(
     re.I,
 )
 
+_ARABIC_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
+_TOKEN_RE = re.compile(r"[A-Za-z0-9\u0590-\u05FF\u0600-\u06FF]+", re.UNICODE)
+_ARAB48_ALLOWED_IMAGE_MARKERS = (
+    "/facebook_watermark/",
+    "/bodyimages/images/",
+    "/841-494/",
+)
+_ARAB48_REJECT_IMAGE_MARKERS = (
+    "/280-211/",
+    "/assets/",
+    ".svg",
+)
+_ARAB48_CONTEXT_MARKERS = (
+    "موقع الجريمة", "مكان الجريمة", "موقع إطلاق النار", "مكان الحادث",
+    "مسرح الجريمة", "المرحوم", "المغدور", "الضحية", "القتيل",
+)
+
 
 class MediaHarvester:
     """Stateless HTML→candidate extractor."""
@@ -92,7 +109,12 @@ class MediaHarvester:
     # Public
     # ------------------------------------------------------------------
 
-    def harvest(self, html: str, base_url: str) -> list[MediaCandidate]:
+    def harvest(
+        self,
+        html: str,
+        base_url: str,
+        ctx: Any | None = None,
+    ) -> list[MediaCandidate]:
         """Extract all media candidates from the article HTML."""
         if not html:
             return []
@@ -100,7 +122,7 @@ class MediaHarvester:
         out: list[MediaCandidate] = []
         seen_urls: set[str] = set()
 
-        for cand in self._all_extractors(soup, base_url):
+        for cand in self._all_extractors(soup, base_url, ctx):
             url = cand.source_url
             if not url or url in seen_urls:
                 continue
@@ -118,7 +140,16 @@ class MediaHarvester:
     # Extractor pipeline (each returns Iterable[MediaCandidate])
     # ------------------------------------------------------------------
 
-    def _all_extractors(self, soup: BeautifulSoup, base_url: str) -> Iterable[MediaCandidate]:
+    def _all_extractors(
+        self,
+        soup: BeautifulSoup,
+        base_url: str,
+        ctx: Any | None = None,
+    ) -> Iterable[MediaCandidate]:
+        if self._is_arab48_url(base_url):
+            yield from self._arab48_extractors(soup, base_url, ctx)
+            return
+
         # Page-scoped extractors run on the full document — meta tags live in
         # <head>, JSON-LD can sit anywhere, both are page-level by convention.
         yield from self._extract_meta_tags(soup, base_url)
@@ -133,6 +164,171 @@ class MediaHarvester:
         yield from self._extract_figures(content_root, base_url)
         yield from self._extract_video_posters(content_root, base_url)
         yield from self._extract_bg_images(content_root, base_url)
+
+    def _arab48_extractors(
+        self,
+        soup: BeautifulSoup,
+        base_url: str,
+        ctx: Any | None,
+    ) -> Iterable[MediaCandidate]:
+        """Precision-first Arab48 harvesting.
+
+        Arab48 pages embed many related-article thumbnails in the same HTML as
+        the actual story. For canonical media we only trust a case-named lead
+        image and body images whose own caption/alt text ties them to the case.
+        """
+        page_text = self._arab48_page_identity_text(soup, base_url)
+        page_names_case = self._ctx_identity_match(page_text, ctx)
+
+        if page_names_case:
+            for cand in self._extract_meta_tags(soup, base_url):
+                if self._arab48_url_allowed(cand.source_url):
+                    # Arab48 meta alt text is often the article headline, not an
+                    # image caption. Keep the candidate as a lead image but do
+                    # not feed headline text into the portrait classifier. A
+                    # short victim-specific alt ("المرحوم ...") is kept.
+                    if not self._arab48_alt_is_subject_caption(cand.alt_text, ctx):
+                        cand.alt_text = None
+                    cand.surrounding_text = None
+                    cand.discovery_selector = "arab48:case_named_lead"
+                    yield cand
+
+        content_root = self._find_arab48_content_root(soup)
+        if content_root is None:
+            return
+
+        body_candidates: list[MediaCandidate] = []
+        body_candidates.extend(self._extract_picture_sources(content_root, base_url))
+        body_candidates.extend(self._extract_lazy_images(content_root, base_url))
+        body_candidates.extend(self._extract_figures(content_root, base_url))
+
+        for cand in body_candidates:
+            if not self._arab48_url_allowed(cand.source_url):
+                continue
+            text = " ".join(
+                part for part in (cand.figcaption, cand.caption, cand.alt_text)
+                if part
+            )
+            if not text:
+                continue
+            text_norm = self._normalise(text)
+            if self._ctx_identity_match(text_norm, ctx):
+                cand.discovery_selector = f"arab48:body:{cand.discovery_selector}"
+                yield cand
+                continue
+            if self._ctx_city_match(text_norm, ctx) and self._has_arab48_context_marker(text_norm):
+                cand.discovery_selector = f"arab48:body:{cand.discovery_selector}"
+                yield cand
+
+    def _find_arab48_content_root(self, soup: BeautifulSoup) -> Optional[Tag]:
+        for sel in (
+            {"class": re.compile(r"\barticle-content\b", re.I)},
+            {"class": re.compile(r"\barticle-body\b", re.I)},
+            {"id": re.compile(r"\barticle-content\b|\barticle-body\b", re.I)},
+        ):
+            node = soup.find(["article", "div", "section"], attrs=sel)
+            if node is not None:
+                return node
+        article = soup.find("article")
+        return article if isinstance(article, Tag) else None
+
+    def _arab48_page_identity_text(self, soup: BeautifulSoup, base_url: str) -> str:
+        parts = [unquote(base_url)]
+        for selector in (
+            ("meta", {"property": "og:title"}),
+            ("meta", {"name": "twitter:title"}),
+        ):
+            tag = soup.find(*selector)
+            if tag and tag.get("content"):
+                parts.append(str(tag["content"]))
+        h1 = soup.find("h1")
+        if h1:
+            parts.append(h1.get_text(" ", strip=True))
+        if soup.title:
+            parts.append(soup.title.get_text(" ", strip=True))
+        return self._normalise(" ".join(parts))
+
+    @staticmethod
+    def _is_arab48_url(url: str) -> bool:
+        host = urlparse(url).netloc.lower()
+        return host.endswith("arab48.com")
+
+    def _arab48_url_allowed(self, url: str) -> bool:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        if not (host == "data.arab48.com" or host.endswith(".arab48.com")):
+            return False
+        path = parsed.path.lower()
+        if any(marker in path for marker in _ARAB48_REJECT_IMAGE_MARKERS):
+            return False
+        return any(marker in path for marker in _ARAB48_ALLOWED_IMAGE_MARKERS)
+
+    def _ctx_identity_match(self, text_norm: str, ctx: Any | None) -> bool:
+        if ctx is None:
+            return False
+        for name in getattr(ctx, "victim_names", []) + getattr(ctx, "suspect_names", []):
+            tokens = self._tokens(str(name))
+            if not tokens:
+                continue
+            matched = sum(1 for token in tokens if token in text_norm)
+            required = 1 if len(tokens) == 1 else 2
+            if matched >= required:
+                return True
+        return False
+
+    def _ctx_city_match(self, text_norm: str, ctx: Any | None) -> bool:
+        if ctx is None:
+            return False
+        city_tokens = self._tokens_many(getattr(ctx, "city_names", []))
+        return any(token in text_norm for token in city_tokens)
+
+    def _has_arab48_context_marker(self, text_norm: str) -> bool:
+        return any(
+            self._normalise(marker) in text_norm
+            for marker in _ARAB48_CONTEXT_MARKERS
+        )
+
+    def _arab48_alt_is_subject_caption(
+        self,
+        alt_text: str | None,
+        ctx: Any | None,
+    ) -> bool:
+        if not alt_text:
+            return False
+        alt_norm = self._normalise(alt_text)
+        if len(alt_text) > 90:
+            return False
+        headline_markers = ("مقتل", "اصابه", "اطلاق", "المشتبه", "النيابه", ":")
+        if any(marker in alt_norm for marker in headline_markers):
+            return False
+        return self._ctx_identity_match(alt_norm, ctx)
+
+    @classmethod
+    def _tokens_many(cls, values: Iterable[str]) -> set[str]:
+        tokens: set[str] = set()
+        for value in values:
+            tokens.update(cls._tokens(str(value)))
+        return tokens
+
+    @classmethod
+    def _tokens(cls, value: str) -> set[str]:
+        return {
+            token for token in _TOKEN_RE.findall(cls._normalise(value))
+            if len(token) >= 3
+        }
+
+    @staticmethod
+    def _normalise(value: str) -> str:
+        out = _ARABIC_DIACRITICS_RE.sub("", value.lower())
+        return (
+            out.replace("أ", "ا")
+            .replace("إ", "ا")
+            .replace("آ", "ا")
+            .replace("ى", "ي")
+            .replace("ة", "ه")
+            .replace("ؤ", "و")
+            .replace("ئ", "ي")
+        )
 
     def _find_content_root(self, soup: BeautifulSoup) -> Optional[Tag]:
         """Locate the article-content subtree, or return None if not present.

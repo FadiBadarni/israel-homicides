@@ -11,6 +11,7 @@ class MediaSettings(BaseModel):
     """Knobs governing image extraction, classification, and dedup."""
 
     enabled: bool = True
+    precision_mode: bool = True
     max_images_per_article: int = 20
     max_images_per_case: int = 80
     max_image_size_mb: int = 5
