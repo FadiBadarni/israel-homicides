@@ -1372,8 +1372,13 @@ class Pipeline:
         city_names: list[str] = []
         if case.city:
             city_names.append(case.city)
-        for v in (case.city_normalized or {}).values():
-            if v and v not in city_names:
+        # Only pull NAME variants from city_normalized — the gazetteer
+        # record also contains lat/lng floats and district/region strings
+        # which would either crash the classifier (`.lower()` on a float)
+        # or pollute name-match heuristics.
+        for k in ("name_ar", "name_he", "name_en"):
+            v = (case.city_normalized or {}).get(k)
+            if isinstance(v, str) and v and v not in city_names:
                 city_names.append(v)
         if case.neighborhood and case.neighborhood not in city_names:
             city_names.append(case.neighborhood)

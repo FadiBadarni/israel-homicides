@@ -179,6 +179,23 @@ def _merge_pair(
             (strong.setdefault("sources", [])).append(s)
             existing_urls.add(s.get("url"))
 
+    # Media — union deduped by media_id (phash hash), so absorbed cases
+    # don't lose their portraits/evidence when their parent case wins the
+    # reconcile. Falls back to primary_url when media_id is absent.
+    # Without this union, a Bakr-shape case that grew via 3 merges would
+    # end up with the strong-case's empty media list, dropping 30+
+    # harvested images on the floor.
+    for field in ("media", "media_evidence"):
+        existing_ids = {
+            (m.get("media_id") or m.get("primary_url"))
+            for m in (strong.get(field) or [])
+        }
+        for m in (weak.get(field) or []):
+            key = m.get("media_id") or m.get("primary_url")
+            if key and key not in existing_ids:
+                (strong.setdefault(field, [])).append(m)
+                existing_ids.add(key)
+
     # Flags — union
     flags = list(strong.get("flags") or [])
     for f in (weak.get("flags") or []):
