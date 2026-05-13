@@ -81,7 +81,7 @@ export default function CaseDetailPage({ params }: PageProps) {
       <div className="breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Link href="/" className="breadcrumb-link">
           <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
-          <span>{t(lang, "case.breadcrumb")}</span>
+          <span>{t(lang, "brand")}</span>
         </Link>
         <LanguageToggle />
       </div>
