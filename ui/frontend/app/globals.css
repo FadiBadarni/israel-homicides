@@ -246,11 +246,22 @@ footer.bottom p { margin: 4px 0; }
   /* keep the glyph pointing right regardless of surrounding bidi */
   unicode-bidi: isolate;
 }
-.masthead { text-align: center; padding: 48px 0 40px; }
+/* Masthead: centered when no portrait. When a portrait is present, switch
+   to a two-column grid so the text column never enters the portrait column
+   — guarantees no overlap without adding vertical height. */
+.masthead { text-align: center; padding: 72px 0 40px; }
+.masthead:has(> .portrait) {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  column-gap: 28px;
+  align-items: center;
+}
+.masthead:has(> .portrait) > .portrait { grid-column: 1; grid-row: 1 / span 99; }
+.masthead:has(> .portrait) > :not(.portrait) { grid-column: 2; }
 .portrait {
-  width: 120px;
-  height: 140px;
-  margin: 0 auto 8px;
+  width: 140px;
+  height: 160px;
+  margin: 0;
   pointer-events: none;
   opacity: 0.9;
 }
@@ -455,7 +466,10 @@ footer.bottom p { margin: 4px 0; }
   .fact:nth-child(odd) { padding-left: 4px; border-left: 0; }
   .fact:nth-child(even) { padding-right: 4px; }
   .rule { margin: 56px auto; }
-  .portrait { width: 96px; height: 112px; margin-bottom: 4px; }
+  /* on phone, drop the portrait entirely: no room for a side-by-side grid,
+     and stacking it would re-introduce vertical height. */
+  .masthead:has(> .portrait) { display: block; }
+  .portrait { display: none; }
   .case-photos.count-2,
   .case-photos.count-3 { grid-template-columns: 1fr; }
   .case-photos { gap: 18px; }
