@@ -29,6 +29,7 @@ export default function CaseDetailPage({ params }: PageProps) {
       <div className="case-page">
         <div className="breadcrumb">
           <Link href="/" className="breadcrumb-link">
+            <span className="breadcrumb-arrow" aria-hidden="true">→</span>
             <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
             <span>{t(lang, "brand")}</span>
           </Link>
@@ -80,6 +81,7 @@ export default function CaseDetailPage({ params }: PageProps) {
     <div className="case-page">
       <div className="breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Link href="/" className="breadcrumb-link">
+          <span className="breadcrumb-arrow" aria-hidden="true">→</span>
           <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
           <span>{t(lang, "brand")}</span>
         </Link>

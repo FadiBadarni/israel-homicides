@@ -219,6 +219,7 @@ footer.bottom p { margin: 4px 0; }
   text-decoration: none;
 }
 .breadcrumb-link:hover .breadcrumb-mark { opacity: 0.85; }
+.breadcrumb-link:hover .breadcrumb-arrow { transform: translateX(2px); color: var(--ink); }
 .breadcrumb-mark {
   width: 40px;
   height: 40px;
@@ -227,6 +228,15 @@ footer.bottom p { margin: 4px 0; }
   object-fit: contain;
   mix-blend-mode: multiply;
   transition: opacity 120ms;
+}
+.breadcrumb-arrow {
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 150ms, color 150ms;
+  /* keep the glyph pointing right regardless of surrounding bidi */
+  unicode-bidi: isolate;
 }
 .masthead { text-align: center; padding: 72px 0 40px; position: relative; }
 .portrait {
