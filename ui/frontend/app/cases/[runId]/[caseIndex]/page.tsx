@@ -28,7 +28,10 @@ export default function CaseDetailPage({ params }: PageProps) {
     return (
       <div className="case-page">
         <div className="breadcrumb">
-          <Link href="/">{t(lang, "case.breadcrumb")}</Link>
+          <Link href="/" className="breadcrumb-link">
+            <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
+            <span>{t(lang, "case.breadcrumb")}</span>
+          </Link>
         </div>
         <p style={{ textAlign: "center", marginTop: 96, color: "var(--muted)" }}>
           {t(lang, "case.load_failed")}
@@ -76,7 +79,10 @@ export default function CaseDetailPage({ params }: PageProps) {
   return (
     <div className="case-page">
       <div className="breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Link href="/">{t(lang, "case.breadcrumb")}</Link>
+        <Link href="/" className="breadcrumb-link">
+          <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
+          <span>{t(lang, "case.breadcrumb")}</span>
+        </Link>
         <LanguageToggle />
       </div>
 

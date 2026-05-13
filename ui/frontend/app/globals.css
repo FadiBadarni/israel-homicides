@@ -211,6 +211,19 @@ footer.bottom p { margin: 4px 0; }
 .case-page a:hover { text-decoration-color: var(--accent); }
 .breadcrumb { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 56px; border-bottom: 1px solid var(--hair); }
 .breadcrumb a { color: var(--muted); }
+.breadcrumb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.breadcrumb-mark {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
 .masthead { text-align: center; padding: 72px 0 40px; position: relative; }
 .portrait {
   position: absolute;
@@ -323,7 +336,8 @@ footer.bottom p { margin: 4px 0; }
     justify-content: space-between;
     align-items: center;
   }
-  nav.top .brand { font-size: 17px; }
+  nav.top .brand { font-size: 22px; gap: 8px; }
+  nav.top .brand-mark { width: 32px; height: 32px; }
   nav.top .links {
     font-size: 13px;
     column-gap: 16px;
