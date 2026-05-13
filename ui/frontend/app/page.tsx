@@ -105,6 +105,16 @@ export default function HomePage() {
   }, [activeFilter]);
 
   const yearlyData = useMemo(() => {
+    // Prefer the API's ``year_counts`` (computed from ALL documented_deaths
+    // including gazetteer-unresolved cities) so the tapestry matches the
+    // hero count. Fall back to flattened-localities-derived counts only if
+    // the API didn't return year_counts for some reason.
+    const yc = memorial?.year_counts;
+    if (yc && Object.keys(yc).length) {
+      return Object.entries(yc)
+        .map(([y, n]) => ({ year: Number(y), n: n as number, current: Number(y) === currentYear }))
+        .sort((a, b) => a.year - b.year);
+    }
     const byYear = new Map<number, number>();
     for (const d of allDeaths) {
       const y = yearOf(d.incident_date);
@@ -114,7 +124,7 @@ export default function HomePage() {
     return Array.from(byYear.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([year, n]) => ({ year, n, current: year === currentYear }));
-  }, [allDeaths, currentYear]);
+  }, [memorial, allDeaths, currentYear]);
 
   if (!memorial) return <div style={{ minHeight: "100vh" }} />;
 
