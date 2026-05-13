@@ -1,0 +1,117 @@
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city=ווילמינגטון date=2026-12-28 geo=abroad name='לינדה סטיבנסון' reason=date_oow
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city='פרדס חנה' date=2026-01-05 geo=israel_jewish_society name='אינה דנילוב' reason=geo
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city=א-זנתאן date=2026-02-03 geo=abroad name='סייף אל-איסלאם קדאפי' reason=geo
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city=غزة date=2026-02-09 geo=palestinian_territories name='أحمد سويلم' reason=geo
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city=None date=2026-02-04 geo=palestinian_territories name='بلال أبو عاصي' outcome=unknown reason=not_died
+2026-05-13T08:13:35.935685Z [info     ] filter_drop                    city=غزة date=None geo=palestinian_territories name='عطية شبات' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=غزة date=2026-02-09 geo=palestinian_territories name='إبراهيم الزعانين' reason=geo
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=غزة date=None geo=palestinian_territories name=لمى reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=None date=2026-02-04 geo=palestinian_territories name= outcome=critical reason=not_died
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=غزة date=None geo=palestinian_territories reason=no_name
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=ליון date=2022-05-01 geo=abroad name="רנה חג'ג'" reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=ירושלים date=2026-01-06 geo=palestinian_territories name='יוסף אייזנטל' reason=geo
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=חדרה date=2026-01-13 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='تل أبيب' date=2026-11-08 geo=israel_arab_society name='أمير الوحواح' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=חיפה date=2026-01-10 geo=israel_jewish_society reason=no_name
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='عرابة البطوف' date=2026-02-03 geo=israel_arab_society name= outcome=critical reason=not_died
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=عرابة date=2026-03-20 geo=israel_arab_society name='مجدي عاطف شلاعطة' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=عرابة date=2020-11-16 geo=israel_arab_society name='وفاء عباهرة' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='תל אביב' date=2026-02-28 geo=israel_jewish_society reason=no_name
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='בית שאן' date=2026-12-26 geo=palestinian_territories name='שמשון מרדכי' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='עין חרוד' date=2026-12-26 geo=palestinian_territories name='אביב מאור' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city='צומת מחניים' date=2026-03-24 geo=israel_jewish_society name='נוריאל דובין' reason=date_oow
+2026-05-13T08:13:35.936699Z [info     ] filter_drop                    city=עראבה date=2026-03-19 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=רהט date=2026-11-01 geo=israel_arab_society name='אשרף אבו מדיגם' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=רהט date=None geo=israel_arab_society name='עבדאללה אבו מדיגם' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=سخنين date=2026-02-13 geo=israel_arab_society name= outcome=critical reason=not_died
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=הרצליה date=2026-12-27 geo=israel_jewish_society name='לודמילה ליפובסקי' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=יפו date=2026-01-05 geo=israel_jewish_society reason=no_name
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city="לוס אנג'לס" date=None geo=abroad name='רוב ריינר' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city="לוס אנג'לס" date=None geo=abroad name='מישל סינגר ריינר' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=اللد date=None geo=israel_arab_society name='عرفان الوحواح' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=חיפה date=2026-01-10 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=الخضيرة date=2026-01-13 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city='كفر ياسيف' date=2026-11-26 geo=israel_arab_society name='نبيل صفية' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city='شقيب السلام' date=2026-12-07 geo=israel_arab_society name='أيوب أبو مصلح' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=القدس date=None geo=palestinian_territories name='رياض العجلوني' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=رهط date=None geo=israel_arab_society name='عزات رمضان أبو لطيّف' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=رهط date=None geo=israel_arab_society name='غزال أبو لطيّف' reason=date_oow
+2026-05-13T08:13:35.937698Z [info     ] filter_drop                    city=اللد date=2026-01-19 geo=israel_arab_society name= outcome=critical reason=not_died
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=None date=None geo=israel_arab_society name='منال الطوري' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=عدن date=2026-01-21 geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=روستوف-نا-دونو date=2026-01-14 geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=خاركيف date=None geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=سعوة date=2026-01-18 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=None date=2026-01-21 geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=مينيابوليس date=2026-01-24 geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=مينيابوليس date=2026-01-07 geo=abroad name='رينيه غود' reason=geo
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=Minneapolis date=None geo=abroad name='أليكس بريتي' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city='عرعرة النقب' date=None geo=israel_arab_society name='يوسف أبو جويعد' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=None date=None geo=israel_arab_society name='جمعة الدنفيري' outcome=None reason=not_died
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city='أم الفحم' date=None geo=israel_arab_society name='أحمد مؤيد جبارين' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=حيفا date=2026-01-10 geo=israel_other reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city='הפזורה הבדואית שבנגב' date=2026-10-01 geo=israel_arab_society name='سميح أبو عرار' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=ירושלים date=None geo=israel_arab_society name='ליה גולובנציץ' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=ירושלים date=None geo=israel_arab_society name='אהרון (ארי) כץ' reason=date_oow
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=Kohdasht date=None geo=abroad reason=no_name
+2026-05-13T08:13:35.938690Z [info     ] filter_drop                    city=איספהאן date=2026-12-31 geo=abroad name='דריוש אנסארי בחטיארוונד' reason=date_oow
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city='برديس حنا' date=2026-01-05 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city='كفر ياسيف' date=2026-01-07 geo=israel_arab_society name= outcome=critical reason=not_died
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=اللقية date=None geo=israel_arab_society name='عدي صقر أبو عمار' reason=date_oow
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=ملارد date=2026-01-07 geo=abroad name='شاهين دهقان' reason=geo
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=رهط date=None geo=israel_arab_society name='منال أبو مديغم' reason=date_oow
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=الرملة date=2026-12-18 geo=israel_arab_society name='عبد الرحمن عماد العبرة' reason=date_oow
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=هرسين date=2026-01-02 geo=abroad name='علي عزيزي' reason=geo
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city=هرتسليا date=2026-12-01 geo=palestinian_territories name='لودميلا ليبوفسكي' reason=date_oow
+2026-05-13T08:13:35.939697Z [info     ] filter_drop                    city='حاجز الأنفاق' date=2026-01-28 geo=palestinian_territories name='قصي ماهر حلايقة' reason=geo
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=לקייה date=2026-01-02 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city='بندر عباس' date=2026-01-31 geo=abroad name= outcome=unknown reason=not_died
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=رفح date=2026-01-30 geo=palestinian_territories reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=الزهراء date=2026-01-21 geo=palestinian_territories reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=בענה date=2022-01-15 geo=israel_arab_society name='מחמוד חסארמה' reason=date_oow
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=בודפשט date=2026-01-05 geo=abroad name='דולי מולנר' reason=geo
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=רמלה date=2026-12-01 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=מיניאפוליס date=2026-01-07 geo=abroad name='רנה ניקול גוד' reason=geo
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=ירושלים date=2026-09-22 geo=israel_jewish_society name='חביבה ושדי' reason=date_oow
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city='מחנה הפליטים שועפט' date=2026-02-05 geo=palestinian_territories reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city='סוואעד חמירה' date=2026-02-04 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city='קריית ים' date=2026-02-04 geo=israel_jewish_society name='גיא בן סימון' reason=geo
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=וושינגטון date=2026-05-22 geo=abroad name='ירון לישינסקי' reason=date_oow
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=None date=2026-05-22 geo=abroad name='שרה מילגרים' reason=date_oow
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=Wuro date=2026-12-23 geo=abroad reason=no_name
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city=Copenhagen date=2026-10-02 geo=abroad name= outcome=None reason=not_died
+2026-05-13T08:13:35.940466Z [info     ] filter_drop                    city='אור עקיבא' date=None geo=israel_arab_society name= outcome=None reason=not_died
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='קריית ביאליק' date=2023-01-13 geo=israel_arab_society name="צ'קולה אטרסאו" reason=date_oow
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='קריית ביאליק' date=2023-01-13 geo=israel_arab_society name='גדעון דמסיה' outcome=survived reason=not_died
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=ירכא date=2026-02-12 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=חדרה date=None geo=israel_jewish_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='פתח תקווה' date=2026-10-15 geo=israel_jewish_society name='שלום ניסים' reason=date_oow
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='קריית אתא' date=2022-10-31 geo=israel_jewish_society name='מור טוויזר' reason=date_oow
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=None date=2026-02-05 geo=abroad name='סנטיאגו גאלן הנאו' reason=geo
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='קריית ים' date=2026-02-03 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=נצרת date=2026-02-14 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='נאות חובב' date=2026-02-14 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='Gaza City' date=2026-02-04 geo=palestinian_territories name= outcome=critical reason=not_died
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=ליון date=2026-02-13 geo=abroad name='קוונטין דראנק' reason=geo
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=None date=None geo=abroad name='כריסטין בנפילד' reason=date_oow
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city='ערערה בנגב' date=2026-10-01 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city="טאמבלר רידג'" date=2026-02-11 geo=abroad reason=no_name
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=טירה date=2011-03-07 geo=israel_arab_society name= outcome=critical reason=not_died
+2026-05-13T08:13:35.941469Z [info     ] filter_drop                    city=טירה date=2011-03-04 geo=israel_arab_society name='האדי נאסר' reason=date_oow
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city=טירה date=2011-03-04 geo=israel_arab_society name="ג'ובראן נאסר" reason=date_oow
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad name="ג'ניפר ואן רוטסלאר" reason=geo
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad name='אמט ואן רוטסלאר' reason=geo
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city="טמבלר רידג'" date=2026-02-10 geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city='כלא קציעות' date=2023-11-18 geo=palestinian_territories name='תאיר אבו עסב' reason=date_oow
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city=None date=None geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city='Tumbler Ridge' date=None geo=abroad reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city='عرب السواعد' date=2026-02-05 geo=israel_arab_society reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city='مخيم شعفاط' date=2026-02-05 geo=palestinian_territories reason=no_name
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city=לוד date=2023-02-16 geo=israel_arab_society name='סיגלית ברכה' reason=date_oow
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city=None date=None geo=palestinian_territories name='باسل هاشم عبد الفتاح هيموني' reason=date_oow
+2026-05-13T08:13:35.942468Z [info     ] filter_drop                    city='كفر قرع' date=2026-11-01 geo=israel_arab_society name='محمد يحيى' reason=date_oow
