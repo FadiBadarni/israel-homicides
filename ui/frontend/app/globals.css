@@ -83,7 +83,7 @@ a { color: inherit; text-decoration: none; }
 .amiri { font-family: var(--amiri); }
 
 /* nav */
-nav.top { border-bottom: 1px solid var(--hair); padding: 18px 0; }
+nav.top { border-bottom: 1px solid var(--hair); padding: 8px 0; }
 nav.top .row { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 nav.top .brand {
   font-family: var(--amiri);
@@ -96,8 +96,8 @@ nav.top .brand {
   gap: 10px;
 }
 nav.top .brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   display: block;
   flex-shrink: 0;
   object-fit: contain;
