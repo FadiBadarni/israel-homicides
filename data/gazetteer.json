@@ -618,7 +618,10 @@
     "name_he": "לקיה",
     "district": "Southern",
     "aliases_ar": [
-      "لقيه"
+      "لقيه",
+      "اللقية",
+      "لاقية",
+      "لاكية"
     ],
     "aliases_he": [
       "לקייא"
@@ -841,5 +844,224 @@
     ],
     "lat": 31.3083,
     "lng": 34.8467
+  },
+  {
+    "name_en": "Ar'ara BaNegev",
+    "name_ar": "عرعرة النقب",
+    "name_he": "ערערה בנגב",
+    "district": "Southern",
+    "region": "Negev",
+    "aliases_ar": [
+      "عرعرة النقب",
+      "ערערה בنגב"
+    ],
+    "aliases_he": [
+      "ערערה-בנגב",
+      "ערערת הנגב"
+    ],
+    "aliases_en": [
+      "Ar'ara al-Naqab",
+      "Arara al-Naqab",
+      "Arara BaNegev"
+    ],
+    "lat": 31.234,
+    "lng": 35.034
+  },
+  {
+    "name_en": "Daliyat al-Karmel",
+    "name_ar": "دالية الكرمل",
+    "name_he": "דליית אל-כרמל",
+    "district": "Haifa",
+    "region": "Carmel",
+    "aliases_ar": [
+      "دالية الكرمل"
+    ],
+    "aliases_he": [
+      "דאלית אל כרמל",
+      "דאלית אל-כרמל",
+      "דליית אל כרמל"
+    ],
+    "aliases_en": [
+      "Daliat al-Karmel",
+      "Daliyat el-Carmel"
+    ],
+    "lat": 32.687,
+    "lng": 35.054
+  },
+  {
+    "name_en": "Ibtin",
+    "name_ar": "إبطن",
+    "name_he": "אבטין",
+    "district": "Haifa",
+    "region": "Galilee",
+    "aliases_ar": [
+      "ابطن",
+      "ابتين"
+    ],
+    "aliases_he": [
+      "אבטן"
+    ],
+    "aliases_en": [
+      "Ibtin",
+      "Ibtan"
+    ],
+    "lat": 32.751,
+    "lng": 35.156
+  },
+  {
+    "name_en": "Pazurat al-Atrash",
+    "name_ar": "بزورة العطراش",
+    "name_he": "פזורת אלעטראש",
+    "district": "Southern",
+    "region": "Negev",
+    "aliases_ar": [
+      "العطراش",
+      "بزورة الأطرش"
+    ],
+    "aliases_he": [
+      "פזורת אל-עטראש",
+      "פזורת אל עטראש"
+    ],
+    "aliases_en": [
+      "Bzurat al-Atrash",
+      "Atrash dispersion"
+    ],
+    "lat": 31.166,
+    "lng": 35.06
+  },
+  {
+    "name_en": "Zalafa",
+    "name_ar": "زلفة",
+    "name_he": "זלפה",
+    "district": "Haifa",
+    "region": "Triangle",
+    "aliases_ar": [
+      "زلفة"
+    ],
+    "aliases_he": [
+      "זלפא"
+    ],
+    "aliases_en": [
+      "Zalfah",
+      "Zalafa"
+    ],
+    "lat": 32.495,
+    "lng": 35.025
+  },
+  {
+    "name_en": "al-Mushayrifa",
+    "name_ar": "المشيرفة",
+    "name_he": "מושיירפה",
+    "district": "Haifa",
+    "region": "Triangle",
+    "aliases_ar": [
+      "مشيرفة"
+    ],
+    "aliases_he": [
+      "משיירפה",
+      "מושירפה"
+    ],
+    "aliases_en": [
+      "Mushayrifa",
+      "Al-Mushayrifa"
+    ],
+    "lat": 32.498,
+    "lng": 35.011
+  },
+  {
+    "name_en": "Abu Sinan",
+    "name_ar": "أبو سنان",
+    "name_he": "אבו סנאן",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_ar": [
+      "ابو سنان"
+    ],
+    "aliases_he": [
+      "אבו-סנאן"
+    ],
+    "aliases_en": [
+      "Abu Snan"
+    ],
+    "lat": 32.949,
+    "lng": 35.179
+  },
+  {
+    "name_en": "Jisr az-Zarqa",
+    "name_ar": "جسر الزرقاء",
+    "name_he": "ג'סר א-זרקא",
+    "district": "Haifa",
+    "region": "Carmel",
+    "aliases_ar": [
+      "جسر الزرقا"
+    ],
+    "aliases_he": [
+      "ג'יסר א-זרקא",
+      "ג'סר אז-זרקא"
+    ],
+    "aliases_en": [
+      "Jisr al-Zarka",
+      "Jisr az-Zarka"
+    ],
+    "lat": 32.539,
+    "lng": 34.918
+  },
+  {
+    "name_en": "Ein al-Asad",
+    "name_ar": "عين الأسد",
+    "name_he": "עין אל-אסד",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_ar": [
+      "عين الاسد"
+    ],
+    "aliases_he": [
+      "עין אסד"
+    ],
+    "aliases_en": [
+      "Ein el-Assad",
+      "Ayn al-Asad"
+    ],
+    "lat": 32.974,
+    "lng": 35.301
+  },
+  {
+    "name_en": "Isfiya",
+    "name_ar": "عسفيا",
+    "name_he": "עוספיא",
+    "district": "Haifa",
+    "region": "Carmel",
+    "aliases_ar": [
+      "إسفيا"
+    ],
+    "aliases_he": [
+      "עוספייה",
+      "עיספייה"
+    ],
+    "aliases_en": [
+      "Usfiya",
+      "Ussefiya"
+    ],
+    "lat": 32.707,
+    "lng": 35.067
+  },
+  {
+    "name_en": "Umm al-Ghanam",
+    "name_ar": "أم الغنم",
+    "name_he": "אום אל-ע'נם",
+    "district": "Northern",
+    "region": "Galilee",
+    "aliases_ar": [
+      "ام الغنم"
+    ],
+    "aliases_he": [
+      "אום אל-גנם",
+      "אום אל ע'נם"
+    ],
+    "aliases_en": [
+      "Um al-Ghanam"
+    ],
+    "lat": 32.706,
+    "lng": 35.392
   }
 ]
