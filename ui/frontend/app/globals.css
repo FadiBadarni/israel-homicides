@@ -271,7 +271,7 @@ footer.bottom p { margin: 4px 0; }
 .case-summary strong { color: var(--ink); font-weight: 700; }
 
 /* victim photos pulled from source articles */
-.case-photos { margin: 56px auto 0; display: grid; gap: 24px; }
+.case-photos { margin: 0 auto; display: grid; gap: 24px; }
 .case-photos.count-1 { grid-template-columns: 1fr; max-width: 480px; }
 .case-photos.count-2 { grid-template-columns: 1fr 1fr; }
 .case-photos.count-3 { grid-template-columns: repeat(3, 1fr); }
@@ -457,5 +457,5 @@ footer.bottom p { margin: 4px 0; }
   .portrait { width: 104px; height: 104px; right: -4px; }
   .case-photos.count-2,
   .case-photos.count-3 { grid-template-columns: 1fr; }
-  .case-photos { margin-top: 36px; gap: 18px; }
+  .case-photos { gap: 18px; }
 }

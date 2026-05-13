@@ -131,29 +131,6 @@ export default function CaseDetailPage({ params }: PageProps) {
         return narrative ? <p className="case-summary">{narrative}</p> : null;
       })()}
 
-      {hasPhotos && (
-        <div className={`case-photos count-${Math.min(evidence.length, 3)}`}>
-          {evidence.map((m, i) => {
-            const credit = attributionFor(m);
-            return (
-              <figure className="case-photo" key={i}>
-                <img
-                  src={m.primary_url}
-                  alt={m.alt_text || m.caption || name}
-                  loading="lazy"
-                />
-                {(credit || m.caption) && (
-                  <figcaption>
-                    {m.caption && <span className="cap">{m.caption}</span>}
-                    {credit && <span className="credit">{credit}</span>}
-                  </figcaption>
-                )}
-              </figure>
-            );
-          })}
-        </div>
-      )}
-
       <div className="rule" />
 
       <section>
@@ -180,6 +157,34 @@ export default function CaseDetailPage({ params }: PageProps) {
           </div>
         </div>
       </section>
+
+      {hasPhotos && (
+        <>
+          <div className="rule" />
+          <section>
+            <div className={`case-photos count-${Math.min(evidence.length, 3)}`}>
+              {evidence.map((m, i) => {
+                const credit = attributionFor(m);
+                return (
+                  <figure className="case-photo" key={i}>
+                    <img
+                      src={m.primary_url}
+                      alt={m.alt_text || m.caption || name}
+                      loading="lazy"
+                    />
+                    {(credit || m.caption) && (
+                      <figcaption>
+                        {m.caption && <span className="cap">{m.caption}</span>}
+                        {credit && <span className="credit">{credit}</span>}
+                      </figcaption>
+                    )}
+                  </figure>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       {c.sources.length > 0 && (
         <>
