@@ -30,7 +30,7 @@ export default function CaseDetailPage({ params }: PageProps) {
         <div className="breadcrumb">
           <Link href="/" className="breadcrumb-link">
             <img src="/logo.png" alt="" className="breadcrumb-mark" aria-hidden="true" />
-            <span>{t(lang, "case.breadcrumb")}</span>
+            <span>{t(lang, "brand")}</span>
           </Link>
         </div>
         <p style={{ textAlign: "center", marginTop: 96, color: "var(--muted)" }}>
