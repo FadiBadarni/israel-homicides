@@ -56,9 +56,41 @@ export default function CaseDetailPage({ params }: PageProps) {
   // know the city or doesn't have the requested script.
   const cityLabel = pickCityLabel(c.city, c.city_normalized, lang);
 
-  const evidence = c.media_evidence ?? [];
-  const hasPhotos = evidence.length > 0;
-  const attributionFor = (item: typeof evidence[number]): string => {
+  // Build the displayable photo set.
+  //   1. Always include items the classifier flagged as evidence.
+  //   2. From the decorative ``media`` bucket, pull anything categorized
+  //      as a real case asset (portrait / crime scene / weapon / police).
+  //      Skip ``type: "other"`` — those are sidebar promos and unrelated
+  //      article thumbnails (TV shows, related-news, podcast promos).
+  //   3. Dedupe by primary_url. Sort by classifier_tier (keyword first)
+  //      then by confidence. Cap at 8.
+  const MEANINGFUL_TYPES = new Set([
+    "victim_portrait",
+    "crime_scene",
+    "weapon",
+    "police_activity",
+    "suspect",
+    "courtroom",
+  ]);
+  const allMedia = [...(c.media_evidence ?? []), ...(c.media ?? [])];
+  const seen = new Set<string>();
+  const photos = allMedia
+    .filter((m) => {
+      if (!m.primary_url || seen.has(m.primary_url)) return false;
+      if (!m.is_evidence && !MEANINGFUL_TYPES.has(m.type ?? "")) return false;
+      seen.add(m.primary_url);
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = a.classifier_tier === "keyword" ? 0 : a.classifier_tier === "clip" ? 1 : 2;
+      const tb = b.classifier_tier === "keyword" ? 0 : b.classifier_tier === "clip" ? 1 : 2;
+      if (ta !== tb) return ta - tb;
+      return (b.confidence ?? 0) - (a.confidence ?? 0);
+    })
+    .slice(0, 8);
+
+  const hasPhotos = photos.length > 0;
+  const attributionFor = (item: typeof photos[number]): string => {
     const url = item.source_article_urls?.[0];
     if (!url) return "";
     const match = c.sources.find((s) => s.url === url);
@@ -162,8 +194,8 @@ export default function CaseDetailPage({ params }: PageProps) {
         <>
           <div className="rule" />
           <section>
-            <div className={`case-photos count-${Math.min(evidence.length, 3)}`}>
-              {evidence.map((m, i) => {
+            <div className={`case-photos count-${Math.min(photos.length, 3)}`}>
+              {photos.map((m, i) => {
                 const credit = attributionFor(m);
                 return (
                   <figure className="case-photo" key={i}>
