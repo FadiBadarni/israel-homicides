@@ -122,7 +122,10 @@ export default function HomePage() {
     <>
       <nav className="top">
         <div className="wrap row">
-          <Link href="/" className="brand">{t(lang, "brand")}</Link>
+          <Link href="/" className="brand">
+            <img src="/logo.png" alt="" className="brand-mark" aria-hidden="true" />
+            <span>{t(lang, "brand")}</span>
+          </Link>
           <div className="links" style={{ alignItems: "center" }}>
             <a href="#cases">{t(lang, "nav.cases")}</a>
             <a href="#regions">{t(lang, "nav.regions")}</a>

@@ -85,7 +85,25 @@ a { color: inherit; text-decoration: none; }
 /* nav */
 nav.top { border-bottom: 1px solid var(--hair); padding: 18px 0; }
 nav.top .row { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
-nav.top .brand { font-family: var(--amiri); font-size: 20px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+nav.top .brand {
+  font-family: var(--amiri);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+nav.top .brand-mark {
+  width: 44px;
+  height: 44px;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* mix-blend-multiply removes the white png margin against the cream paper */
+  mix-blend-mode: multiply;
+}
 nav.top .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
 nav.top .links a:hover { color: var(--ink); }
 
