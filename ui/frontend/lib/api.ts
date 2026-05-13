@@ -62,6 +62,16 @@ export interface MediaItem {
   type: string | null;
   is_evidence: boolean;
   caption: string | null;
+  // Fields populated by the media pipeline that the UI uses for
+  // attribution and rendering. Optional because legacy exports
+  // (pre-media-pipeline) only carried primary_url + caption.
+  alt_text?: string | null;
+  width?: number | null;
+  height?: number | null;
+  source_article_urls?: string[];
+  mirror_urls?: string[];
+  classifier_tier?: string | null;
+  confidence?: number | null;
 }
 
 export interface Transliteration {

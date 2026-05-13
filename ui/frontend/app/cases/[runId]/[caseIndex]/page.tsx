@@ -52,6 +52,27 @@ export default function CaseDetailPage({ params }: PageProps) {
   // know the city or doesn't have the requested script.
   const cityLabel = pickCityLabel(c.city, c.city_normalized, lang);
 
+  const evidence = c.media_evidence ?? [];
+  const hasPhotos = evidence.length > 0;
+  const attributionFor = (item: typeof evidence[number]): string => {
+    const url = item.source_article_urls?.[0];
+    if (!url) return "";
+    const match = c.sources.find((s) => s.url === url);
+    if (match) {
+      return (
+        match.source_name ||
+        match.actual_publisher ||
+        match.domain ||
+        ""
+      );
+    }
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
+
   return (
     <div className="case-page">
       <div className="breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -60,7 +81,7 @@ export default function CaseDetailPage({ params }: PageProps) {
       </div>
 
       <header className="masthead">
-        {(c.victim_gender === "M" || c.victim_gender === "F") && (
+        {!hasPhotos && (c.victim_gender === "M" || c.victim_gender === "F") && (
           <figure className="portrait" aria-hidden="true">
             <img
               src={c.victim_gender === "F" ? "/woman-placeholder.png" : "/man-placeholder.png"}
@@ -101,6 +122,29 @@ export default function CaseDetailPage({ params }: PageProps) {
         );
         return narrative ? <p className="case-summary">{narrative}</p> : null;
       })()}
+
+      {hasPhotos && (
+        <div className={`case-photos count-${Math.min(evidence.length, 3)}`}>
+          {evidence.map((m, i) => {
+            const credit = attributionFor(m);
+            return (
+              <figure className="case-photo" key={i}>
+                <img
+                  src={m.primary_url}
+                  alt={m.alt_text || m.caption || name}
+                  loading="lazy"
+                />
+                {(credit || m.caption) && (
+                  <figcaption>
+                    {m.caption && <span className="cap">{m.caption}</span>}
+                    {credit && <span className="credit">{credit}</span>}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          })}
+        </div>
+      )}
 
       <div className="rule" />
 

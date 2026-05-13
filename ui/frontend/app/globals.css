@@ -224,6 +224,19 @@ footer.bottom p { margin: 4px 0; }
 .aliases span { color: var(--ink-2); }
 .case-summary { font-family: var(--amiri); font-size: 22px; line-height: 1.85; color: var(--ink-2); text-align: center; max-width: 580px; margin: 48px auto 0; text-wrap: pretty; }
 .case-summary strong { color: var(--ink); font-weight: 700; }
+
+/* victim photos pulled from source articles */
+.case-photos { margin: 56px auto 0; display: grid; gap: 24px; }
+.case-photos.count-1 { grid-template-columns: 1fr; max-width: 480px; }
+.case-photos.count-2 { grid-template-columns: 1fr 1fr; }
+.case-photos.count-3 { grid-template-columns: repeat(3, 1fr); }
+.case-photo { margin: 0; }
+.case-photo img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); filter: grayscale(0.08); }
+.case-photo figcaption { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
+.case-photo figcaption .cap { color: var(--ink-2); }
+.case-photo figcaption .credit { letter-spacing: 0.04em; }
+.case-photo figcaption .credit::before { content: "—\00a0"; color: var(--hair-strong); }
+
 .rule { width: 48px; height: 1px; background: var(--hair-strong); margin: 72px auto; }
 .section-label { text-align: center; font-size: 13px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 32px; }
 .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--hair); }
@@ -396,4 +409,7 @@ footer.bottom p { margin: 4px 0; }
   .fact:nth-child(even) { padding-right: 4px; }
   .rule { margin: 56px auto; }
   .portrait { width: 104px; height: 104px; right: -4px; }
+  .case-photos.count-2,
+  .case-photos.count-3 { grid-template-columns: 1fr; }
+  .case-photos { margin-top: 36px; gap: 18px; }
 }
