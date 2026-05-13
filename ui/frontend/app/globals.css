@@ -180,7 +180,7 @@ nav.top .links a:hover { color: var(--ink); }
 
 /* memorial tapestry */
 .tapestry { display: flex; flex-direction: column; gap: 28px; }
-.tap-row { display: grid; grid-template-columns: 140px 1fr; gap: 24px; align-items: baseline; }
+.tap-row { display: grid; grid-template-columns: 140px 1fr; gap: 24px; align-items: start; }
 .tap-label {
   text-align: left;
   padding-top: 2px;
