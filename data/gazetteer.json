@@ -815,5 +815,31 @@
     ],
     "lat": 31.3211,
     "lng": 34.8769
+  },
+  {
+    "name_en": "Tarabin al-Sane",
+    "name_ar": "ترابين الصانع",
+    "name_he": "תראבין א-סאנע",
+    "district": "Southern",
+    "region": "Negev",
+    "aliases_ar": [
+      "ترابين",
+      "الترابين",
+      "ترابين السانع"
+    ],
+    "aliases_he": [
+      "תראבין",
+      "תראבין-א-סאנע",
+      "טראבין א-סאנע",
+      "תראבין אסנע"
+    ],
+    "aliases_en": [
+      "Tarabin",
+      "Tarabin al-Sana",
+      "Tarabin al-Saneh",
+      "Tarabin al-Sana'a"
+    ],
+    "lat": 31.3083,
+    "lng": 34.8467
   }
 ]
