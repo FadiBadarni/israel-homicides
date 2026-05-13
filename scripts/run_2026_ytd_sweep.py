@@ -32,10 +32,12 @@ _AR_SOURCES = ["arab48", "makan"]
 
 DATE_FROM = "2026-01-01"
 DATE_TO = "2026-05-13"
-# Wider window than Feb sweep — push the per-source cap up since 4.5
-# months will surface more headlines per keyword.
-MAX_PER_SOURCE = 200
-MAX_PAGES = 10
+# Cap-per-source was 200 originally but each (kw, src) pair took ~45min
+# at that ceiling — extrapolated to 12h total runtime. 80 is enough to
+# capture the high-coverage keywords for the 130-day window while
+# keeping the full sweep ~3-4 hours.
+MAX_PER_SOURCE = 80
+MAX_PAGES = 6
 
 
 async def run_one(settings: Settings, kw: str, source: str, lang: str) -> tuple[str, dict]:
