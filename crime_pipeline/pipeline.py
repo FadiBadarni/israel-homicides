@@ -451,6 +451,8 @@ class Pipeline:
         ALLOWED_GEO = {"israel_arab_society", "unknown", None}
 
         def passes_filter(case: Any) -> bool:
+            if getattr(case, "victim_outcome", None) != "died":
+                return False
             name = (
                 getattr(case, "victim_name_ar", None)
                 or getattr(case, "victim_name_he", None)
@@ -458,29 +460,13 @@ class Pipeline:
                 or getattr(case, "victim_name", None)
                 or ""
             ).strip()
-            if getattr(case, "victim_outcome", None) != "died":
-                log.info("filter_drop", reason="not_died", name=name[:30],
-                         outcome=getattr(case, "victim_outcome", None),
-                         city=getattr(case, "city", None),
-                         date=str(getattr(case, "incident_date", None)),
-                         geo=getattr(case, "incident_geography", None))
-                return False
             if not name:
-                log.info("filter_drop", reason="no_name",
-                         city=getattr(case, "city", None),
-                         date=str(getattr(case, "incident_date", None)),
-                         geo=getattr(case, "incident_geography", None))
                 return False
             d = getattr(case, "incident_date", None)
             if d is None or not (window_from <= d <= window_to):
-                log.info("filter_drop", reason="date_oow", name=name[:30],
-                         date=str(d), city=getattr(case, "city", None),
-                         geo=getattr(case, "incident_geography", None))
                 return False
             geo = getattr(case, "incident_geography", None)
             if geo not in ALLOWED_GEO:
-                log.info("filter_drop", reason="geo", name=name[:30],
-                         date=str(d), city=getattr(case, "city", None), geo=geo)
                 return False
             return True
 
