@@ -68,12 +68,18 @@ export default function CaseDetailPage({ params }: PageProps) {
   //      confidence. Cap each type at 2 items so a single category
   //      doesn't flood the gallery (e.g. the same weapon syndicated
   //      across 3 publishers). Final cap at 8.
+  // Memorial-appropriate photo categories. Includes the victim and the
+  // case context (incident, weapon, police, legal proceedings, funeral)
+  // but deliberately excludes ``suspect_portrait`` (presumption of
+  // innocence — the accused isn't part of the register) and ``cctv``
+  // (often shows the moment of death; not memorial-appropriate).
   const MEANINGFUL_TYPES = new Set([
     "victim_portrait",
     "crime_scene",
     "weapon",
     "police_activity",
-    "suspect",
+    "funeral",
+    "court",
     "courtroom",
   ]);
   // Arabic + Hebrew victim/deceased-marker words. Singular, plural,
