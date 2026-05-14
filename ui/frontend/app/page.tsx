@@ -29,7 +29,7 @@ function flattenDeaths(localities: Locality[]): DeathWithCity[] {
 }
 
 const CASES_PER_PAGE = 9;
-const CONTACT_EMAIL = "fadibadarnii@gmail.com";
+const CONTACT_URL = "https://www.devfadi.com/#contact";
 
 export default function HomePage() {
   const { lang } = useLanguage();
@@ -397,39 +397,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="sec" id="contact">
+      <aside className="contact-strip" id="contact">
         <div className="wrap">
-          <div className="sec-head">
-            <h2 className="sec-title">{t(lang, "sec.contact_title")}</h2>
-          </div>
-
-          <div className="contact-card">
-            <p className="contact-lede">{t(lang, "contact.lede")}</p>
-
-            <div className="contact-examples">
-              <div className="contact-examples-label">
-                {t(lang, "contact.examples_label")}
-              </div>
-              <ul>
-                <li>{t(lang, "contact.example1")}</li>
-                <li>{t(lang, "contact.example2")}</li>
-                <li>{t(lang, "contact.example3")}</li>
-                <li>{t(lang, "contact.example4")}</li>
-              </ul>
-            </div>
-
-            <a
-              className="contact-mail"
-              href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(t(lang, "contact.subject"))}`}
-            >
-              <span className="contact-mail-cta">{t(lang, "contact.cta")}</span>
-              <bdi className="contact-mail-addr" dir="ltr">{CONTACT_EMAIL}</bdi>
-            </a>
-
-            <p className="contact-privacy">{t(lang, "contact.privacy")}</p>
-          </div>
+          <p className="contact-lede">{t(lang, "contact.lede")}</p>
+          <a
+            className="contact-link"
+            href={CONTACT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>{t(lang, "contact.cta")}</span>
+            <span className="contact-link-arrow" aria-hidden="true">←</span>
+          </a>
         </div>
-      </section>
+      </aside>
 
       <footer className="bottom">
         <div className="wrap">
