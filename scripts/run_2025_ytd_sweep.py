@@ -47,10 +47,13 @@ _AR_SOURCES = ["arab48", "makan"]
 
 DATE_FROM = "2025-01-01"
 DATE_TO = "2025-12-31"
-# 365-day window vs the 130-day 2026 sweep => bump caps to capture more
-# historical articles before pagination cuts us off.
-MAX_PER_SOURCE = 200
-MAX_PAGES = 8
+# Originally 200/8 (extrapolated 10h runtime; over-budget for one
+# evening). Dropped to 100/5 — the 2026 sweep at 80/6 captured 107 of
+# 108 truth cases, so 100/5 over a 2.8x longer window still covers the
+# high-signal keywords. Long-tail can be picked up later with a
+# count-milestone sweep on the Arabic "X قتيلا منذ بدء العام" pattern.
+MAX_PER_SOURCE = 100
+MAX_PAGES = 5
 
 
 async def run_one(settings: Settings, kw: str, source: str, lang: str) -> tuple[str, dict]:
