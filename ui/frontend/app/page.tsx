@@ -118,7 +118,7 @@ export default function HomePage() {
     if (yc && Object.keys(yc).length) {
       return Object.entries(yc)
         .map(([y, n]) => ({ year: Number(y), n: n as number, current: Number(y) === currentYear }))
-        .sort((a, b) => a.year - b.year);
+        .sort((a, b) => b.year - a.year);
     }
     const byYear = new Map<number, number>();
     for (const d of allDeaths) {
@@ -127,7 +127,7 @@ export default function HomePage() {
       byYear.set(y, (byYear.get(y) ?? 0) + 1);
     }
     return Array.from(byYear.entries())
-      .sort((a, b) => a[0] - b[0])
+      .sort((a, b) => b[0] - a[0])
       .map(([year, n]) => ({ year, n, current: year === currentYear }));
   }, [memorial, allDeaths, currentYear]);
 
