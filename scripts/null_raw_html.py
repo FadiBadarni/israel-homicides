@@ -94,12 +94,12 @@ def main() -> None:
         return
 
     print("Running VACUUM (may take a minute)...")
-    # VACUUM must run outside a transaction in SQLite. Use a fresh connection
-    # in AUTOCOMMIT mode.
-    with db_module.SessionLocal() as session:
-        conn = session.connection()
-        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-        conn.execute(text("VACUUM"))
+    # SQLAlchemy holds an implicit transaction we can't escape here, so
+    # drop to a raw sqlite3 connection. VACUUM must run outside any txn.
+    import sqlite3
+    conn = sqlite3.connect(settings.db_path)
+    conn.execute("VACUUM")
+    conn.close()
 
     after_size = db_path.stat().st_size if db_path.exists() else 0
     print(f"DB size after:  {after_size / 1024 / 1024:.1f} MB")
