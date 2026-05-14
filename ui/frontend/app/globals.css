@@ -236,105 +236,46 @@ nav.top .links a:hover { color: var(--ink); }
 .about-col h3 { font-family: var(--amiri); font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
 .about-col p { font-size: 15px; color: var(--ink-2); margin: 0; line-height: 1.75; }
 
-/* contact / corrections — restrained call-to-action card that respects the
-   memorial tone: surface paper, hairline border, accent rule on the right
-   edge (echoes the case-page .note pattern). Centered single column. */
-.contact-card {
-  max-width: 720px;
-  margin: 0 auto;
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-right: 3px solid var(--accent);
-  padding: 40px 44px 36px;
+/* contact strip — a single-line "noticed something wrong?" sits between
+   the about section and the footer. Slim, no card chrome. The CTA reads
+   as an underlined accent link rather than a button so the memorial tone
+   doesn't get drowned out by a call-to-action treatment. */
+.contact-strip { padding: 36px 0; border-bottom: 1px solid var(--hair); }
+.contact-strip .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px 18px;
   text-align: center;
 }
 .contact-lede {
-  font-family: var(--amiri);
-  font-size: 20px;
-  line-height: 1.8;
-  color: var(--ink-2);
-  margin: 0 auto 28px;
-  max-width: 560px;
-  text-wrap: pretty;
-}
-.contact-examples {
-  margin: 0 auto 32px;
-  max-width: 480px;
-  text-align: start;
-  border-top: 1px solid var(--hair);
-  padding-top: 22px;
-}
-.contact-examples-label {
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 12px;
-  text-align: center;
-}
-.contact-examples ul {
-  list-style: none;
-  padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.contact-examples li {
-  position: relative;
-  padding-right: 18px;
   font-size: 15px;
   color: var(--ink-2);
-  line-height: 1.6;
+  line-height: 1.65;
 }
-.contact-examples li::before {
-  content: "·";
-  position: absolute;
-  right: 4px;
-  top: -2px;
-  color: var(--accent);
-  font-size: 18px;
-  font-weight: 700;
-}
-.contact-mail {
+.contact-link {
   display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 14px 28px;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  text-decoration: none;
-  transition: background 150ms, color 150ms;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--hair-strong);
+  text-underline-offset: 4px;
+  transition: color 150ms, text-decoration-color 150ms;
 }
-.contact-mail:hover { background: var(--accent); border-color: var(--accent); }
-.contact-mail:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-.contact-mail-cta {
-  font-family: var(--amiri);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-html[lang="he"] .contact-mail-cta { font-family: var(--rashi); }
-.contact-mail-addr {
-  font-size: 13px;
-  color: var(--hair);
-  letter-spacing: 0.02em;
-  /* keep the address LTR even inside an RTL paragraph */
+.contact-link:hover { color: var(--ink); text-decoration-color: var(--accent); }
+.contact-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.contact-link-arrow {
+  font-size: 14px;
+  color: var(--muted-2);
+  transition: transform 150ms, color 150ms;
+  /* keep arrow direction stable across bidi reflows */
   unicode-bidi: isolate;
-  font-feature-settings: "tnum" 1;
 }
-.contact-privacy {
-  margin: 22px auto 0;
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.7;
-  max-width: 480px;
-}
+.contact-link:hover .contact-link-arrow { color: var(--ink); transform: translateX(2px); }
 
 /* footer */
 footer.bottom { padding: 56px 0 80px; font-size: 13px; color: var(--muted); line-height: 1.8; text-align: center; }
@@ -553,16 +494,11 @@ footer.bottom p { margin: 4px 0; }
   .about-col h3 { font-size: 18px; margin-bottom: 10px; }
   .about-col p { font-size: 14.5px; line-height: 1.75; }
 
-  /* contact — tighten card padding and type for phone */
-  .contact-card { padding: 28px 20px 26px; }
-  .contact-lede { font-size: 17px; line-height: 1.75; margin-bottom: 22px; }
-  .contact-examples { padding-top: 18px; margin-bottom: 24px; }
-  .contact-examples-label { font-size: 11px; margin-bottom: 10px; }
-  .contact-examples li { font-size: 14px; }
-  .contact-mail { padding: 12px 22px; }
-  .contact-mail-cta { font-size: 15px; }
-  .contact-mail-addr { font-size: 12px; }
-  .contact-privacy { font-size: 12px; margin-top: 18px; }
+  /* contact strip — tighten padding and type for phone */
+  .contact-strip { padding: 24px 0; }
+  .contact-strip .wrap { gap: 4px 14px; }
+  .contact-lede { font-size: 14px; line-height: 1.65; }
+  .contact-link { font-size: 14px; }
 
   /* footer — pull the bottom rhythm in proportionally */
   footer.bottom { padding: 36px 0 56px; font-size: 12px; line-height: 1.7; }
