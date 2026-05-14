@@ -1286,6 +1286,12 @@ class Pipeline:
                         "language": article.language,
                         "published_at": article.published_at,
                         "raw_html": article.raw_html,
+                        # Threaded through for the per-article media cache
+                        # check in _attach_media. article_id is the upsert
+                        # key; the json+version pair is the cache value.
+                        "article_id": article.id,
+                        "media_harvest_json": article.media_harvest_json,
+                        "media_harvest_version": article.media_harvest_version,
                     }
                 )
             if not cluster_input:
@@ -1391,24 +1397,24 @@ class Pipeline:
     # ------------------------------------------------------------------
 
     async def _attach_media(self, case: Any, cluster_input: list[dict[str, Any]]) -> None:
-        """Run MediaPipeline on a merged case and assign media + media_evidence.
+        """Run the media pipeline on a merged case via the per-article cache.
 
-        Mutates ``case`` in place. Skips cleanly when MediaSettings.enabled is
-        False or no article has raw_html.
+        For each article in the cluster, deserialize ``media_harvest_json``
+        if it's populated at the current cache version; otherwise run
+        ``harvest_one_article`` and queue the result for write-back.
+        Cross-article dedup + canonical-rep selection + split happens live
+        in ``finalize`` so cluster composition changes (new sources,
+        gazetteer updates) still propagate. Cache writes are persisted to
+        ``raw_articles`` once the case is finalized.
+
+        Mutates ``case`` in place. Skips cleanly when media is disabled or
+        no article in the cluster has html or cache.
         """
         if not self._media_settings.enabled:
             return
-        articles_for_media = [
-            {
-                "raw_html": ci.get("raw_html") or "",
-                "url": ci.get("url") or "",
-                "article_text": None,
-            }
-            for ci in cluster_input
-            if ci.get("raw_html")
-        ]
-        if not articles_for_media:
-            return
+
+        from crime_pipeline.media.models import MediaCandidate
+        from crime_pipeline.media.pipeline import MEDIA_HARVEST_VERSION
 
         # Build case-level classifier context from the merged case fields.
         victim_names = [
@@ -1435,20 +1441,105 @@ class Pipeline:
         if case.neighborhood and case.neighborhood not in city_names:
             city_names.append(case.neighborhood)
 
+        first_url = next(
+            (ci.get("url") for ci in cluster_input if ci.get("url")),
+            "",
+        )
         ctx = ArticleContext(
-            article_url=articles_for_media[0]["url"],
+            article_url=first_url,
             victim_names=victim_names,
             suspect_names=suspect_names,
             city_names=city_names,
         )
 
-        media_canon, evidence_canon = await self._media_pipeline.run_for_case(
-            articles_for_media, ctx
+        self._media_pipeline.classifier.reset_case_budget()
+        all_cands: list[MediaCandidate] = []
+        cache_writes: dict[str, list[dict[str, Any]]] = {}
+        cache_hits = 0
+        cache_misses = 0
+
+        for ci in cluster_input:
+            cached = ci.get("media_harvest_json")
+            cached_ver = ci.get("media_harvest_version")
+            url = ci.get("url") or ""
+            html = ci.get("raw_html") or ""
+            article_id = ci.get("article_id")
+
+            if cached is not None and cached_ver == MEDIA_HARVEST_VERSION:
+                # Cache hit — deserialize and reuse. Skips harvest + download
+                # + classify entirely (the expensive part).
+                try:
+                    cands = [MediaCandidate(**d) for d in cached]
+                except Exception as e:
+                    log.warning(
+                        "media_cache_deserialize_failed",
+                        article_id=(article_id or "")[:8],
+                        error=str(e),
+                    )
+                    cands = []
+                all_cands.extend(cands)
+                cache_hits += 1
+                continue
+
+            if not html or not url:
+                continue
+
+            cands = await self._media_pipeline.harvest_one_article(url, html, ctx)
+            all_cands.extend(cands)
+            cache_misses += 1
+            if article_id:
+                cache_writes[article_id] = [
+                    c.model_dump(mode="json") for c in cands
+                ]
+
+        if cache_hits or cache_misses:
+            log.info(
+                "media_cache_status",
+                hits=cache_hits,
+                misses=cache_misses,
+                version=MEDIA_HARVEST_VERSION,
+            )
+
+        if not all_cands:
+            return
+
+        media_canon, evidence_canon = await self._media_pipeline.finalize(
+            all_cands, ctx
         )
         case.media = [cm.model_dump(mode="json") for cm in media_canon]
         case.media_evidence = [cm.model_dump(mode="json") for cm in evidence_canon]
         self.stats["media_canonical"] += len(media_canon)
         self.stats["media_evidence_canonical"] += len(evidence_canon)
+
+        if cache_writes:
+            await asyncio.to_thread(self._persist_media_cache, cache_writes)
+
+    def _persist_media_cache(
+        self, cache_writes: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        """Write per-article media-harvest cache rows to raw_articles.
+
+        Bumps ``media_harvest_version`` alongside the payload so later
+        cache reads can detect stale versions and re-harvest cleanly.
+        """
+        if not cache_writes:
+            return
+        from sqlalchemy import update
+        from crime_pipeline.media.pipeline import MEDIA_HARVEST_VERSION
+        from crime_pipeline.models import RawArticle
+
+        with db_module.SessionLocal() as session:  # type: ignore[misc]
+            for article_id, cands_json in cache_writes.items():
+                session.execute(
+                    update(RawArticle)
+                    .where(RawArticle.id == article_id)
+                    .values(
+                        media_harvest_json=cands_json,
+                        media_harvest_version=MEDIA_HARVEST_VERSION,
+                    )
+                )
+            session.commit()
+        log.info("media_cache_persisted", articles=len(cache_writes))
 
     # ------------------------------------------------------------------
     # Stages 6-8: Sanity → Quality → Reconcile (deterministic cleanup)

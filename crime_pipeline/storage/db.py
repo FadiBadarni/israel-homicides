@@ -64,6 +64,11 @@ def _apply_additive_migrations(engine: Engine) -> None:
         # Run scoping (added for the --cities multi-run backfill flow so
         # resume-from-dedup runs only see the current run's articles).
         ("pipeline_run_id", "VARCHAR(64)"),
+        # Per-article media-harvest cache (added so build_canonical rebuilds
+        # don't re-download + re-CLIP-classify every image on every run).
+        # See RawArticle.media_harvest_json for the contract.
+        ("media_harvest_json", "JSON"),
+        ("media_harvest_version", "INTEGER"),
     ]
     with engine.begin() as conn:
         for col_name, col_def in additive_cols:

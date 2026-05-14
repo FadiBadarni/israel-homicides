@@ -86,6 +86,20 @@ class RawArticle(Base):
     triage_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     triage_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Per-article media-harvest cache. Populated the first time _attach_media
+    # runs harvest+download+classify for this article. On subsequent
+    # ``build_canonical`` rebuilds, the media pipeline reads from here and
+    # skips the network + CLIP work entirely. Article HTML is immutable post-
+    # publish, so cached output stays valid until the harvester or classifier
+    # interface bumps ``media_harvest_version``.
+    #
+    # Once an article has a populated cache, ``raw_html`` becomes safe to
+    # null out (saves ~90% of DB weight). See scripts/backfill_media_cache.py.
+    media_harvest_json: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(
+        JSON, nullable=True
+    )
+    media_harvest_version: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     extractions: Mapped[list["ExtractedRecord"]] = relationship(
         "ExtractedRecord", back_populates="article", cascade="all, delete-orphan"
     )

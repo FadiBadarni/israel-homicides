@@ -37,6 +37,13 @@ from crime_pipeline.models import CanonicalMedia
 log = structlog.get_logger()
 
 
+# Cache schema version for ``raw_articles.media_harvest_version``. Bump when
+# the harvester or classifier output shape changes in a way that should
+# invalidate cached rows (additive field changes that decode cleanly do
+# NOT require a bump). Cache misses fall back to live harvest+classify.
+MEDIA_HARVEST_VERSION = 1
+
+
 _ARABIC_DIACRITICS_RE = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
 _TOKEN_RE = re.compile(r"[A-Za-z0-9\u0590-\u05FF\u0600-\u06FF]+", re.UNICODE)
 
@@ -78,42 +85,65 @@ class MediaPipeline:
         self.downloader = MediaDownloader(self.settings)
         self.classifier = MediaClassifier(self.settings)
 
-    async def run_for_case(
+    async def harvest_one_article(
         self,
-        articles: list[dict],
+        url: str,
+        html: str,
+        ctx: ArticleContext,
+    ) -> list[MediaCandidate]:
+        """Harvest + download + classify the media for a single article.
+
+        Pure per-article work; no cross-article state. The output is exactly
+        what gets written to ``raw_articles.media_harvest_json`` for that
+        article — on the next ``build_canonical`` rebuild, the cache hit
+        lets _attach_media skip this entire method (network + CLIP) and
+        feed the cached candidates straight to ``finalize``.
+
+        Caller must call ``self.classifier.reset_case_budget()`` once per
+        case before invoking this method.
+        """
+        if not html or not url:
+            return []
+        try:
+            cands = self.harvester.harvest(html, url, ctx)
+        except Exception as e:
+            log.warning("media_harvest_error", url=url, error=str(e))
+            return []
+        if not cands:
+            return []
+        try:
+            cands = await self.downloader.fetch_many(cands)
+        except Exception as e:
+            log.warning("media_download_batch_error", url=url, error=str(e))
+        cands = [c for c in cands if c.download_status == "ok"]
+        if not cands:
+            return []
+        for cand in cands:
+            try:
+                await self.classifier.classify(cand, ctx)
+            except Exception as e:
+                cand.classification = cand.classification or "other"
+                cand.classifier_tier = cand.classifier_tier or "keyword"
+                cand.classification_evidence.append(f"classify_error:{str(e)[:80]}")
+        return cands
+
+    async def finalize(
+        self,
+        all_cands: list[MediaCandidate],
         ctx: ArticleContext,
     ) -> tuple[list[CanonicalMedia], list[CanonicalMedia]]:
-        """Process all articles for one case → (media, media_evidence).
+        """Cross-article dedup + canonical-rep selection + split.
 
-        ``articles`` is a list of dicts shaped like::
-
-            {"raw_html": str, "url": str, "article_text": str | None}
-
-        Returns two lists of CanonicalMedia (decorative vs evidentiary).
+        Operates on the union of candidates from every article in a case
+        (whether sourced live or from the per-article cache). Cluster
+        composition can shift between rebuilds (new articles, gazetteer
+        updates) so this step is always live — never cached.
         """
-        if not self.settings.enabled or not articles:
-            return [], []
-
-        self.classifier.reset_case_budget()
-
-        # ── 1. Harvest from each article ──────────────────────────────
-        all_cands: list[MediaCandidate] = []
-        for art in articles:
-            html = art.get("raw_html") or ""
-            base_url = art.get("url") or ""
-            if not html or not base_url:
-                continue
-            try:
-                cands = self.harvester.harvest(html, base_url, ctx)
-            except Exception as e:
-                log.warning("media_harvest_error", url=base_url, error=str(e))
-                continue
-            all_cands.extend(cands)
-
         if not all_cands:
             return [], []
 
-        # ── 2. Cap per case ───────────────────────────────────────────
+        # Precision prefilter — depends on case ctx (victim/city names),
+        # which can change across rebuilds, so must run live.
         if self.settings.precision_mode:
             before = len(all_cands)
             all_cands = self._drop_explicit_mismatches(all_cands, ctx)
@@ -131,37 +161,7 @@ class MediaPipeline:
             )
             all_cands = all_cands[: self.settings.max_images_per_case]
 
-        # ── 3. Download (bounded concurrency, shared cache) ───────────
-        try:
-            all_cands = await self.downloader.fetch_many(all_cands)
-        except Exception as e:
-            log.warning("media_download_batch_error", error=str(e))
-
-        # Only downloaded, hashable images are useful for the canonical media
-        # gallery. Keeping failed URLs here creates broken UI tiles and noisy
-        # singleton media records.
-        failed_downloads = [c for c in all_cands if c.download_status != "ok"]
-        if failed_downloads:
-            log.info(
-                "media_downloads_dropped",
-                count=len(failed_downloads),
-                statuses=sorted({c.download_status for c in failed_downloads}),
-            )
-        all_cands = [c for c in all_cands if c.download_status == "ok"]
-        if not all_cands:
-            return [], []
-
-        # ── 4. Classify ───────────────────────────────────────────────
-        for cand in all_cands:
-            try:
-                await self.classifier.classify(cand, ctx)
-            except Exception as e:
-                # Classifier failures must not break the case; record + continue.
-                cand.classification = cand.classification or "other"
-                cand.classifier_tier = cand.classifier_tier or "keyword"
-                cand.classification_evidence.append(f"classify_error:{str(e)[:80]}")
-
-        # ── 5. Dedup: within-article (sha256), then cross-source ──────
+        # Dedup: within-article (sha256), then cross-source ───────────
         # Group by source_article_url so within-article sha256 collapse does
         # NOT swallow byte-identical images shared across publishers (which
         # would erase the appearance_count signal we rely on downstream).
@@ -227,6 +227,31 @@ class MediaPipeline:
             evidence=len(evidence_canon),
         )
         return media_canon, evidence_canon
+
+    async def run_for_case(
+        self,
+        articles: list[dict],
+        ctx: ArticleContext,
+    ) -> tuple[list[CanonicalMedia], list[CanonicalMedia]]:
+        """Convenience wrapper: harvest each article live then finalize.
+
+        Kept for callers that haven't been migrated to the cache-aware
+        path (tests, demo scripts). Production ``_attach_media`` calls
+        ``harvest_one_article`` + ``finalize`` directly so it can layer
+        the per-article cache between them.
+        """
+        if not self.settings.enabled or not articles:
+            return [], []
+        self.classifier.reset_case_budget()
+        all_cands: list[MediaCandidate] = []
+        for art in articles:
+            cands = await self.harvest_one_article(
+                art.get("url") or "",
+                art.get("raw_html") or "",
+                ctx,
+            )
+            all_cands.extend(cands)
+        return await self.finalize(all_cands, ctx)
 
     # ------------------------------------------------------------------
     # Precision filters
