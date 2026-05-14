@@ -79,8 +79,19 @@ html[lang="he"] .amiri {
 .fade-in.delay-1 { transition-delay: 60ms; }
 .fade-in.delay-2 { transition-delay: 120ms; }
 .fade-in.delay-3 { transition-delay: 180ms; }
+
+/* One-shot body fade on first paint so the static nav + hero + footer
+   also emerge softly instead of snapping in. Fires once per full page
+   load; client-side route changes don't re-trigger it (body persists). */
+@keyframes body-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+body { animation: body-fade-in 400ms ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   .fade-in { transition: none; opacity: 1; }
+  body { animation: none; }
 }
 
 * { box-sizing: border-box; }
