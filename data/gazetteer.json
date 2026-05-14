@@ -1172,5 +1172,205 @@
     ],
     "lat": 32.09,
     "lng": 34.886
+  },
+  {
+    "name_en": "Khawaled",
+    "name_ar": "خوالد",
+    "name_he": "חוואלד",
+    "district": "Northern",
+    "lat": 32.8067,
+    "lng": 35.1494
+  },
+  {
+    "name_en": "Basmat Tabun",
+    "name_ar": "بسمة طبعون",
+    "name_he": "בסמת טבעון",
+    "district": "Northern",
+    "lat": 32.7386,
+    "lng": 35.1939
+  },
+  {
+    "name_en": "Ilut",
+    "name_ar": "عيلوط",
+    "name_he": "עילוט",
+    "district": "Northern",
+    "lat": 32.715,
+    "lng": 35.275,
+    "aliases_ar": [
+      "عيلوط (الناصرة)"
+    ]
+  },
+  {
+    "name_en": "Jatt (Triangle)",
+    "name_ar": "جت المثلث",
+    "name_he": "ג'ת",
+    "district": "Haifa",
+    "lat": 32.3925,
+    "lng": 35.0381,
+    "aliases_ar": [
+      "جت",
+      "جتّ"
+    ]
+  },
+  {
+    "name_en": "Salem",
+    "name_ar": "سالم",
+    "name_he": "סאלם",
+    "district": "Haifa",
+    "lat": 32.6111,
+    "lng": 35.1989
+  },
+  {
+    "name_en": "Deir al-Asad",
+    "name_ar": "دير الأسد",
+    "name_he": "דיר אל-אסד",
+    "district": "Northern",
+    "lat": 32.9192,
+    "lng": 35.3036
+  },
+  {
+    "name_en": "Isfiya",
+    "name_ar": "عسفيا",
+    "name_he": "עספיא",
+    "district": "Haifa",
+    "lat": 32.7044,
+    "lng": 35.0856,
+    "aliases_he": [
+      "עוספיא",
+      "עוספייה"
+    ]
+  },
+  {
+    "name_en": "Sandala",
+    "name_ar": "صندلة",
+    "name_he": "סנדלה",
+    "district": "Northern",
+    "lat": 32.5325,
+    "lng": 35.2125
+  },
+  {
+    "name_en": "Qasr al-Sir",
+    "name_ar": "قصر السر",
+    "name_he": "קסר א-סיר",
+    "district": "Southern",
+    "lat": 31.182,
+    "lng": 34.998
+  },
+  {
+    "name_en": "Bir al-Maksur",
+    "name_ar": "بئر المكسور",
+    "name_he": "ביר אל-מכסור",
+    "district": "Northern",
+    "lat": 32.7917,
+    "lng": 35.225
+  },
+  {
+    "name_en": "Zemer",
+    "name_ar": "زيمر",
+    "name_he": "זמר",
+    "district": "Haifa",
+    "lat": 32.4014,
+    "lng": 35.0289
+  },
+  {
+    "name_en": "Judeida-Makr",
+    "name_ar": "جديدة المكر",
+    "name_he": "ג'דיידה מכר",
+    "district": "Northern",
+    "lat": 32.9239,
+    "lng": 35.1828,
+    "aliases_ar": [
+      "الجديدة",
+      "المكر",
+      "جديدة-المكر"
+    ],
+    "aliases_he": [
+      "ג'דיידה-מכר",
+      "מכר"
+    ]
+  },
+  {
+    "name_en": "Sakhnin",
+    "name_ar": "سخنين",
+    "name_he": "סכנין",
+    "district": "Northern",
+    "lat": 32.864,
+    "lng": 35.296
+  },
+  {
+    "name_en": "Zarzir",
+    "name_ar": "زرزير",
+    "name_he": "זרזיר",
+    "district": "Northern",
+    "lat": 32.7167,
+    "lng": 35.2333
+  },
+  {
+    "name_en": "Kiryat Ata",
+    "name_ar": "كريات أتا",
+    "name_he": "קריית אתא",
+    "district": "Haifa",
+    "lat": 32.8086,
+    "lng": 35.1033,
+    "aliases_he": [
+      "קרית אתא"
+    ]
+  },
+  {
+    "name_en": "Rehovot",
+    "name_ar": "رحوفوت",
+    "name_he": "רחובות",
+    "district": "Central",
+    "lat": 31.8944,
+    "lng": 34.8111
+  },
+  {
+    "name_en": "Kiryat Bialik",
+    "name_ar": "كريات بياليك",
+    "name_he": "קריית ביאליק",
+    "district": "Haifa",
+    "lat": 32.8306,
+    "lng": 35.0867,
+    "aliases_he": [
+      "קרית ביאליק"
+    ]
+  },
+  {
+    "name_en": "Ashdod",
+    "name_ar": "أشدود",
+    "name_he": "אשדוד",
+    "district": "Southern",
+    "lat": 31.7967,
+    "lng": 34.6517
+  },
+  {
+    "name_en": "Netanya",
+    "name_ar": "نتانيا",
+    "name_he": "נתניה",
+    "district": "Central",
+    "lat": 32.3286,
+    "lng": 34.8531
+  },
+  {
+    "name_en": "Kiryat Ekron",
+    "name_ar": "كريات عكرون",
+    "name_he": "קריית עקרון",
+    "district": "Central",
+    "lat": 31.8667,
+    "lng": 34.819,
+    "aliases_he": [
+      "קרית עקרון"
+    ]
+  },
+  {
+    "name_en": "Ashkelon",
+    "name_ar": "عسقلان",
+    "name_he": "אשקלון",
+    "district": "Southern",
+    "lat": 31.6688,
+    "lng": 34.5715,
+    "aliases_ar": [
+      "أسقلان"
+    ]
   }
 ]
