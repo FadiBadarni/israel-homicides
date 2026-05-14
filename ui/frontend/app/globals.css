@@ -97,9 +97,20 @@ html[lang="he"] .amiri {
 }
 body { animation: body-fade-in 400ms ease-out; }
 
+/* Per-route fade for client-side navigations. The <PageTransition> wrapper
+   is keyed on pathname, so React remounts this element on every route
+   change and the keyframe fires from the start. A tiny 6px lift is the
+   only transform — no slides or scales, in keeping with the memorial tone. */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-transition { animation: page-enter 380ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .fade-in { transition: none; opacity: 1; }
   body { animation: none; }
+  .page-transition { animation: none; }
 }
 
 * { box-sizing: border-box; }

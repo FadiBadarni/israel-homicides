@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/language-context";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata: Metadata = {
   title: "سجل ضحايا الجريمة في المجتمع العربي",
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <PageTransition>{children}</PageTransition>
+        </LanguageProvider>
       </body>
     </html>
   );
