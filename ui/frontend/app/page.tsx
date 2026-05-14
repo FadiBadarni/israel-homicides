@@ -29,6 +29,7 @@ function flattenDeaths(localities: Locality[]): DeathWithCity[] {
 }
 
 const CASES_PER_PAGE = 9;
+const CONTACT_EMAIL = "fadibadarnii@gmail.com";
 
 export default function HomePage() {
   const { lang } = useLanguage();
@@ -148,6 +149,7 @@ export default function HomePage() {
             <a href="#regions">{t(lang, "nav.regions")}</a>
             <a href="#years">{t(lang, "nav.years")}</a>
             <a href="#about">{t(lang, "nav.about")}</a>
+            <a href="#contact">{t(lang, "nav.contact")}</a>
             <LanguageToggle />
           </div>
         </div>
@@ -391,6 +393,40 @@ export default function HomePage() {
               <h3>{t(lang, "about.col3.h")}</h3>
               <p>{t(lang, "about.col3.p")}</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sec" id="contact">
+        <div className="wrap">
+          <div className="sec-head">
+            <h2 className="sec-title">{t(lang, "sec.contact_title")}</h2>
+          </div>
+
+          <div className="contact-card">
+            <p className="contact-lede">{t(lang, "contact.lede")}</p>
+
+            <div className="contact-examples">
+              <div className="contact-examples-label">
+                {t(lang, "contact.examples_label")}
+              </div>
+              <ul>
+                <li>{t(lang, "contact.example1")}</li>
+                <li>{t(lang, "contact.example2")}</li>
+                <li>{t(lang, "contact.example3")}</li>
+                <li>{t(lang, "contact.example4")}</li>
+              </ul>
+            </div>
+
+            <a
+              className="contact-mail"
+              href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(t(lang, "contact.subject"))}`}
+            >
+              <span className="contact-mail-cta">{t(lang, "contact.cta")}</span>
+              <bdi className="contact-mail-addr" dir="ltr">{CONTACT_EMAIL}</bdi>
+            </a>
+
+            <p className="contact-privacy">{t(lang, "contact.privacy")}</p>
           </div>
         </div>
       </section>

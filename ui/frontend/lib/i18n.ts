@@ -8,6 +8,7 @@ export type TranslationKey =
   | "nav.regions"
   | "nav.years"
   | "nav.about"
+  | "nav.contact"
   | "hero.eyebrow"
   | "hero.h1"
   | "hero.lede"
@@ -31,6 +32,16 @@ export type TranslationKey =
   | "about.col2.p"
   | "about.col3.h"
   | "about.col3.p"
+  | "sec.contact_title"
+  | "contact.lede"
+  | "contact.examples_label"
+  | "contact.example1"
+  | "contact.example2"
+  | "contact.example3"
+  | "contact.example4"
+  | "contact.cta"
+  | "contact.privacy"
+  | "contact.subject"
   | "footer.line1"
   | "footer.line2"
   | "no_cases"
@@ -64,6 +75,7 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.regions": "المناطق",
     "nav.years": "السنوات",
     "nav.about": "عن المشروع",
+    "nav.contact": "تواصل",
     "hero.eyebrow": "سجل عام · يُحدَّث أسبوعياً",
     "hero.h1": "كلّ ضحيّة لها اسم.\nوكل قضيّة لها قصّة.",
     "hero.lede":
@@ -91,6 +103,18 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "about.col3.h": "شفافيّة في الشك",
     "about.col3.p":
       "عندما تتعارض المصادر أو تكون المعلومات ناقصة، نُشير إلى ذلك بوضوح. الصدق في ما لا نعرفه جزء من احترامنا للضحايا وعائلاتهم.",
+    "sec.contact_title": "ساعدنا في إكمال السجلّ",
+    "contact.lede":
+      "إذا لاحظتَ خطأً في اسم أو تاريخ أو تفصيل، أو إذا كنتَ تعرف ضحيّة لم تُذكر بعد، نرجو منك الكتابة إلينا. كلّ تصحيح، مهما كان صغيراً، يُكرّم الذاكرة.",
+    "contact.examples_label": "ما الذي يمكنك الإبلاغ عنه",
+    "contact.example1": "اسمٌ مكتوبٌ بشكلٍ خاطئ أو ناقص",
+    "contact.example2": "تاريخٌ أو مكانٌ أو ظرفٌ غير دقيق",
+    "contact.example3": "ضحيّةٌ غير موثّقةٍ في السجلّ",
+    "contact.example4": "مصدرٌ أو شهادةٌ عائليّةٌ تُضيف إلى القضيّة",
+    "contact.cta": "أرسل بريداً إلكترونياً",
+    "contact.privacy":
+      "نُحافظ على خصوصيّة المراسلات. تُستخدم المعلومات لتحديث السجلّ فقط.",
+    "contact.subject": "تصحيح في سجلّ ضحايا الجريمة",
     "footer.line1": "سجلٌّ عام مستقلّ · لا يُمثّل أيّ جهةٍ رسميّة.",
     "footer.line2": "",
     "no_cases": "لا توجد قضايا تطابق هذه التصفية.",
@@ -125,6 +149,7 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.regions": "אזורים",
     "nav.years": "שנים",
     "nav.about": "על הפרויקט",
+    "nav.contact": "צרו קשר",
     "hero.eyebrow": "רישום ציבורי · מתעדכן שבועית",
     "hero.h1": "לכל קרבן יש שם.\nלכל מקרה יש סיפור.",
     "hero.lede":
@@ -152,6 +177,18 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "about.col3.h": "שקיפות בספק",
     "about.col3.p":
       "כאשר המקורות סותרים זה את זה או שהמידע חסר, אנו מציינים זאת בבירור. הכנות לגבי מה שאיננו יודעים היא חלק מהכבוד שלנו לקרבנות ולמשפחותיהם.",
+    "sec.contact_title": "עזרו לנו להשלים את הרישום",
+    "contact.lede":
+      "אם זיהיתם טעות בשם, בתאריך או בפרט, או אם ידוע לכם על קרבן שעדיין לא תועד — אנא כתבו אלינו. כל תיקון, ולו הקטן ביותר, מכבד את הזיכרון.",
+    "contact.examples_label": "מה ניתן לדווח",
+    "contact.example1": "שם שנכתב באופן שגוי או חלקי",
+    "contact.example2": "תאריך, מקום או נסיבה שאינם מדויקים",
+    "contact.example3": "קרבן שטרם תועד ברישום",
+    "contact.example4": "מקור או עדות משפחתית המוסיפים לתיק",
+    "contact.cta": "שלחו אימייל",
+    "contact.privacy":
+      "ההתכתבות נשמרת בסודיות. המידע משמש לעדכון הרישום בלבד.",
+    "contact.subject": "תיקון ברישום קרבנות הפשע",
     "footer.line1": "רישום ציבורי עצמאי · אינו מייצג גוף רשמי.",
     "footer.line2": "",
     "no_cases": "אין תיקים התואמים את הסינון.",
