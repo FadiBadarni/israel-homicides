@@ -130,7 +130,10 @@ export default function HomePage() {
       .map(([year, n]) => ({ year, n, current: year === currentYear }));
   }, [memorial, allDeaths, currentYear]);
 
-  if (!memorial) return <div style={{ minHeight: "100vh" }} />;
+  // No early return — render the page immediately so the static nav + hero +
+  // footer appear on first paint. Data sections start at opacity 0 (their
+  // layout space is reserved) and ease in once the memorial fetch resolves.
+  const dataReady = !!memorial;
 
   return (
     <>
@@ -163,7 +166,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="stats wrap">
+      <section className={`stats wrap fade-in ${dataReady ? "ready" : ""}`}>
         {/* Stat 1 — Scale. The total in the register since documentation began.
             Gets the dominant 1.4fr column + 128px font via .stat:first-child. */}
         <div className="stat">
@@ -191,7 +194,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="sec" id="cases">
+      <section className={`sec fade-in delay-1 ${dataReady ? "ready" : ""}`} id="cases">
         <div className="wrap">
           <div className="sec-head">
             <h2 className="sec-title">{t(lang, "sec.cases_title")}</h2>
@@ -286,7 +289,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="sec" id="regions">
+      <section className={`sec fade-in delay-2 ${dataReady ? "ready" : ""}`} id="regions">
         <div className="wrap">
           <div className="sec-head">
             <h2 className="sec-title">{t(lang, "sec.regions_title")}</h2>
@@ -319,7 +322,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="sec" id="years">
+      <section className={`sec fade-in delay-3 ${dataReady ? "ready" : ""}`} id="years">
         <div className="wrap">
           <div className="sec-head">
             <h2 className="sec-title">{t(lang, "sec.years_title")}</h2>
