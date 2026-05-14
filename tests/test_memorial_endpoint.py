@@ -1,24 +1,31 @@
 """Tests for the /api/memorial endpoint."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from crime_pipeline.models import CanonicalCase
+from crime_pipeline.storage import db as db_module
+from crime_pipeline.storage.db import init_db
+
 
 @pytest.fixture
 def memorial_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """A TestClient with OUTPUT_DIR pointed at an isolated tmp directory.
+    """A TestClient backed by an isolated SQLite DB.
 
-    Also ensures the gazetteer is loaded from data/gazetteer.json (the real one)
-    because the memorial endpoint depends on its coordinates.
+    /api/memorial now reads from the ``canonical_cases`` SQL table (one
+    row per merged case), so the fixture initialises a tmp DB and
+    points the module-level SessionLocal at it. Tests insert rows via
+    ``_write_run`` to populate fixture data.
     """
     from ui.api import main as api_main
 
+    tmp_db = tmp_path / "test.db"
+    init_db(str(tmp_db))
+    # Keep file-based endpoints working for the JSON-file legacy path too.
     monkeypatch.setattr(api_main, "OUTPUT_DIR", tmp_path)
-    # Bust the lru_cache so each test sees fresh file reads
     api_main._load_run_cached.cache_clear()
 
     # Ensure gazetteer is loaded from the canonical data file
@@ -29,16 +36,37 @@ def memorial_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClie
     return TestClient(api_main.app)
 
 
-def _write_run(dir_: Path, run_id: str, cases: list[dict]) -> None:
-    payload = {
-        "schema_version": "2.0",
-        "kind": "crime_pipeline.run",
-        "pipeline_run_id": run_id,
-        "exported_at": "2026-05-12T00:00:00Z",
-        "case_count": len(cases),
-        "cases": cases,
-    }
-    (dir_ / f"{run_id}.json").write_text(json.dumps(payload), encoding="utf-8")
+def _write_run(_dir: Path, run_id: str, cases: list[dict]) -> None:
+    """Insert canonical_cases rows under a ``canonical_*`` run_id.
+
+    Mirrors the production path: build_canonical writes one row per case
+    with pipeline_run_id ``canonical_<from>_<to>``. Tests use this helper
+    to populate the snapshot the API reads from.
+    """
+    # The API filters to pipeline_run_ids starting with ``canonical_``;
+    # prefix unconditionally so test fixtures pass through the filter.
+    db_run_id = run_id if run_id.startswith("canonical_") else f"canonical_{run_id}"
+    assert db_module.SessionLocal is not None
+    with db_module.SessionLocal() as session:
+        for idx, case in enumerate(cases):
+            case = {**case}
+            # Generate a stable canonical_case_id if absent so dedup
+            # behaves predictably across tests.
+            case.setdefault(
+                "canonical_case_id",
+                f"TEST-{db_run_id}-{idx}-{case.get('victim_name', 'NA')}",
+            )
+            session.add(
+                CanonicalCase(
+                    case_json=case,
+                    sources_merged=[],
+                    confidence_score=case.get("confidence_score", 0.0),
+                    flags=[],
+                    review_status="auto",
+                    pipeline_run_id=db_run_id,
+                )
+            )
+        session.commit()
 
 
 def test_memorial_only_includes_died_cases(memorial_client: TestClient, tmp_path: Path) -> None:
@@ -102,7 +130,10 @@ def test_memorial_includes_victim_summary_fields(memorial_client: TestClient, tm
     assert d["incident_date"] == "2026-04-01"
     assert d["confidence_score"] == 0.9
     assert d["case_index"] == 0
-    assert d["run_id"] == "run1"
+    # All deaths now share the snapshot run_id; the case-detail URL is
+    # /cases/canonical/{case_index} regardless of which build window
+    # produced the underlying row.
+    assert d["run_id"] == "canonical"
 
 
 def test_memorial_year_filter_inclusive(memorial_client: TestClient, tmp_path: Path) -> None:
