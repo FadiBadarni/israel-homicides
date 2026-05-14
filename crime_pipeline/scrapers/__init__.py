@@ -1,6 +1,7 @@
 from .base import BaseScraper, ArticleResult, DiscoveredUrl
 from .arab48 import Arab48Scraper
 from .israelhayom import IsraelhayomScraper
+from .kul_alarab import KulAlarabScraper
 from .makan import MakanScraper
 from .walla import WallaScraper
 from .ynet import YnetScraper
@@ -9,6 +10,7 @@ SCRAPER_REGISTRY = {
     "ynet": YnetScraper,
     "arab48": Arab48Scraper,
     "israelhayom": IsraelhayomScraper,
+    "kul_alarab": KulAlarabScraper,
     "makan": MakanScraper,
     "walla": WallaScraper,
 }

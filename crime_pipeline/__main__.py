@@ -109,7 +109,7 @@ def configure_logging(level: str) -> None:
     "--sources",
     default="ynet,arab48",
     show_default=True,
-    help="Comma-separated source names. Available: ynet, arab48.",
+    help="Comma-separated source names. Available: ynet, arab48, walla, makan, israelhayom, kul_alarab.",
 )
 @click.option(
     "--date-from",
