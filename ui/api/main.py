@@ -16,11 +16,88 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
+from crime_pipeline.config import Settings
+from crime_pipeline.models import CanonicalCase
+from crime_pipeline.storage import db as db_module
+from crime_pipeline.storage.db import init_db
 from crime_pipeline.utils import gazetteer
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = ROOT / "output"
+
+# Bootstrap SQLAlchemy session factory once per process.
+_settings = Settings()  # type: ignore[call-arg]
+init_db(_settings.db_path)
+
+
+# ---------------------------------------------------------------------------
+# DB-backed canonical snapshot
+# ---------------------------------------------------------------------------
+# The UI reads the ``canonical_cases`` table directly (one row = one
+# merged case). ``--build-canonical`` is idempotent on ``pipeline_run_id``
+# (delete-then-insert), so each window's snapshot lives under
+# ``canonical_<from>_<to>`` and re-runs replace it cleanly.
+#
+# Multiple non-overlapping windows (e.g. 2025 + 2026) coexist as
+# separate rows; the API unions them and dedupes by
+# ``canonical_case_id`` so overlapping windows don't double-count.
+
+_CANONICAL_RUN_PREFIX = "canonical_"
+
+
+def _load_canonical_snapshot() -> list[dict]:
+    """Return the unified case list across all canonical_* runs.
+
+    Dedupes by ``canonical_case_id`` (most recent ``updated_at`` wins) so
+    that overlapping rebuilds and historic duplicates from before the
+    idempotent persistence patch don't show twice. Returns cases sorted
+    by ``incident_date`` descending (newest first); ``case_index`` in
+    the returned dicts matches that order so /api/cases/{run_id}/{idx}
+    lookups stay stable.
+    """
+    with db_module.SessionLocal() as session:  # type: ignore[misc]
+        rows = list(
+            session.scalars(
+                select(CanonicalCase)
+                .where(CanonicalCase.pipeline_run_id.like(f"{_CANONICAL_RUN_PREFIX}%"))
+                .order_by(CanonicalCase.updated_at.desc())
+            )
+        )
+
+    # Dedupe on canonical_case_id; first-seen (newest by updated_at) wins.
+    # Cases without a canonical_case_id fall back to the row UUID so they
+    # don't collide with each other.
+    seen: set[str] = set()
+    cases: list[dict] = []
+    for row in rows:
+        case = dict(row.case_json or {})
+        cid = case.get("canonical_case_id") or row.id
+        if cid in seen:
+            continue
+        seen.add(cid)
+        # Attach the row's pipeline_run_id so /api/cases/{run_id}/{idx}
+        # can be served from the same table.
+        case["_pipeline_run_id"] = row.pipeline_run_id
+        cases.append(case)
+
+    # Sort newest incident first for a stable UI ordering. None dates sink.
+    cases.sort(
+        key=lambda c: (c.get("incident_date") or ""),
+        reverse=True,
+    )
+    return cases
+
+
+def _canonical_snapshot_run_id() -> str:
+    """Synthetic run_id that represents the full canonical snapshot.
+
+    Used as the ``run_id`` placeholder in URLs like
+    ``/cases/{run_id}/{case_index}`` so the frontend doesn't need to
+    know which build window a particular case came from.
+    """
+    return "canonical"
 
 app = FastAPI(title="Crime Pipeline API", version="1.0.0")
 
@@ -239,7 +316,20 @@ def list_cases(
 
 @app.get("/api/cases/{run_id}/{case_index}")
 def get_case(run_id: str, case_index: int) -> dict:
-    """Return the full case record for a specific case."""
+    """Return the full case record for a specific case.
+
+    The canonical snapshot (``run_id='canonical'``) is the primary path
+    used by the memorial UI. Legacy JSON-file run IDs are still resolved
+    by scanning ``output/`` for backward compatibility with bookmarked
+    per-sweep URLs.
+    """
+    if run_id == _canonical_snapshot_run_id():
+        snapshot = _load_canonical_snapshot()
+        if case_index < 0 or case_index >= len(snapshot):
+            raise HTTPException(status_code=404, detail="Case index out of range")
+        case = snapshot[case_index]
+        return {**case, "run_id": run_id, "case_index": case_index}
+
     for path in _list_runs():
         try:
             data = _load_run(path)
@@ -313,11 +403,13 @@ def get_memorial(
 ) -> dict:
     """Return the memorial payload: died-outcome cases grouped by locality.
 
-    Only the most recent pipeline run contributes. Cases without a gazetteer
-    match are counted in `unresolved_count` and excluded from `localities`.
+    Reads from the ``canonical_cases`` SQL table (all ``canonical_*`` runs,
+    deduped by ``canonical_case_id``) so multiple build windows (e.g.
+    2025 + 2026) coexist without the prior newest-file-wins behavior.
+    Cases without a gazetteer match are counted in ``unresolved_count``.
     """
-    runs = _list_runs()
-    if not runs:
+    snapshot = _load_canonical_snapshot()
+    if not snapshot:
         return {
             "run_id": None,
             "year_range": {"from": None, "to": None},
@@ -329,9 +421,7 @@ def get_memorial(
             "localities": [],
         }
 
-    run_path = runs[0]
-    data = _load_run(run_path)
-    run_id = data.get("pipeline_run_id", run_path.stem)
+    run_id = _canonical_snapshot_run_id()
 
     # Group died cases by canonical city (via the gazetteer)
     by_city: dict[str, dict] = {}
@@ -342,7 +432,7 @@ def get_memorial(
     age_known_count = 0
     under_40_count = 0
 
-    for idx, case in enumerate(data.get("cases", [])):
+    for idx, case in enumerate(snapshot):
         if case.get("victim_outcome") != "died":
             continue
 

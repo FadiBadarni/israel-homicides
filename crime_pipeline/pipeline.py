@@ -1352,10 +1352,25 @@ class Pipeline:
         return cases
 
     def _persist_canonical_cases(self, cases: list) -> None:
-        """Persist final canonical cases after merge/cleanup transforms."""
+        """Persist final canonical cases after merge/cleanup transforms.
+
+        Idempotent on ``pipeline_run_id``: deletes any prior rows for the
+        same run_id before inserting the new set. This makes
+        ``--build-canonical`` re-runs replace the prior window's snapshot
+        instead of accumulating duplicates (the UI reads the table
+        directly via ``/api/memorial``).
+        """
         if not cases:
             return
+        from crime_pipeline.models import CanonicalCase
         with db_module.SessionLocal() as session:  # type: ignore[misc]
+            deleted = (
+                session.query(CanonicalCase)
+                .filter(CanonicalCase.pipeline_run_id == self.run_id)
+                .delete(synchronize_session=False)
+            )
+            if deleted:
+                log.info("canonical_cases_replaced", run_id=self.run_id, deleted=deleted)
             for case in cases:
                 save_canonical_case(
                     session,
