@@ -7,7 +7,7 @@ import { LanguageToggle } from "@/components/language-toggle";
 
 const CONTACT_URL = "https://www.devfadi.com/#contact";
 
-interface ContributeCard {
+interface ContributeRow {
   hKey:
     | "contribute.card1.h"
     | "contribute.card2.h"
@@ -24,7 +24,7 @@ interface ContributeCard {
     | "contribute.card6.p";
 }
 
-const CARDS: ContributeCard[] = [
+const ROWS: ContributeRow[] = [
   { hKey: "contribute.card1.h", pKey: "contribute.card1.p" },
   { hKey: "contribute.card2.h", pKey: "contribute.card2.p" },
   { hKey: "contribute.card3.h", pKey: "contribute.card3.p" },
@@ -51,59 +51,60 @@ export default function ContributePage() {
         </div>
       </nav>
 
-      <header className="hero">
+      {/* Asymmetric editorial hero — h1 in one column, lede in the other,
+          separated by a quiet vertical rule. Distinct from the home page's
+          centered-everything hero. */}
+      <header className="contribute-hero">
         <div className="wrap">
           <div className="eyebrow">{t(lang, "contribute.eyebrow")}</div>
-          <h1>
-            {t(lang, "contribute.h1").split("\n").map((line, i, arr) => (
-              <span key={i}>
-                {line}
-                {i < arr.length - 1 && <br />}
-              </span>
-            ))}
-          </h1>
-          <p className="lede">{t(lang, "contribute.lede")}</p>
+          <div className="contribute-hero-grid">
+            <h1>
+              {t(lang, "contribute.h1").split("\n").map((line, i, arr) => (
+                <span key={i}>
+                  {line}
+                  {i < arr.length - 1 && <br />}
+                </span>
+              ))}
+            </h1>
+            <p className="lede">{t(lang, "contribute.lede")}</p>
+          </div>
         </div>
       </header>
 
-      <section className="sec" id="ways">
+      {/* Six numbered rows, narrative-style. The Amiri "01"–"06" anchors
+          the page typographically; each row reads like an entry in a
+          manifesto rather than a marketing tile. */}
+      <section className="contribute-rows" id="ways">
         <div className="wrap">
-          <div className="sec-head">
-            <h2 className="sec-title">{t(lang, "contribute.sec_ways_title")}</h2>
-            <div className="sec-meta">{t(lang, "contribute.sec_ways_meta")}</div>
-          </div>
-
-          <div className="contribute-grid">
-            {CARDS.map((card, i) => (
-              <article key={card.hKey} className="contribute-card">
-                <div className="contribute-num">
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-                <h3>{t(lang, card.hKey)}</h3>
-                <p>{t(lang, card.pKey)}</p>
-              </article>
-            ))}
-          </div>
+          {ROWS.map((row, i) => (
+            <article key={row.hKey} className="contribute-row">
+              <div className="contribute-row-num" aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <div className="contribute-row-body">
+                <h3>{t(lang, row.hKey)}</h3>
+                <p>{t(lang, row.pKey)}</p>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="sec" id="contact">
+      {/* Closing P.S. — a single hairline rule and a centered invitation.
+          Quieter than a sectioned CTA; reads as a postscript. */}
+      <section className="contribute-postscript" id="contact">
         <div className="wrap">
-          <div className="sec-head">
-            <h2 className="sec-title">{t(lang, "contribute.sec_close_title")}</h2>
-          </div>
-          <div className="contribute-close">
-            <p>{t(lang, "contribute.close_lede")}</p>
-            <a
-              className="contact-link contribute-close-cta"
-              href={CONTACT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span>{t(lang, "contribute.close_cta")}</span>
-              <span className="contact-link-arrow" aria-hidden="true">←</span>
-            </a>
-          </div>
+          <div className="contribute-postscript-rule" aria-hidden="true" />
+          <p>{t(lang, "contribute.close_lede")}</p>
+          <a
+            className="contact-link"
+            href={CONTACT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>{t(lang, "contribute.close_cta")}</span>
+            <span className="contact-link-arrow" aria-hidden="true">←</span>
+          </a>
         </div>
       </section>
 
