@@ -270,9 +270,43 @@ class Deduplicator:
         # to fall back on the nameless path.
         _NAMELESS_COSINE_THRESHOLD = 0.97
 
+        # Surname guard for the uncertain Jaro zone. Jaro-Winkler is heavily
+        # prefix-biased: ``محمود غاوي`` (Mahmoud Ghawi) vs ``محمود خطيب``
+        # (Mahmoud Khatib) scores 0.91 — above our 0.88 threshold — purely
+        # because of the shared 5-char ``mhmwd`` prefix. They're DIFFERENT
+        # victims with the same given name. To prevent these merges in
+        # Mahmoud/Ahmed/Mohammed/Khaled/Ali cases (common Arab given names),
+        # demand that the SURNAME portion also matches when full-name Jaro
+        # is in [0.88, 0.95). At ≥0.95 the full names are similar enough
+        # that surname divergence implies a transliteration/cross-script
+        # variant, not a different victim.
+        _SURNAME_JARO_THRESHOLD = 0.85
+        _SURNAME_GUARD_UPPER = 0.95
+
+        def _surname_jaro(na: str, nb: str) -> float | None:
+            toks_a = (na or "").split()
+            toks_b = (nb or "").split()
+            if len(toks_a) < 2 or len(toks_b) < 2:
+                return None
+            sa = " ".join(toks_a[1:])
+            sb = " ".join(toks_b[1:])
+            return jaro_winkler_similarity(sa, sb)
+
         if cosine_score >= self.cosine_threshold:
             # GATE PASSED: high semantic similarity
             if jaro_score >= self.jaro_threshold or name_subset_match:
+                # Surname guard against common-given-name false positives.
+                # Only applies in the uncertain Jaro zone; subset_match
+                # already requires multi-token names on both sides.
+                if (
+                    not name_subset_match
+                    and self.jaro_threshold <= jaro_score < _SURNAME_GUARD_UPPER
+                ):
+                    sj = _surname_jaro(name_a, name_b)
+                    if sj is not None and sj < _SURNAME_JARO_THRESHOLD:
+                        # Different family names — likely different victims
+                        # who happen to share a common Arabic given name.
+                        return "review"
                 return "merge"
             if either_name_missing and cosine_score >= _NAMELESS_COSINE_THRESHOLD:
                 return "merge"
