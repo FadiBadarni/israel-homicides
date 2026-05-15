@@ -145,10 +145,6 @@ export default function HomePage() {
             <span>{t(lang, "brand")}</span>
           </Link>
           <div className="links" style={{ alignItems: "center" }}>
-            <a href="#cases">{t(lang, "nav.cases")}</a>
-            <a href="#regions">{t(lang, "nav.regions")}</a>
-            <a href="#years">{t(lang, "nav.years")}</a>
-            <a href="#about">{t(lang, "nav.about")}</a>
             <Link href="/contribute">{t(lang, "nav.contribute")}</Link>
             <a href="#contact">{t(lang, "nav.contact")}</a>
             <LanguageToggle />

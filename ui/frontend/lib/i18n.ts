@@ -4,10 +4,6 @@ export const MISSING = "—";
 
 export type TranslationKey =
   | "brand"
-  | "nav.cases"
-  | "nav.regions"
-  | "nav.years"
-  | "nav.about"
   | "nav.contact"
   | "nav.contribute"
   | "nav.back_to_register"
@@ -86,10 +82,6 @@ export type TranslationKey =
 const T: Record<Lang, Record<TranslationKey, string>> = {
   ar: {
     "brand": "سجل الضحايا",
-    "nav.cases": "القضايا",
-    "nav.regions": "المناطق",
-    "nav.years": "السنوات",
-    "nav.about": "عن المشروع",
     "nav.contact": "تواصل",
     "nav.contribute": "المُشاركة",
     "nav.back_to_register": "العودة إلى السجل",
@@ -183,10 +175,6 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
   },
   he: {
     "brand": "רישום הקרבנות",
-    "nav.cases": "תיקים",
-    "nav.regions": "אזורים",
-    "nav.years": "שנים",
-    "nav.about": "על הפרויקט",
     "nav.contact": "צרו קשר",
     "nav.contribute": "השתתפות",
     "nav.back_to_register": "חזרה לרישום",
