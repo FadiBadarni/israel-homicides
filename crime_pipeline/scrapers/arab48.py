@@ -160,6 +160,7 @@ class Arab48Scraper(BaseScraper):
         title_keywords: list[str],
         max_results: int = 400,
         max_pages: int = 200,
+        listing_delay: float = 0.2,
     ) -> list[DiscoveredUrl]:
         """Discover articles by walking an Arab48 category listing.
 
@@ -201,8 +202,28 @@ class Arab48Scraper(BaseScraper):
                     category_url if page == 1
                     else f"{category_url}?page={page}"
                 )
+                # Static listing pages don't need the polite article-fetch
+                # delay (1-3s with jitter). Use a flat short pause so a
+                # year-walk runs in seconds, not minutes.
+                if page > 1 and listing_delay > 0:
+                    await asyncio.sleep(listing_delay)
                 try:
-                    resp = await self._get(client, page_url)
+                    # Bypass self._get (which applies the article delay)
+                    # — call the client directly with retry.
+                    @retry(
+                        retry=retry_if_exception_type(_RetryableHTTPError),
+                        wait=wait_exponential(multiplier=1, min=2, max=30),
+                        stop=stop_after_attempt(3),
+                        reraise=True,
+                    )
+                    async def _fetch_listing() -> httpx.Response:
+                        resp = await client.get(page_url)
+                        if resp.status_code == 429 or resp.status_code >= 500:
+                            raise _RetryableHTTPError(
+                                f"HTTP {resp.status_code} from {page_url}"
+                            )
+                        return resp
+                    resp = await _fetch_listing()
                     resp.raise_for_status()
                 except (_RetryableHTTPError, httpx.HTTPError) as exc:
                     logger.error(
