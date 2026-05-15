@@ -257,6 +257,72 @@ nav.top .links a:hover { color: var(--ink); }
 .about-col h3 { font-family: var(--amiri); font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
 .about-col p { font-size: 15px; color: var(--ink-2); margin: 0; line-height: 1.75; }
 
+/* contribute page — six numbered tiles arranged 3×2. Each card uses the
+   same hairline-bordered cell + inset-blood hover signature as .case so
+   the visual language stays continuous with the home grid. The "01" – "06"
+   monogram in the corner gives the list an editorial rhythm. */
+.contribute-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--hair);
+}
+.contribute-card {
+  position: relative;
+  padding: 32px 28px 28px;
+  border-bottom: 1px solid var(--hair);
+  border-left: 1px solid var(--hair);
+  transition: background 120ms, box-shadow 120ms;
+}
+.contribute-card:nth-child(3n) { border-left: 0; }
+.contribute-card:hover {
+  background: var(--surface);
+  box-shadow: inset 0 2px 0 var(--blood);
+}
+.contribute-num {
+  font-family: var(--amiri);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blood-pale);
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.contribute-card h3 {
+  font-family: var(--amiri);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+html[lang="he"] .contribute-card h3 { font-family: var(--rashi); }
+.contribute-card p {
+  font-size: 15px;
+  color: var(--ink-2);
+  margin: 0;
+  line-height: 1.75;
+}
+
+/* contribute close section — gentle invitation to reach out, not a hard CTA */
+.contribute-close {
+  max-width: 580px;
+  margin: 0 auto;
+  text-align: center;
+}
+.contribute-close p {
+  font-family: var(--amiri);
+  font-size: 19px;
+  line-height: 1.85;
+  color: var(--ink-2);
+  margin: 0 0 22px;
+  text-wrap: pretty;
+}
+html[lang="he"] .contribute-close p { font-family: var(--rashi); }
+.contribute-close-cta {
+  font-size: 16px;
+}
+
 /* contact strip — a single-line "noticed something wrong?" sits between
    the about section and the footer. Slim, no card chrome. The CTA reads
    as an underlined accent link rather than a button so the memorial tone
@@ -407,6 +473,13 @@ footer.bottom p { margin: 4px 0; }
   .region:nth-child(2n) { border-left: 0; }
   .region:nth-last-child(-n+2) { border-bottom: 0; }
   .about-grid { grid-template-columns: 1fr; gap: 24px; }
+
+  /* contribute grid collapses to two columns at tablet */
+  .contribute-grid { grid-template-columns: 1fr 1fr; }
+  .contribute-card { padding: 28px 22px 24px; }
+  .contribute-card:nth-child(3n) { border-left: 1px solid var(--hair); }
+  .contribute-card:nth-child(2n) { border-left: 0; }
+  .contribute-card:nth-last-child(-n+2) { border-bottom: 0; }
 }
 
 /* phone */
@@ -514,6 +587,16 @@ footer.bottom p { margin: 4px 0; }
   .about-grid { gap: 22px; }
   .about-col h3 { font-size: 18px; margin-bottom: 10px; }
   .about-col p { font-size: 14.5px; line-height: 1.75; }
+
+  /* contribute grid — single column on phone; tighter padding + type */
+  .contribute-grid { grid-template-columns: 1fr; }
+  .contribute-card { padding: 24px 18px 22px; border-left: 0 !important; }
+  .contribute-card:nth-last-child(-n+2) { border-bottom: 1px solid var(--hair); }
+  .contribute-card:last-child { border-bottom: 0; }
+  .contribute-num { font-size: 12px; margin-bottom: 10px; }
+  .contribute-card h3 { font-size: 19px; margin-bottom: 10px; }
+  .contribute-card p { font-size: 14.5px; line-height: 1.75; }
+  .contribute-close p { font-size: 16px; line-height: 1.75; margin-bottom: 18px; }
 
   /* contact strip — tighten padding and type for phone */
   .contact-strip { padding: 24px 0; }

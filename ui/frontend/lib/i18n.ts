@@ -9,6 +9,8 @@ export type TranslationKey =
   | "nav.years"
   | "nav.about"
   | "nav.contact"
+  | "nav.contribute"
+  | "nav.back_to_register"
   | "hero.eyebrow"
   | "hero.h1"
   | "hero.lede"
@@ -34,6 +36,26 @@ export type TranslationKey =
   | "about.col3.p"
   | "contact.lede"
   | "contact.cta"
+  | "contribute.eyebrow"
+  | "contribute.h1"
+  | "contribute.lede"
+  | "contribute.sec_ways_title"
+  | "contribute.sec_ways_meta"
+  | "contribute.card1.h"
+  | "contribute.card1.p"
+  | "contribute.card2.h"
+  | "contribute.card2.p"
+  | "contribute.card3.h"
+  | "contribute.card3.p"
+  | "contribute.card4.h"
+  | "contribute.card4.p"
+  | "contribute.card5.h"
+  | "contribute.card5.p"
+  | "contribute.card6.h"
+  | "contribute.card6.p"
+  | "contribute.sec_close_title"
+  | "contribute.close_lede"
+  | "contribute.close_cta"
   | "footer.line1"
   | "footer.line2"
   | "no_cases"
@@ -68,6 +90,8 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.years": "السنوات",
     "nav.about": "عن المشروع",
     "nav.contact": "تواصل",
+    "nav.contribute": "المُشاركة",
+    "nav.back_to_register": "العودة إلى السجل",
     "hero.eyebrow": "سجل عام · يُحدَّث أسبوعياً",
     "hero.h1": "كلّ ضحيّة لها اسم.\nوكل قضيّة لها قصّة.",
     "hero.lede":
@@ -98,6 +122,34 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "contact.lede":
       "هل لاحظت خطأً في معلومة أو نقصاً في السجلّ؟ تواصل معي عبر موقعي الشخصي.",
     "contact.cta": "تواصل معي",
+    "contribute.eyebrow": "دعوةٌ لمشاركة العمل",
+    "contribute.h1": "هذا العملُ ثقيل.\nلا نقدرُ عليه وحدنا.",
+    "contribute.lede":
+      "توثيقُ كلِّ ضحيّة — اسمَها الكامل، وظروفَ رحيلها، وصورتَها إن وُجدت، وذاكرةَ أهلها — يتطلّبُ عنايةً أكبر ممّا تتّسعُ له مجموعةٌ صغيرة. إن كان لديك ما تُضيفه إلى هذا السجلّ، أو ما تُساهم به في حملِ هذا العمل، فأنت موضعُ ترحيب.",
+    "contribute.sec_ways_title": "سُبُلُ المُشاركة",
+    "contribute.sec_ways_meta": "ستّ طرق لإغناء السجلّ",
+    "contribute.card1.h": "تصحيحُ معلومة",
+    "contribute.card1.p":
+      "هل لاحظت خطأً في اسم، أو في تاريخ، أو في تفصيل من قضيّة؟ حتى أصغرُ تصحيح يُضيفُ إلى دقّة السجلّ.",
+    "contribute.card2.h": "إضافةُ اسمٍ غائب",
+    "contribute.card2.p":
+      "إن كنتَ تعرفُ ضحيّةً لم تُذكر بعد، خاصّةً في مناطق لا تصلها التغطيةُ الإخباريّة بسهولة، أرسل لنا ما تعرفُ.",
+    "contribute.card3.h": "ذكرى أو صورة",
+    "contribute.card3.p":
+      "جملةٌ تصفُ من كان الضحية، أو صورةٌ بإذنٍ من الأهل، تُحوّلُ الإحصاء إلى وجهٍ ومسيرة.",
+    "contribute.card4.h": "مساعدةٌ في الترجمة",
+    "contribute.card4.p":
+      "بعضُ المصادر تظهرُ بلغةٍ واحدة فقط. مساعدتُكَ في الترجمة بين العربيّة والعبريّة والإنجليزيّة تُغني السجلّ، وتُتيحُ للأهل الوصولَ إليه.",
+    "contribute.card5.h": "تنبيهٌ من مصدرٍ محلّي",
+    "contribute.card5.p":
+      "قضيّةٌ نُشرت في صحيفةٍ محلّيّة أو منشورٍ على وسائل التواصل ولا تصلُ إلى السجلّ؟ أرسل لنا الرابط، نُتابعُه.",
+    "contribute.card6.h": "نشرُ السجلّ",
+    "contribute.card6.p":
+      "شارك السجلّ مع من قد يحتاجُه أو من يستطيعُ المساهمةَ فيه. كلُّ عائلةٍ تجدُه تصيرُ قادرةً على التأكّد من ذكر أحبّتها.",
+    "contribute.sec_close_title": "للتواصل",
+    "contribute.close_lede":
+      "للمشاركةِ بأيٍّ من هذه السُّبُل، أو لطرحِ سؤال، يمكنُك الوصولُ إليّ عبر موقعي الشخصيّ.",
+    "contribute.close_cta": "تواصل عبر موقعي",
     "footer.line1": "سجلٌّ عام مستقلّ · لا يُمثّل أيّ جهةٍ رسميّة.",
     "footer.line2": "",
     "no_cases": "لا توجد قضايا تطابق هذه التصفية.",
@@ -133,6 +185,8 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.years": "שנים",
     "nav.about": "על הפרויקט",
     "nav.contact": "צרו קשר",
+    "nav.contribute": "השתתפות",
+    "nav.back_to_register": "חזרה לרישום",
     "hero.eyebrow": "רישום ציבורי · מתעדכן שבועית",
     "hero.h1": "לכל קרבן יש שם.\nלכל מקרה יש סיפור.",
     "hero.lede":
@@ -163,6 +217,34 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "contact.lede":
       "זיהיתם טעות או מידע חסר ברישום? פנו אליי דרך האתר האישי שלי.",
     "contact.cta": "צרו קשר",
+    "contribute.eyebrow": "הזמנה להשתתפות",
+    "contribute.h1": "המלאכה הזו כבדה.\nאיננו יכולים לעמוד בה לבדנו.",
+    "contribute.lede":
+      "תיעוד של כל קרבן — השם המלא, נסיבות הפטירה, תצלום אם קיים, וזיכרון המשפחה — דורש יותר תשומת לב ממה שקבוצה קטנה יכולה להחזיק. אם יש בידכם מה להוסיף לרישום, או דרך לסייע במלאכה, אתם מוזמנים.",
+    "contribute.sec_ways_title": "דרכים להשתתף",
+    "contribute.sec_ways_meta": "שש דרכים להעשיר את הרישום",
+    "contribute.card1.h": "תיקון פרט",
+    "contribute.card1.p":
+      "זיהיתם טעות בשם, בתאריך או בפרט בתיק? אפילו התיקון הקטן ביותר מוסיף לדיוק הרישום.",
+    "contribute.card2.h": "הוספת שם חסר",
+    "contribute.card2.p":
+      "אם ידוע לכם על קרבן שטרם תועד, במיוחד באזורים שאינם נחשפים בקלות לתקשורת, אנא הביאו לידיעתנו.",
+    "contribute.card3.h": "זיכרון או תצלום",
+    "contribute.card3.p":
+      "משפט המתאר את האדם, או תצלום באישור המשפחה, הופכים מספר לפנים ולסיפור.",
+    "contribute.card4.h": "עזרה בתרגום",
+    "contribute.card4.p":
+      "חלק מהמקורות זמינים רק בשפה אחת. עזרתכם בתרגום בין ערבית, עברית ואנגלית מעשירה את הרישום ומאפשרת למשפחות להגיע אליו.",
+    "contribute.card5.h": "דיווח ממקור מקומי",
+    "contribute.card5.p":
+      "סיפור שפורסם בעיתון מקומי או בפוסט ברשתות החברתיות ולא הגיע לרישום? שלחו את הקישור — נטפל בו.",
+    "contribute.card6.h": "הפצת הרישום",
+    "contribute.card6.p":
+      "שתפו את הרישום עם מי שעשוי לזקוק לו או לסייע בו. כל משפחה שמגיעה אליו יכולה לוודא שיקיריה זכורים.",
+    "contribute.sec_close_title": "ליצירת קשר",
+    "contribute.close_lede":
+      "להשתתפות בכל אחת מהדרכים שלמעלה, או לכל שאלה, ניתן להגיע אליי דרך האתר האישי שלי.",
+    "contribute.close_cta": "לאתר האישי",
     "footer.line1": "רישום ציבורי עצמאי · אינו מייצג גוף רשמי.",
     "footer.line2": "",
     "no_cases": "אין תיקים התואמים את הסינון.",

@@ -149,6 +149,7 @@ export default function HomePage() {
             <a href="#regions">{t(lang, "nav.regions")}</a>
             <a href="#years">{t(lang, "nav.years")}</a>
             <a href="#about">{t(lang, "nav.about")}</a>
+            <Link href="/contribute">{t(lang, "nav.contribute")}</Link>
             <a href="#contact">{t(lang, "nav.contact")}</a>
             <LanguageToggle />
           </div>
