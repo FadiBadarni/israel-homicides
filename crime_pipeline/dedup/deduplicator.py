@@ -249,21 +249,37 @@ class Deduplicator:
         # Token-subset check: {"יאסין"} ⊆ {"בכר","יאסין"} — surname-only extraction.
         # When one name's tokens are a strict subset of the other's, treat the names
         # as consistent. Requires cosine ≥ review low-bound to avoid false positives.
+        #
+        # CRITICAL: BOTH sides must have ≥2 tokens. Otherwise single-token given
+        # names like "Mohammed" / "Ahmed" / "Ali" subset-match into every full
+        # name containing them, cascading 200+ unrelated victims into mega-clusters
+        # via the (city|YYYY-MM) + nametok-prefix blocking that pairs them.
+        # See the May 2026 Mohammed Qasem 225-source mega-cluster bug.
         name_subset_match = False
         if name_a and name_b:
             toks_a = set(name_a.split())
             toks_b = set(name_b.split())
-            if toks_a < toks_b or toks_b < toks_a:
-                name_subset_match = True
+            if len(toks_a) >= 2 and len(toks_b) >= 2:
+                if toks_a < toks_b or toks_b < toks_a:
+                    name_subset_match = True
+
+        # Strict cosine threshold for the no-name-on-one-side path. The normal
+        # gate (0.82) is too loose when relying on text alone — a nameless
+        # rollup virtual at cosine 0.85 with two different named cases can
+        # bridge them via transitive union-find. Require near-identical text
+        # to fall back on the nameless path.
+        _NAMELESS_COSINE_THRESHOLD = 0.97
 
         if cosine_score >= self.cosine_threshold:
             # GATE PASSED: high semantic similarity
-            if jaro_score >= self.jaro_threshold or either_name_missing or name_subset_match:
+            if jaro_score >= self.jaro_threshold or name_subset_match:
                 return "merge"
-            else:
-                # Cosine says same event but names differ significantly
-                # Could be a different victim at same incident; flag for review
-                return "review"
+            if either_name_missing and cosine_score >= _NAMELESS_COSINE_THRESHOLD:
+                return "merge"
+            # Cosine says same event but names differ significantly (or one is
+            # missing and cosine isn't extreme). Flag for review rather than
+            # silently merging different victims.
+            return "review"
 
         if cosine_score >= _COSINE_REVIEW_LOW:
             # Subset name + mid cosine → safe to merge (surname-only extraction pattern)
