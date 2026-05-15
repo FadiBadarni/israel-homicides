@@ -81,12 +81,21 @@ class DeduplicationGraph:
 
             # Secondary: per-token name blocks so partial names (e.g. surname-only
             # "Yasin") are paired with full names ("Bakr Yasin") that share any token.
+            #
+            # CRITICAL: token length threshold is 5, not 3. At 3, common
+            # 3-4-char prefixes/given names (``mhmd``/Mohammed, ``ahmd``/Ahmed,
+            # ``abu``/Abu) bucket every record containing them into one
+            # gigantic cross-block, cascading 150+ unrelated victims into
+            # mega-clusters via the ``_decide`` jaro path. At 5, only
+            # distinctive surname-like tokens (``yasin``, ``khawaled``,
+            # ``mdighem``) trigger cross-block pairing, which is what the
+            # surname-only-extraction case actually needs.
             name = rec.get("victim_name") or ""
             if name and _romanize is not None:
                 try:
                     romanized = _romanize(name).lower()
                     for token in romanized.split():
-                        if len(token) >= 3:
+                        if len(token) >= 5:
                             blocks[f"nametok|{token[:8]}"].append(idx)
                 except Exception:
                     pass
