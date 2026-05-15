@@ -177,6 +177,66 @@ nav.top .links a:hover { color: var(--ink); }
 .sec-meta a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--hair-strong); text-underline-offset: 4px; transition: text-decoration-color 120ms; }
 .sec-meta a:hover { text-decoration-color: var(--blood); }
 
+/* search input — sits between the section header and the filter strip.
+   Borderless except for a hairline bottom that thickens on focus; serif
+   italic placeholder so the bar reads as "type a name here" rather than
+   a generic search box. The trailing count + clear button only render
+   when the input has a non-empty value. */
+.case-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 0;
+  border-bottom: 1px solid var(--hair);
+  transition: border-color 200ms;
+}
+.case-search:focus-within { border-bottom-color: var(--ink); }
+.case-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 14px 0;
+  font-size: 17px;
+  color: var(--ink);
+  font-family: inherit;
+  outline: none;
+  /* hide the user-agent clear button on type=search across browsers
+     so our own clear button is the single visible control */
+  appearance: none;
+  -webkit-appearance: none;
+}
+.case-search-input::-webkit-search-decoration,
+.case-search-input::-webkit-search-cancel-button,
+.case-search-input::-webkit-search-results-button,
+.case-search-input::-webkit-search-results-decoration { -webkit-appearance: none; display: none; }
+.case-search-input::placeholder {
+  color: var(--muted-2);
+  font-family: var(--amiri);
+  font-style: italic;
+  font-size: 16px;
+}
+html[lang="he"] .case-search-input::placeholder { font-family: var(--rashi); }
+.case-search-count {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.case-search-clear {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--muted-2);
+  padding: 6px 10px;
+  font-size: 18px;
+  line-height: 1;
+  transition: color 120ms;
+  font-family: inherit;
+}
+.case-search-clear:hover { color: var(--ink); }
+
 /* filter strip */
 .filters { display: flex; gap: 0; margin-bottom: 28px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
 .filter { padding: 14px 18px; font-size: 14px; color: var(--muted); cursor: pointer; border-left: 1px solid var(--hair); transition: background 120ms; background: none; border-top: 0; border-bottom: 0; border-right: 0; font-family: inherit; }
@@ -643,6 +703,13 @@ footer.bottom p { margin: 4px 0; }
   .sec-head { flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 22px; }
   .sec-title { font-size: 22px; }
   .sec-meta { font-size: 12px; }
+
+  /* search — tighten gaps + tap targets on phone */
+  .case-search { gap: 8px; margin-bottom: 14px; }
+  .case-search-input { font-size: 16px; padding: 12px 0; }
+  .case-search-input::placeholder { font-size: 15px; }
+  .case-search-count { font-size: 12px; }
+  .case-search-clear { padding: 6px 8px; font-size: 16px; }
 
   /* filters — horizontal scroll instead of wrap */
   .filters {

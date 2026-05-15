@@ -36,6 +36,7 @@ export default function HomePage() {
   const [memorial, setMemorial] = useState<MemorialResponse | null>(null);
   const [activeFilter, setActiveFilter] = useState<RegionKey | "all" | "current-year">("all");
   const [casesPage, setCasesPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   // The "featured year" stat is meant to be the most recent COMPLETED year,
   // shown next to the in-progress current year for an at-a-glance comparison.
   // Was hardcoded to 2026; that duplicated the current-year stat once 2026
@@ -93,10 +94,30 @@ export default function HomePage() {
     } else if (activeFilter !== "all") {
       filtered = allDeaths.filter((d) => d.region === activeFilter);
     }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter((d) => {
+        // Substring-match across every attested name script + every
+        // transliteration + every city script. Lowercased on both sides
+        // so Latin queries match transliterations case-insensitively.
+        if (d.victim_name_ar?.toLowerCase().includes(q)) return true;
+        if (d.victim_name_he?.toLowerCase().includes(q)) return true;
+        if (d.victim_name_en?.toLowerCase().includes(q)) return true;
+        if (d.city_ar?.toLowerCase().includes(q)) return true;
+        if (d.city_he?.toLowerCase().includes(q)) return true;
+        if (d.city_en?.toLowerCase().includes(q)) return true;
+        if (d.name_transliterations) {
+          for (const tr of d.name_transliterations) {
+            if (tr.value.toLowerCase().includes(q)) return true;
+          }
+        }
+        return false;
+      });
+    }
     return filtered
       .slice()
       .sort((a, b) => (b.incident_date ?? "").localeCompare(a.incident_date ?? ""));
-  }, [allDeaths, activeFilter, currentYear]);
+  }, [allDeaths, activeFilter, currentYear, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCases.length / CASES_PER_PAGE));
   const currentPage = Math.min(casesPage, totalPages - 1);
@@ -107,7 +128,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setCasesPage(0);
-  }, [activeFilter]);
+  }, [activeFilter, searchQuery]);
 
   const yearlyData = useMemo(() => {
     // Prefer the API's ``year_counts`` (computed from ALL documented_deaths
@@ -198,6 +219,32 @@ export default function HomePage() {
           <div className="sec-head">
             <h2 className="sec-title">{t(lang, "sec.cases_title")}</h2>
             <div className="sec-meta">{t(lang, "sec.cases_meta")}</div>
+          </div>
+
+          <div className="case-search">
+            <input
+              type="search"
+              className="case-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(lang, "search.placeholder")}
+              aria-label={t(lang, "search.placeholder")}
+            />
+            {searchQuery.trim() && (
+              <>
+                <span className="case-search-count" aria-live="polite">
+                  {t(lang, "search.matches", { n: filteredCases.length })}
+                </span>
+                <button
+                  type="button"
+                  className="case-search-clear"
+                  onClick={() => setSearchQuery("")}
+                  aria-label={t(lang, "search.clear")}
+                >
+                  ×
+                </button>
+              </>
+            )}
           </div>
 
           <div className="filters">

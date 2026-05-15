@@ -18,6 +18,9 @@ export type TranslationKey =
   | "sec.cases_title"
   | "sec.cases_meta"
   | "filter.all"
+  | "search.placeholder"
+  | "search.matches"
+  | "search.clear"
   | "sec.regions_title"
   | "sec.regions_meta"
   | "sec.years_title"
@@ -97,6 +100,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "sec.cases_title": "القضايا الأحدث",
     "sec.cases_meta": "عرض كل القضايا",
     "filter.all": "الكلّ",
+    "search.placeholder": "ابحث باسم أو بمدينة…",
+    "search.matches": "{n} نتيجة",
+    "search.clear": "مسح البحث",
     "sec.regions_title": "حسب المنطقة",
     "sec.regions_meta": "منذ بداية التوثيق",
     "sec.years_title": "وراء كلّ رقم، إنسان",
@@ -190,6 +196,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "sec.cases_title": "תיקים אחרונים",
     "sec.cases_meta": "הצג את כל התיקים",
     "filter.all": "הכל",
+    "search.placeholder": "חיפוש לפי שם או עיר…",
+    "search.matches": "{n} תוצאות",
+    "search.clear": "נקה חיפוש",
     "sec.regions_title": "לפי אזור",
     "sec.regions_meta": "מאז תחילת התיעוד",
     "sec.years_title": "מאחורי כל מספר — אדם",
