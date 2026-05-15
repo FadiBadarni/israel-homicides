@@ -3,6 +3,7 @@ from .arab48 import Arab48Scraper
 from .israelhayom import IsraelhayomScraper
 from .kul_alarab import KulAlarabScraper
 from .makan import MakanScraper
+from .panet import PanetScraper
 from .walla import WallaScraper
 from .ynet import YnetScraper
 
@@ -12,6 +13,7 @@ SCRAPER_REGISTRY = {
     "israelhayom": IsraelhayomScraper,
     "kul_alarab": KulAlarabScraper,
     "makan": MakanScraper,
+    "panet": PanetScraper,
     "walla": WallaScraper,
 }
 
