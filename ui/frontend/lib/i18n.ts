@@ -8,9 +8,8 @@ export type TranslationKey =
   | "nav.contribute"
   | "nav.back_to_register"
   | "hero.eyebrow"
+  | "hero.h1"
   | "hero.lede"
-  | "vigil.eyebrow"
-  | "vigil.read_case"
   | "stats.last_year"
   | "stats.current_year_prefix"
   | "stats.current_year_suffix"
@@ -87,10 +86,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.contribute": "المُشاركة",
     "nav.back_to_register": "العودة إلى السجل",
     "hero.eyebrow": "سجل عام · يُحدَّث أسبوعياً",
+    "hero.h1": "كلّ ضحيّة لها اسم.\nوكل قضيّة لها قصّة.",
     "hero.lede":
       "سجلٌّ عامّ يُوثّق ضحايا جرائم القتل في المجتمع العربي في إسرائيل، اسماً تلو الآخر، استناداً إلى مصادر إخباريّة بالعربيّة والعبريّة.",
-    "vigil.eyebrow": "في ذكرى",
-    "vigil.read_case": "اقرأ تفاصيل القضيّة",
     "stats.last_year": "ضحيّة في عام {year}.",
     "stats.current_year_prefix": "منذ بداية",
     "stats.current_year_suffix": "حتى الآن.",
@@ -181,10 +179,9 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "nav.contribute": "השתתפות",
     "nav.back_to_register": "חזרה לרישום",
     "hero.eyebrow": "רישום ציבורי · מתעדכן שבועית",
+    "hero.h1": "לכל קרבן יש שם.\nלכל מקרה יש סיפור.",
     "hero.lede":
       "רישום ציבורי המתעד את קרבנות מקרי הרצח בחברה הערבית בישראל, שם אחר שם, על בסיס מקורות חדשותיים בערבית ובעברית.",
-    "vigil.eyebrow": "לזכר",
-    "vigil.read_case": "קראו את פרטי התיק",
     "stats.last_year": "קרבנות בשנת {year}.",
     "stats.current_year_prefix": "מתחילת",
     "stats.current_year_suffix": "עד כה.",

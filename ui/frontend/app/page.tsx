@@ -8,7 +8,6 @@ import { formatDate, yearOf } from "@/lib/format";
 import { useLanguage } from "@/lib/language-context";
 import { t, pickLangField, pickNameWithTransliteration } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
-import { VigilHero, type VigilCase } from "@/components/vigil-hero";
 
 interface DeathWithCity extends DeathSummary {
   city_en: string;
@@ -62,23 +61,6 @@ export default function HomePage() {
     () => (memorial ? flattenDeaths(memorial.localities) : []),
     [memorial]
   );
-
-  // Eligible cases for the rotating vigil hero. Each must have a name in
-  // at least one script (or a transliteration), a city in at least one
-  // script, and an incident date — so visitors never see "—" placeholders
-  // in the poster.
-  const vigilCases = useMemo<VigilCase[]>(() => {
-    return allDeaths.filter((d) => {
-      const hasName =
-        !!d.victim_name_ar ||
-        !!d.victim_name_he ||
-        !!d.victim_name_en ||
-        (d.name_transliterations?.length ?? 0) > 0;
-      const hasCity = !!d.city_ar || !!d.city_he || !!d.city_en;
-      const hasDate = !!d.incident_date;
-      return hasName && hasCity && hasDate;
-    });
-  }, [allDeaths]);
 
   const currentYear = new Date().getFullYear();
   const totalAll = memorial?.documented_deaths ?? memorial?.total_deaths ?? 0;
@@ -170,14 +152,18 @@ export default function HomePage() {
         </div>
       </nav>
 
-      <VigilHero cases={vigilCases} lang={lang} />
-
-      <section className="hero-identity">
+      <header className="hero">
         <div className="wrap">
           <div className="eyebrow">{t(lang, "hero.eyebrow")}</div>
+          <h1>{t(lang, "hero.h1").split("\n").map((line, i, arr) => (
+            <span key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </span>
+          ))}</h1>
           <p className="lede">{t(lang, "hero.lede")}</p>
         </div>
-      </section>
+      </header>
 
       <section className={`stats wrap fade-in ${dataReady ? "ready" : ""}`}>
         {/* Stat 1 — Scale. The total in the register since documentation began.

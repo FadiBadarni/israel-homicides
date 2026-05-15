@@ -159,150 +159,6 @@ nav.top .links a:hover { color: var(--ink); }
 .hero h1 { font-family: var(--amiri); font-weight: 700; font-size: 56px; line-height: 1.55; color: var(--ink); margin: 0 auto 24px; max-width: 800px; text-wrap: balance; }
 .hero .lede { font-family: var(--amiri); font-size: 22px; line-height: 1.8; color: var(--ink-2); max-width: 640px; margin: 0 auto; text-wrap: pretty; }
 
-/* ============================================================
-   VIGIL HERO — rotating victim, poster-style.
-   Replaces the slogan h1. Each visit surfaces a different order;
-   each rotation holds one name for ~8s with a smooth fade-in.
-   ============================================================ */
-.vigil {
-  padding: 88px 0 64px;
-  border-bottom: 1px solid var(--hair);
-  text-align: center;
-  /* Reserve a stable minimum so the progress bar + identity strip
-     below don't shift when a longer/shorter name fades in. */
-  min-height: 360px;
-}
-.vigil-placeholder { min-height: 360px; }
-.vigil-eyebrow {
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--blood-pale);
-  margin-bottom: 32px;
-}
-html[lang="he"] .vigil-eyebrow { letter-spacing: 0.08em; }
-
-.vigil-stage {
-  animation: vigil-enter 700ms ease-out both;
-}
-@keyframes vigil-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
-
-.vigil-name {
-  font-family: var(--amiri);
-  font-weight: 700;
-  font-size: 96px;
-  line-height: 1.15;
-  color: var(--ink);
-  margin: 0 auto 22px;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-  max-width: 900px;
-}
-html[lang="he"] .vigil-name { font-family: var(--rashi); }
-
-.vigil-meta {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 6px;
-  font-size: 17px;
-  color: var(--ink-2);
-  margin: 0 auto 28px;
-  max-width: 720px;
-  line-height: 1.55;
-}
-.vigil-sep {
-  color: var(--hair-strong);
-  margin: 0 6px;
-}
-
-.vigil-link {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--accent);
-  text-decoration: underline;
-  text-decoration-color: var(--hair-strong);
-  text-underline-offset: 5px;
-  transition: color 150ms, text-decoration-color 150ms;
-}
-.vigil-link:hover {
-  color: var(--ink);
-  text-decoration-color: var(--blood);
-}
-.vigil-arrow {
-  color: var(--muted-2);
-  font-size: 13px;
-  transition: transform 150ms, color 150ms;
-  /* keep the arrow glyph pointing left regardless of bidi */
-  unicode-bidi: isolate;
-}
-.vigil-link:hover .vigil-arrow {
-  color: var(--ink);
-  transform: translateX(-2px);
-}
-
-/* Quiet time-to-next bar at the bottom of the vigil. Fills over the
-   rotation interval, then resets when React remounts via the keyed div.
-   Pauses when the user hovers (animation-play-state on the parent). */
-.vigil-progress {
-  margin: 56px auto 0;
-  max-width: 240px;
-  height: 1px;
-  background: var(--hair);
-  position: relative;
-  overflow: hidden;
-}
-.vigil-progress-bar {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 0%;
-  background: var(--blood-pale);
-  animation: vigil-progress linear forwards;
-}
-.vigil.is-paused .vigil-progress-bar { animation-play-state: paused; }
-@keyframes vigil-progress {
-  from { width: 0%; }
-  to   { width: 100%; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .vigil-stage { animation: none; }
-  .vigil-progress { display: none; }
-}
-
-/* Identity strip below the vigil — slim, centered, "what this site is".
-   The old hero used to do this in a much louder treatment (56px slogan +
-   22px lede); now the slogan is gone and only the project description
-   remains, downsized to make room for the vigil above. */
-.hero-identity {
-  padding: 48px 0;
-  border-bottom: 1px solid var(--hair);
-  text-align: center;
-}
-.hero-identity .eyebrow {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-bottom: 16px;
-}
-.hero-identity .lede {
-  font-family: var(--amiri);
-  font-size: 18px;
-  line-height: 1.85;
-  color: var(--ink-2);
-  max-width: 640px;
-  margin: 0 auto;
-  text-wrap: pretty;
-}
-html[lang="he"] .hero-identity .lede { font-family: var(--rashi); }
-
 /* big number row */
 .stats { padding: 64px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 0; }
 .stat { padding: 8px 32px; border-left: 1px solid var(--hair); }
@@ -706,15 +562,6 @@ footer.bottom p { margin: 4px 0; }
   .hero { padding: 64px 0 52px; }
   .hero h1 { font-size: 44px; line-height: 1.5; }
   .hero .lede { font-size: 18px; line-height: 1.75; }
-  /* vigil — scale down the colossal name to fit narrow viewports */
-  .vigil { padding: 64px 0 52px; min-height: 300px; }
-  .vigil-placeholder { min-height: 300px; }
-  .vigil-eyebrow { font-size: 11px; margin-bottom: 26px; }
-  .vigil-name { font-size: 56px; line-height: 1.2; margin-bottom: 18px; }
-  .vigil-meta { font-size: 15px; margin-bottom: 22px; }
-  .vigil-progress { margin-top: 40px; max-width: 180px; }
-  .hero-identity { padding: 40px 0; }
-  .hero-identity .lede { font-size: 16px; line-height: 1.8; }
   .stats { grid-template-columns: 1fr 1fr; padding: 48px 0; }
   .stat { border-left: 0; padding: 20px 16px; border-bottom: 1px solid var(--hair); }
   .stat:nth-child(odd) { border-left: 1px solid var(--hair); padding-left: 16px; }
@@ -781,19 +628,6 @@ footer.bottom p { margin: 4px 0; }
   .hero .eyebrow { font-size: 12px; margin-bottom: 18px; }
   .hero h1 { font-size: 30px; line-height: 1.45; margin-bottom: 18px; max-width: none; padding: 0 4px; }
   .hero .lede { font-size: 16px; line-height: 1.7; padding: 0 4px; }
-
-  /* vigil — phone */
-  .vigil { padding: 44px 0 36px; min-height: 260px; }
-  .vigil-placeholder { min-height: 260px; }
-  .vigil-eyebrow { font-size: 10.5px; letter-spacing: 0.14em; margin-bottom: 20px; }
-  .vigil-name { font-size: 38px; line-height: 1.25; margin-bottom: 16px; padding: 0 4px; }
-  .vigil-meta { font-size: 14px; gap: 4px 4px; margin-bottom: 18px; padding: 0 4px; }
-  .vigil-sep { margin: 0 4px; }
-  .vigil-link { font-size: 13px; }
-  .vigil-progress { margin-top: 32px; max-width: 140px; }
-  .hero-identity { padding: 32px 0; }
-  .hero-identity .eyebrow { font-size: 11px; margin-bottom: 12px; }
-  .hero-identity .lede { font-size: 15px; line-height: 1.75; padding: 0 4px; }
 
   /* stats — same 2×2 grid as tablet; centered content + tighter type for phone.
      Centering balances multi-line labels in the narrow ~155 px column on a 375 px viewport. */
