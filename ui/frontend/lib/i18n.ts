@@ -63,6 +63,7 @@ export type TranslationKey =
   | "victim_word"
   | "current_label"
   | "tap_caption"
+  | "tap.progress_note"
   | "case.in_memory"
   | "case.years_old"
   | "case.from"
@@ -158,6 +159,8 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "current_label": "حتى الآن",
     "tap_caption":
       "كلّ علامةٍ هنا كانت إنساناً — أُماً أو أباً، ابناً أو ابنةً، صديقاً أو جاراً. هذا السجلّ موجود لئلّا يُنسى أحد منهم.",
+    "tap.progress_note":
+      "البحثُ مستمرّ · تُضافُ ضحايا من السنوات السابقة كلّما توفّرت معلوماتٌ موثّقة عنهم.",
     "case.in_memory": "في ذكرى",
     "case.years_old": "عاماً",
     "case.from": "من",
@@ -253,6 +256,8 @@ const T: Record<Lang, Record<TranslationKey, string>> = {
     "current_label": "עד כה",
     "tap_caption":
       "כל סימן כאן היה אדם — אם או אב, בן או בת, חבר או שכן. הרישום הזה קיים כדי שאיש מהם לא יישכח.",
+    "tap.progress_note":
+      "המחקר נמשך · קרבנות משנים קודמות מתווספים לרישום ככל שמתאמתים מקורות אמינים עליהם.",
     "case.in_memory": "לזכר",
     "case.years_old": "בני",
     "case.from": "מ-",

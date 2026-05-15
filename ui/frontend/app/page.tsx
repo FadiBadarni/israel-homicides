@@ -367,6 +367,12 @@ export default function HomePage() {
             {yearlyData.length === 0 && (
               <p style={{ color: "var(--muted)" }}>{t(lang, "no_yearly")}</p>
             )}
+            {yearlyData.length > 0 && (
+              <div className="tap-progress" role="status" aria-live="polite">
+                <span className="tap-progress-pulse" aria-hidden="true" />
+                <span>{t(lang, "tap.progress_note")}</span>
+              </div>
+            )}
           </div>
 
           {yearlyData.length > 0 && (

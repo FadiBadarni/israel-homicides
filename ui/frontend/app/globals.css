@@ -247,6 +247,55 @@ nav.top .links a:hover { color: var(--ink); }
 .tap-row.faded .dot-cell { opacity: 0.55; }
 .dot-cell:hover { transform: scale(1.6); opacity: 1; }
 
+/* Live-status indicator under the last year row. The pulse signals
+   "this register is still being maintained"; the muted serif note
+   acknowledges that earlier years remain a work in progress. The hairline
+   rule above separates it from the data without competing with it. */
+.tap-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--hair);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  max-width: 760px;
+}
+.tap-progress-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blood-pale);
+  flex-shrink: 0;
+  position: relative;
+  animation: tap-pulse 2.4s ease-in-out infinite;
+}
+/* Soft halo so the pulse reads as "live" rather than a static dot.
+   Both opacity and a faint outer ring breathe in unison. */
+.tap-progress-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--blood-pale);
+  opacity: 0.35;
+  animation: tap-pulse-ring 2.4s ease-out infinite;
+}
+@keyframes tap-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+@keyframes tap-pulse-ring {
+  0%   { transform: scale(0.6); opacity: 0.55; }
+  100% { transform: scale(1.8); opacity: 0;    }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tap-progress-pulse        { animation: none; opacity: 0.9; }
+  .tap-progress-pulse::after { animation: none; display: none; }
+}
+
 .tap-caption { margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--hair); font-family: var(--amiri); font-size: 18px; line-height: 1.85; color: var(--ink-2); max-width: 720px; text-wrap: pretty; }
 .tap-caption strong { color: var(--ink); }
 .tap-legend { display: flex; gap: 24px; font-size: 13px; color: var(--muted); margin-top: 8px; align-items: center; }
