@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote_plus, urljoin, urlparse
@@ -150,6 +151,171 @@ class Arab48Scraper(BaseScraper):
             return resp
 
         return await _inner()
+
+    async def discover_from_category(
+        self,
+        category_path: str,
+        date_from: str,
+        date_to: str,
+        title_keywords: list[str],
+        max_results: int = 400,
+        max_pages: int = 200,
+    ) -> list[DiscoveredUrl]:
+        """Discover articles by walking an Arab48 category listing.
+
+        The category index (e.g. ``/محليات``) paginates linearly by date
+        — page 1 is newest, page 1000 reaches mid-2018. Each item carries
+        a ``.category-inside-time`` span in ``DD/MM/YYYY`` form. We
+        filter by date window AND require ``title_keywords`` to appear
+        in the headline text BEFORE fetching the article, which cuts
+        the LLM cost of triage drastically — most ``/محليات`` items
+        are non-homicide local news (politics, weddings, ceremonies)
+        that we'd otherwise pay triage on.
+
+        ``category_path`` must start with ``/`` (e.g. ``/محليات``).
+
+        Stops when either:
+          * ``max_results`` candidates have been collected, or
+          * ``max_pages`` pages have been walked, or
+          * a page's items are all older than ``date_from`` (we've
+            walked past the window — listing is newest-first).
+        """
+        from urllib.parse import quote
+
+        from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+        to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+        discovered: list[DiscoveredUrl] = []
+        seen: set[str] = set()
+
+        # Build the category URL. Arabic paths need percent-encoding.
+        if not category_path.startswith("/"):
+            category_path = "/" + category_path
+        category_url = f"{_BASE_URL}{quote(category_path)}"
+
+        async with _make_client() as client:
+            for page in range(1, max_pages + 1):
+                if len(discovered) >= max_results:
+                    break
+
+                page_url = (
+                    category_url if page == 1
+                    else f"{category_url}?page={page}"
+                )
+                try:
+                    resp = await self._get(client, page_url)
+                    resp.raise_for_status()
+                except (_RetryableHTTPError, httpx.HTTPError) as exc:
+                    logger.error(
+                        "Arab48 category-discover page %d: HTTP error — %s",
+                        page, exc,
+                    )
+                    break
+
+                soup = BeautifulSoup(resp.text, "lxml")
+                spans = soup.select(".category-inside-time")
+                if not spans:
+                    logger.info(
+                        "Arab48 category-discover: page %d has no date "
+                        "spans — end of listing", page,
+                    )
+                    break
+
+                kept_this_page = 0
+                older_than_window_count = 0
+
+                for span in spans:
+                    raw_date = span.get_text(strip=True)
+                    m = re.match(r"(\d{2})/(\d{2})/(20\d{2})", raw_date)
+                    if not m:
+                        continue
+                    pubdate = datetime(
+                        int(m.group(3)), int(m.group(2)), int(m.group(1)),
+                        tzinfo=timezone.utc,
+                    )
+
+                    # Find the containing card by walking up to a parent
+                    # that has an /<YYYY>/<MM>/<DD>/ article link.
+                    card = span
+                    href = ""
+                    title = ""
+                    for _ in range(8):  # bounded upward walk
+                        card = card.parent
+                        if card is None:
+                            break
+                        link = card.find(
+                            "a", href=re.compile(r"/20\d{2}/\d{2}/\d{2}/")
+                        )
+                        if link:
+                            href = link.get("href", "")
+                            title = link.get_text(strip=True)
+                            break
+                    if not href or not title:
+                        continue
+
+                    full_url = urljoin(_BASE_URL, href)
+                    if full_url in seen:
+                        continue
+                    seen.add(full_url)
+
+                    # Drop non-homicide editorial paths early (sports,
+                    # opinion, etc.) — same blocklist the keyword
+                    # discover uses for the search-results path.
+                    parsed = urlparse(full_url)
+                    if _is_non_homicide_path(parsed.path):
+                        continue
+
+                    if pubdate < from_dt:
+                        older_than_window_count += 1
+                        continue
+                    if pubdate > to_dt:
+                        # Skip but don't terminate — listing is newest-
+                        # first, so we may still have in-window items
+                        # below this on the same page.
+                        continue
+
+                    # Title pre-filter: only fetch articles whose visible
+                    # title contains a homicide-relevant keyword. The
+                    # arab48 title duplicates the date suffix
+                    # (``DD/MM/YYYY``); strip that before keyword check.
+                    clean_title = re.sub(r"\d{2}/\d{2}/20\d{2}$", "", title).strip()
+                    if not any(kw in clean_title for kw in title_keywords):
+                        continue
+
+                    discovered.append(DiscoveredUrl(
+                        url=full_url,
+                        source=self.source_name,
+                        language=self.language,
+                        title=clean_title,
+                        published_at=pubdate,
+                        discovered_at=datetime.now(timezone.utc),
+                    ))
+                    kept_this_page += 1
+                    if len(discovered) >= max_results:
+                        break
+
+                logger.info(
+                    "Arab48 category-discover: page %d kept=%d older=%d "
+                    "(cumulative=%d)",
+                    page, kept_this_page, older_than_window_count,
+                    len(discovered),
+                )
+
+                # If every dated item on this page was older than the
+                # window, we've walked past it — no point in continuing.
+                if older_than_window_count == len(spans):
+                    logger.info(
+                        "Arab48 category-discover: page %d is entirely "
+                        "older than window — stopping", page,
+                    )
+                    break
+
+        logger.info(
+            "Arab48 category-discover: found %d candidate URLs for "
+            "category=%s in [%s, %s] (title_kw=%s)",
+            len(discovered), category_path, date_from, date_to,
+            ",".join(title_keywords)[:80],
+        )
+        return discovered
 
     async def discover(
         self,
