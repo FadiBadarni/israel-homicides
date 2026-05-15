@@ -1,122 +1,160 @@
 """
-Scraper for Panet.co.il — Arabic, JavaScript-rendered.
+Scraper for Panet.com — Arabic news site, server-rendered article pages.
 
-Uses Playwright (async_playwright) because Panet is a React/JS SPA.
-A single shared Playwright browser is created on first use and reused
-across calls via the class-level _browser / _playwright attributes.
-Each fetch() gets its own BrowserContext (incognito) for isolation.
+Discovery uses Google News RSS with ``site:panet.com`` (mirrors the
+Walla / Makan / Ynet pattern). This replaces an earlier Playwright-
+based scraper that broke when Panet's SPA layout changed and was never
+registered in the pipeline. The GNews path is faster (no browser),
+more reliable (no anti-bot), and consistent with the rest of the
+Arabic-source set.
 
-Rate limiting: asyncio.sleep(request_delay + random jitter 0-2 s) before
-each navigation — applies inside both discover() and fetch().
+Fetch: httpx + BeautifulSoup. JSON-LD ``NewsArticle`` for headline +
+datePublished; body falls through to DOM selectors because Panet's
+JSON-LD ``articleBody`` is empty on the live template.
 
-Cloudflare detection: if page title contains "Just a moment" or the body
-contains the CF challenge marker, fetch_status is set to "blocked".
+Caveat: Panet covers broad current affairs, so the ``قتل`` keyword
+matches many non-homicide articles (politics, education, opinion).
+Triage filters those out; expect a lower triage-yes rate than tag-
+based sources like kul-alarab.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import AsyncIterator, Optional
-from urllib.parse import quote_plus, urljoin, urlparse
+import re
+from collections import deque
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from playwright.async_api import (
-    Browser,
-    BrowserContext,
-    Page,
-    Playwright,
-    TimeoutError as PlaywrightTimeout,
-    async_playwright,
+import httpx
+from bs4 import BeautifulSoup
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
 
+from ._gnews import (
+    _RateLimitStop,
+    _build_windows,
+    fetch_gnews_window,
+    resolve_google_url,
+)
 from .base import ArticleResult, BaseScraper, DiscoveredUrl
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://panet.com"
-_SEARCH_URL_TPL = "https://panet.com/search?q={query}"
+_PANET_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "ar,he-IL;q=0.8,en-US;q=0.6,en;q=0.5",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    # NOTE: Brotli (br) intentionally omitted. Panet returns a 21KB stub
+    # response (no title, no body) when ``br`` is in Accept-Encoding,
+    # vs the full 134KB article HTML without it. Verified empirically
+    # on https://panet.com/story/4106194 — minimal headers + no-br both
+    # work; full-Walla headers with br break the response.
+    "Accept-Encoding": "gzip, deflate",
+}
 
-# Viewport that looks like a real desktop browser
-_VIEWPORT = {"width": 1280, "height": 900}
-
-_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0.0.0 Safari/537.36"
+# Google redirects validated against this prefix set. Production traffic
+# uses ``panet.com`` and ``www.panet.com``; older articles may resolve
+# to ``arabic.panet.com`` so we accept that too.
+_PANET_VALID_PREFIXES = (
+    "https://panet.com/",
+    "https://www.panet.com/",
+    "https://arabic.panet.com/",
 )
 
-# Selectors tried in order when looking for article links on the search results page
-_SEARCH_LINK_SELECTORS = [
-    "a[data-testid='article-link']",
-    "a.article-link",
-    "div.search-result a",
-    "div.news-item a",
-    "li.search-item a",
-    "article a",
-    "h2 a",
-    "h3 a",
-]
-
-# Selectors tried in order for article body on the article page
-_ARTICLE_BODY_SELECTORS = [
-    "[data-testid='article-body']",
-    "div.article-content",
-    "div.newsBody",
-    "div.article-body",
-    "div.body-content",
-    "article .content",
-    "div.post-content",
-    "div.entry-content",
-]
-
-# Selectors for publication date on the article page
-_DATE_SELECTORS = [
-    "time[datetime]",
-    "[data-testid='article-date']",
-    "span.article-date",
-    "div.article-date",
-    "span.date",
-    "div.date",
-    "time",
+# Body selectors in priority order. Verified on live Panet pages
+# (https://panet.com/story/{id}): the article body lives in
+# ``.story-content`` (~700 words). The schema.org / generic fallbacks
+# below are kept as a safety net in case Panet ships a template
+# refresh that adds them.
+_BODY_SELECTORS = [
+    ".story-content",
+    '[itemprop="articleBody"]',
+    ".article-content",
+    ".article-body",
+    ".article__body",
+    "article",
+    "main",
 ]
 
 
-def _parse_panet_date(raw: str) -> Optional[datetime]:
-    """Try several date formats used by Panet."""
-    raw = raw.strip()
-    formats = [
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%d/%m/%Y %H:%M",
-        "%d/%m/%Y",
-        "%d.%m.%Y %H:%M",
-        "%d.%m.%Y",
-    ]
-    for fmt in formats:
+class _RetryableHTTPError(Exception):
+    """Raised for status codes that warrant a retry (429, 5xx)."""
+
+
+def _make_client(timeout: float = 20.0) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        headers=_PANET_HEADERS,
+        timeout=httpx.Timeout(timeout),
+        follow_redirects=True,
+        http2=True,
+    )
+
+
+def _extract_published_from_jsonld(html: str) -> Optional[datetime]:
+    """Read ``datePublished`` from any schema.org NewsArticle / Article
+    JSON-LD block. Canonical signal that survives template churn."""
+    for raw in re.findall(
+        r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>',
+        html,
+        flags=re.DOTALL,
+    ):
         try:
-            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
+            data = json.loads(raw.strip())
+        except json.JSONDecodeError:
             continue
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("@type") not in ("NewsArticle", "Article"):
+                continue
+            pub = item.get("datePublished") or item.get("dateModified")
+            if not pub:
+                continue
+            try:
+                if pub.endswith("Z"):
+                    return datetime.fromisoformat(pub[:-1]).replace(
+                        tzinfo=timezone.utc
+                    )
+                return datetime.fromisoformat(pub)
+            except ValueError:
+                continue
     return None
 
 
-def _is_cloudflare_challenge(title: str, content: str) -> bool:
-    """Detect Cloudflare "Just a moment" challenge pages."""
-    cf_signals = [
-        "just a moment",
-        "checking your browser",
-        "please wait",
-        "cf-browser-verification",
-        "cf_chl_opt",
-    ]
-    combined = (title + " " + content).lower()
-    return any(sig in combined for sig in cf_signals)
+def _extract_headline_from_jsonld(html: str) -> Optional[str]:
+    """Read NewsArticle ``headline`` from JSON-LD. og:title is a
+    fine fallback at the caller, but JSON-LD is canonical."""
+    for raw in re.findall(
+        r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>',
+        html,
+        flags=re.DOTALL,
+    ):
+        try:
+            data = json.loads(raw.strip())
+        except json.JSONDecodeError:
+            continue
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("@type") in ("NewsArticle", "Article"):
+                h = item.get("headline")
+                if h and isinstance(h, str):
+                    return h.strip()
+    return None
 
 
 class PanetScraper(BaseScraper):
@@ -124,92 +162,29 @@ class PanetScraper(BaseScraper):
     language = "ar"
     base_domain = "panet.com"
 
-    # Class-level shared browser / playwright handle
-    _playwright: Optional[Playwright] = None
-    _browser: Optional[Browser] = None
-    _lock: asyncio.Lock = asyncio.Lock()
-
-    # ------------------------------------------------------------------ #
-    #  Browser lifecycle                                                   #
-    # ------------------------------------------------------------------ #
-
-    @classmethod
-    async def _ensure_browser(cls) -> Browser:
-        """Launch the shared Playwright browser if not already running."""
-        async with cls._lock:
-            if cls._browser is None or not cls._browser.is_connected():
-                if cls._playwright is None:
-                    cls._playwright = await async_playwright().start()
-                cls._browser = await cls._playwright.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-dev-shm-usage",
-                    ],
-                )
-                logger.debug("PanetScraper: Chromium browser launched")
-        return cls._browser
-
-    @classmethod
-    async def close_browser(cls) -> None:
-        """Gracefully close the shared browser (call at shutdown)."""
-        async with cls._lock:
-            if cls._browser and cls._browser.is_connected():
-                await cls._browser.close()
-                cls._browser = None
-            if cls._playwright:
-                await cls._playwright.stop()
-                cls._playwright = None
-            logger.debug("PanetScraper: browser closed")
-
-    @asynccontextmanager
-    async def _new_context(self) -> AsyncIterator[BrowserContext]:
-        """Yield a fresh BrowserContext with realistic headers."""
-        browser = await self._ensure_browser()
-        ctx = await browser.new_context(
-            viewport=_VIEWPORT,
-            user_agent=_USER_AGENT,
-            locale="ar-IL",
-            timezone_id="Asia/Jerusalem",
-            java_script_enabled=True,
-            # Spoof navigator.webdriver = false
-            extra_http_headers={"Accept-Language": "ar,he-IL;q=0.8,en-US;q=0.5"},
-        )
-        # Hide Playwright's webdriver flag
-        await ctx.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
-        try:
-            yield ctx
-        finally:
-            await ctx.close()
-
-    # ------------------------------------------------------------------ #
-    #  Internal helpers                                                    #
-    # ------------------------------------------------------------------ #
-
     async def _sleep(self) -> None:
         delay = self.request_delay + random.uniform(0, 2)
-        logger.debug("Panet: sleeping %.2f s", delay)
         await asyncio.sleep(delay)
 
-    async def _navigate(
-        self, page: Page, url: str, wait_until: str = "networkidle", timeout: int = 30_000
-    ) -> bool:
-        """Navigate to *url* and return True on success, False on timeout."""
-        try:
+    async def _get(
+        self, client: httpx.AsyncClient, url: str
+    ) -> httpx.Response:
+        @retry(
+            retry=retry_if_exception_type(_RetryableHTTPError),
+            wait=wait_exponential(multiplier=1, min=4, max=60),
+            stop=stop_after_attempt(4),
+            reraise=True,
+        )
+        async def _inner() -> httpx.Response:
             await self._sleep()
-            await page.goto(url, wait_until=wait_until, timeout=timeout)
-            return True
-        except PlaywrightTimeout:
-            logger.warning("Panet: navigation timeout for %s", url)
-            return False
+            resp = await client.get(url)
+            if resp.status_code == 429 or resp.status_code >= 500:
+                raise _RetryableHTTPError(
+                    f"HTTP {resp.status_code} from {url}"
+                )
+            return resp
 
-    # ------------------------------------------------------------------ #
-    #  discover                                                            #
-    # ------------------------------------------------------------------ #
+        return await _inner()
 
     async def discover(
         self,
@@ -218,121 +193,102 @@ class PanetScraper(BaseScraper):
         date_to: str,
         max_results: int = 50,
     ) -> list[DiscoveredUrl]:
+        """Discover Panet articles via Google News RSS with site filter.
+
+        Same windowing + bisection pattern as Walla/Makan: 48h initial
+        windows, 10s spacing, bisect saturated windows (>=90 items) up
+        to depth 4. 429 backoff via ``_RateLimitStop``.
         """
-        Search Panet.co.il for *query* using Playwright.
-        Returns up to *max_results* DiscoveredUrl items.
+        results: list[DiscoveredUrl] = []
+        seen: set[str] = set()
 
-        date_from / date_to: "YYYY-MM-DD" strings used for date filtering.
-        """
-        from_dt = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
-        to_dt = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+        gnews_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0),
+            follow_redirects=True,
+            http2=True,
+        )
 
-        search_url = _SEARCH_URL_TPL.format(query=quote_plus(query))
-        discovered: list[DiscoveredUrl] = []
+        try:
+            initial_windows = _build_windows(date_from, date_to)
+            queue: deque[tuple[datetime, datetime, int]] = deque(
+                (s, e, 0) for s, e in initial_windows
+            )
 
-        async with self._new_context() as ctx:
-            page = await ctx.new_page()
             try:
-                ok = await self._navigate(page, search_url)
-                if not ok:
-                    logger.error("Panet discover: navigation timeout for %s", search_url)
-                    return discovered
-
-                # Check for Cloudflare challenge
-                title = await page.title()
-                body_text = await page.evaluate("document.body.innerText")
-                if _is_cloudflare_challenge(title, body_text):
-                    logger.warning("Panet discover: Cloudflare challenge detected")
-                    return discovered
-
-                # Try each link selector in order
-                link_elements = []
-                for sel in _SEARCH_LINK_SELECTORS:
-                    link_elements = await page.query_selector_all(sel)
-                    if link_elements:
-                        logger.debug("Panet discover: matched selector %r (%d links)", sel, len(link_elements))
+                while queue:
+                    if len(results) >= max_results:
                         break
 
-                # Fallback: all anchors with internal href
-                if not link_elements:
-                    link_elements = await page.query_selector_all("a[href]")
+                    win_start, win_end, depth = queue.popleft()
 
-                seen: set[str] = set()
-                for el in link_elements:
-                    if len(discovered) >= max_results:
-                        break
-
-                    href = await el.get_attribute("href")
-                    if not href:
-                        continue
-                    full_url = urljoin(_BASE_URL, href)
-                    parsed = urlparse(full_url)
-                    if parsed.netloc and self.base_domain not in parsed.netloc:
-                        continue
-                    # Skip non-article paths (home, category pages, etc.)
-                    path = parsed.path
-                    if not path or path == "/" or path.count("/") < 2:
-                        continue
-                    if full_url in seen:
-                        continue
-                    seen.add(full_url)
-
-                    if not self.can_fetch(full_url):
-                        logger.debug("Panet: robots.txt blocks %s", full_url)
-                        continue
-
-                    # Try to get date from the surrounding container via JS
-                    pub_date: Optional[datetime] = None
-                    try:
-                        raw_date: Optional[str] = await el.evaluate(
-                            """node => {
-                                const container = node.closest('article, li, div.news-item, div.search-result');
-                                if (!container) return null;
-                                const dateEl = container.querySelector('time, [class*="date"], [data-date]');
-                                if (!dateEl) return null;
-                                return dateEl.getAttribute('datetime') || dateEl.getAttribute('data-date') || dateEl.innerText;
-                            }"""
-                        )
-                        if raw_date:
-                            pub_date = _parse_panet_date(raw_date)
-                    except Exception:
-                        pass
-
-                    # Apply date filter when a date is available
-                    if pub_date and not (from_dt <= pub_date <= to_dt):
-                        continue
-
-                    title_text: Optional[str] = None
-                    try:
-                        title_text = await el.inner_text()
-                        title_text = title_text.strip() or None
-                    except Exception:
-                        pass
-
-                    discovered.append(
-                        DiscoveredUrl(
-                            url=full_url,
-                            source=self.source_name,
-                            language=self.language,
-                            title=title_text,
-                            published_at=pub_date,
-                            discovered_at=datetime.now(tz=timezone.utc),
-                        )
+                    await asyncio.sleep(10)
+                    raw_items = await fetch_gnews_window(
+                        gnews_client, query, win_start, win_end,
+                        "panet.com",
+                        hl="ar", gl="IL", ceid="IL:ar",
                     )
-            finally:
-                await page.close()
+
+                    if (
+                        len(raw_items) >= 90
+                        and depth < 4
+                        and (win_end - win_start) > timedelta(hours=3)
+                    ):
+                        mid = win_start + (win_end - win_start) / 2
+                        queue.appendleft((mid, win_end, depth + 1))
+                        queue.appendleft((win_start, mid, depth + 1))
+                        logger.debug(
+                            "gnews_window_saturated: %d items in %s-%s, bisecting",
+                            len(raw_items), win_start.date(), win_end.date(),
+                        )
+                        continue
+
+                    for google_url, title, pubdate in raw_items:
+                        if len(results) >= max_results:
+                            break
+
+                        canonical = await resolve_google_url(
+                            gnews_client, google_url, _PANET_VALID_PREFIXES
+                        )
+                        if canonical is None:
+                            logger.warning(
+                                "panet: google_redirect_unresolved: %s", google_url
+                            )
+                            continue
+                        if canonical in seen:
+                            continue
+                        seen.add(canonical)
+
+                        results.append(
+                            DiscoveredUrl(
+                                url=canonical,
+                                source=self.source_name,
+                                language=self.language,
+                                title=title,
+                                published_at=pubdate,
+                                discovered_at=datetime.now(tz=timezone.utc),
+                            )
+                        )
+
+            except _RateLimitStop:
+                logger.warning(
+                    "panet gnews: 429 — stopping, returning %d partial results",
+                    len(results),
+                )
+
+        except Exception as exc:
+            logger.error(
+                "Panet discover: unexpected error — %s", exc, exc_info=True
+            )
+
+        finally:
+            await gnews_client.aclose()
 
         logger.info(
-            "Panet discover: found %d URLs for query=%r", len(discovered), query
+            "Panet discover: found %d URLs for query=%r", len(results), query
         )
-        return discovered
-
-    # ------------------------------------------------------------------ #
-    #  fetch                                                               #
-    # ------------------------------------------------------------------ #
+        return results[:max_results]
 
     async def fetch(self, url: str) -> ArticleResult:
-        """Fetch a single Panet article with Playwright; return ArticleResult."""
         if not self.can_fetch(url):
             return ArticleResult(
                 url=url,
@@ -348,166 +304,89 @@ class PanetScraper(BaseScraper):
                 error_message="Blocked by robots.txt",
             )
 
-        async with self._new_context() as ctx:
-            page = await ctx.new_page()
+        async with _make_client() as client:
             try:
-                # Navigate; try networkidle first, fall back to domcontentloaded
-                try:
-                    await self._sleep()
-                    await page.goto(url, wait_until="networkidle", timeout=30_000)
-                except PlaywrightTimeout:
-                    try:
-                        await page.goto(url, wait_until="domcontentloaded", timeout=15_000)
-                    except PlaywrightTimeout:
-                        return ArticleResult(
-                            url=url,
-                            final_url=url,
-                            source=self.source_name,
-                            language=self.language,
-                            title=None,
-                            published_at=None,
-                            raw_html="",
-                            article_text="",
-                            content_type="non_article",
-                            fetch_status="timeout",
-                            error_message="Navigation timed out after 45 s",
-                        )
-
-                final_url = page.url
-                page_title = await page.title()
-                raw_html = await page.content()
-
-                # --- Cloudflare check ---
-                snippet = await page.evaluate("document.body.innerText.substring(0, 500)")
-                if _is_cloudflare_challenge(page_title, snippet):
-                    logger.warning("Panet fetch: Cloudflare challenge at %s", url)
-                    return ArticleResult(
-                        url=url,
-                        final_url=final_url,
-                        source=self.source_name,
-                        language=self.language,
-                        title=None,
-                        published_at=None,
-                        raw_html=raw_html,
-                        article_text="",
-                        content_type="non_article",
-                        fetch_status="blocked",
-                        error_message="Cloudflare challenge page",
-                    )
-
-                # --- Wait for article body ---
-                article_el = None
-                for sel in _ARTICLE_BODY_SELECTORS:
-                    try:
-                        article_el = await page.wait_for_selector(sel, timeout=5_000)
-                        if article_el:
-                            logger.debug("Panet fetch: body matched %r", sel)
-                            break
-                    except PlaywrightTimeout:
-                        continue
-
-                # --- Extract title ---
-                title: Optional[str] = None
-                try:
-                    h1 = await page.query_selector("h1")
-                    if h1:
-                        title = (await h1.inner_text()).strip() or None
-                except Exception:
-                    pass
-
-                # --- Extract body text ---
-                article_text = ""
-                if article_el:
-                    try:
-                        article_text = await article_el.evaluate(
-                            "node => node.innerText"
-                        )
-                        article_text = article_text.strip()
-                    except Exception:
-                        pass
-
-                # Fallback: use page.evaluate to gather all paragraph text
-                if not article_text:
-                    try:
-                        article_text = await page.evaluate(
-                            """() => {
-                                const selectors = [
-                                    '[data-testid="article-body"]',
-                                    'div.article-content',
-                                    'div.newsBody',
-                                    'article'
-                                ];
-                                for (const sel of selectors) {
-                                    const el = document.querySelector(sel);
-                                    if (el) return el.innerText;
-                                }
-                                // Last resort: collect all <p> tags
-                                return Array.from(document.querySelectorAll('p'))
-                                    .map(p => p.innerText.trim())
-                                    .filter(t => t.length > 20)
-                                    .join('\\n\\n');
-                            }"""
-                        )
-                        article_text = (article_text or "").strip()
-                    except Exception:
-                        article_text = ""
-
-                # --- Extract publication date ---
-                published_at: Optional[datetime] = None
-                for sel in _DATE_SELECTORS:
-                    try:
-                        date_el = await page.query_selector(sel)
-                        if not date_el:
-                            continue
-                        raw_date = await date_el.get_attribute("datetime")
-                        if not raw_date:
-                            raw_date = await date_el.inner_text()
-                        if raw_date:
-                            published_at = _parse_panet_date(raw_date.strip())
-                            if published_at:
-                                break
-                    except Exception:
-                        continue
-
-                # --- Classify content ---
-                content_type = self._classify_content(article_text, self.language)
-
-                logger.info(
-                    "Panet fetch: %s | title=%r | words=%d | type=%s",
-                    final_url,
-                    title,
-                    len(article_text.split()),
-                    content_type,
-                )
-
+                resp = await self._get(client, url)
+                resp.raise_for_status()
+            except _RetryableHTTPError as exc:
                 return ArticleResult(
-                    url=url,
-                    final_url=final_url,
-                    source=self.source_name,
-                    language=self.language,
-                    title=title,
-                    published_at=published_at,
-                    raw_html=raw_html,
-                    article_text=article_text,
-                    content_type=content_type,
-                    fetch_status="success",
-                    error_message=None,
-                )
-
-            except Exception as exc:
-                logger.exception("Panet fetch: unexpected error for %s", url)
-                return ArticleResult(
-                    url=url,
-                    final_url=url,
-                    source=self.source_name,
-                    language=self.language,
-                    title=None,
-                    published_at=None,
-                    raw_html="",
-                    article_text="",
+                    url=url, final_url=url,
+                    source=self.source_name, language=self.language,
+                    title=None, published_at=None,
+                    raw_html="", article_text="",
                     content_type="non_article",
                     fetch_status="fetch_failed",
                     error_message=str(exc),
                 )
-            finally:
-                await page.close()
+            except httpx.TimeoutException as exc:
+                return ArticleResult(
+                    url=url, final_url=url,
+                    source=self.source_name, language=self.language,
+                    title=None, published_at=None,
+                    raw_html="", article_text="",
+                    content_type="non_article",
+                    fetch_status="timeout",
+                    error_message=str(exc),
+                )
+            except httpx.HTTPError as exc:
+                return ArticleResult(
+                    url=url, final_url=url,
+                    source=self.source_name, language=self.language,
+                    title=None, published_at=None,
+                    raw_html="", article_text="",
+                    content_type="non_article",
+                    fetch_status="fetch_failed",
+                    error_message=str(exc),
+                )
+
+            raw_html = resp.text
+            final_url = str(resp.url)
+            soup = BeautifulSoup(raw_html, "lxml")
+
+            # Title — JSON-LD headline (canonical), then og:title, then h1.
+            title: Optional[str] = _extract_headline_from_jsonld(raw_html)
+            if not title:
+                og = soup.find("meta", attrs={"property": "og:title"})
+                if og and og.get("content"):
+                    title = og["content"].strip()
+            if not title:
+                h1 = soup.find("h1")
+                if h1:
+                    title = h1.get_text(strip=True)
+            if not title and soup.title:
+                title = soup.title.get_text(strip=True)
+
+            # Body via DOM (JSON-LD articleBody is empty on the template).
+            # First selector yielding > 200 chars wins.
+            body_text = ""
+            for sel in _BODY_SELECTORS:
+                el = soup.select_one(sel)
+                if el:
+                    text = el.get_text(separator=" ", strip=True)
+                    if len(text) > 200:
+                        body_text = text
+                        break
+
+            published_at = _extract_published_from_jsonld(raw_html)
+
+            content_type = self._classify_content(body_text, self.language)
+
+            logger.info(
+                "Panet fetch: %s | title=%r | words=%d | type=%s",
+                final_url, title,
+                len(body_text.split()), content_type,
+            )
+
+            return ArticleResult(
+                url=url,
+                final_url=final_url,
+                source=self.source_name,
+                language=self.language,
+                title=title,
+                published_at=published_at,
+                raw_html=raw_html,
+                article_text=body_text,
+                content_type=content_type,
+                fetch_status="success",
+                error_message=None,
+            )
