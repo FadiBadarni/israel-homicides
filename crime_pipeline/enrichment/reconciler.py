@@ -343,6 +343,18 @@ def reconcile_cases(
 
     _STRONG_NAME_JARO = 0.95
 
+    def _multi_token_names(names: list[str]) -> list[str]:
+        """Filter to names with ≥2 tokens after romanization+stripping.
+        Single-token given names (Mohammed, Ahmed, Ali) are too common
+        to use as the basis for bypassing the city-conflict veto — they
+        match across genuinely different victims and create mega-cluster
+        cascades via the union-find merge."""
+        out: list[str] = []
+        for n in names:
+            if len(_name_tokens(n)) >= 2:
+                out.append(n)
+        return out
+
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             a, b = cases[i], cases[j]
@@ -360,12 +372,21 @@ def reconcile_cases(
             # token-containment match fires; those signals alone are
             # already strong enough that nearby-city ambiguity is far
             # more likely than a same-name different-victim collision.
+            #
+            # CRITICAL: the bypass uses only MULTI-TOKEN names. Single-
+            # token given names like "Mohammed" Jaro at 1.0 across
+            # unrelated victims and cascade via transitive union-find,
+            # producing 100+ source mega-clusters of unrelated incidents.
+            # (See debate at 2025-gap-smart-cheap-001/ + the 225-source
+            # Mohammed Almalachi false-merge that this fix breaks up.)
             if _city_conflicts(a, b):
                 strong_name_match = False
-                if names_a and names_b:
+                mt_names_a = _multi_token_names(names_a)
+                mt_names_b = _multi_token_names(names_b)
+                if mt_names_a and mt_names_b:
                     strong_name_match = (
-                        _best_jaro(names_a, names_b) >= _STRONG_NAME_JARO
-                        or _token_containment_match(names_a, names_b)
+                        _best_jaro(mt_names_a, mt_names_b) >= _STRONG_NAME_JARO
+                        or _token_containment_match(mt_names_a, mt_names_b)
                     )
                 if not strong_name_match:
                     continue
