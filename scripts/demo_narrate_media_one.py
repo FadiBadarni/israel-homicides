@@ -40,7 +40,7 @@ from crime_pipeline.media.models import MediaCandidate
 from crime_pipeline.media.settings import MediaSettings
 
 
-CANON_ID = "IL-HOMICIDE-2026-SHFARAM-NBYL-ABU-JLYL"
+CANON_ID = sys.argv[1] if len(sys.argv) > 1 else "IL-HOMICIDE-2026-SHFARAM-NBYL-ABU-JLYL"
 
 
 def _print_state(label: str, cj: dict) -> None:

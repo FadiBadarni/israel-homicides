@@ -635,16 +635,70 @@ footer.bottom p { margin: 4px 0; }
 .case-summary { font-family: var(--amiri); font-size: 22px; line-height: 1.85; color: var(--ink-2); text-align: center; max-width: 580px; margin: 48px auto 0; text-wrap: pretty; }
 .case-summary strong { color: var(--ink); font-weight: 700; }
 
-/* victim photos pulled from source articles */
-.case-photos { margin: 0 auto; display: grid; gap: 24px; }
-.case-photos.count-1 { grid-template-columns: 1fr; max-width: 480px; }
-.case-photos.count-2 { grid-template-columns: 1fr 1fr; }
+/* Victim photos pulled from source articles. Rendered as uniform-sized
+   "specimen plates" — each photo cover-fitted into a 4:5 aspect window
+   with a cream paper mat around it and a fixed-height caption strip
+   below. Source images differ wildly in aspect (portraits, crime
+   scenes, courtroom shots), so the plate is the unit of consistency,
+   not the raw image. Reads as a curated archive rather than a ragged
+   gallery. */
+.case-photos {
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+}
+.case-photos.count-1 { grid-template-columns: 1fr; max-width: 360px; }
+.case-photos.count-2 { grid-template-columns: 1fr 1fr; max-width: 620px; }
 .case-photos.count-3 { grid-template-columns: repeat(3, 1fr); }
-.case-photo { margin: 0; }
-.case-photo img { display: block; width: 100%; height: auto; border: 1px solid var(--hair); filter: grayscale(0.08); }
-.case-photo figcaption { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
-.case-photo figcaption .cap { color: var(--ink-2); }
-.case-photo figcaption .credit { letter-spacing: 0.04em; }
+.case-photo {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  padding: 10px 10px 0;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 200ms, background 200ms;
+}
+.case-photo:hover {
+  border-color: var(--hair-strong);
+  background: var(--paper);
+}
+.case-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  /* "center top" preserves faces (which sit in the upper portion of
+     most portrait photos) when the source image is taller than 4:5 */
+  object-position: center top;
+  filter: grayscale(0.08);
+  background: var(--paper-2);
+}
+.case-photo figcaption {
+  padding: 12px 4px 14px;
+  margin-top: 10px;
+  border-top: 1px solid var(--hair);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Fixed minimum so all caption strips align across a row even when
+     some have just a credit and others have a credit + caption */
+  min-height: 54px;
+}
+.case-photo figcaption .cap {
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.case-photo figcaption .credit {
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
 .case-photo figcaption .credit::before { content: "—\00a0"; color: var(--hair-strong); }
 
 .rule { width: 48px; height: 1px; background: var(--hair-strong); margin: 72px auto; }
@@ -875,7 +929,14 @@ footer.bottom p { margin: 4px 0; }
   .fact:nth-child(odd) { padding-left: 4px; border-left: 0; }
   .fact:nth-child(even) { padding-right: 4px; }
   .rule { margin: 56px auto; }
+  /* Keep 2-col on phone — single-column would render each plate at
+     ~330×413px which dominates the page on mobile. 2-col gives
+     ~150×188 plates that read as a contact-sheet. */
   .case-photos.count-2,
-  .case-photos.count-3 { grid-template-columns: 1fr; }
-  .case-photos { gap: 18px; }
+  .case-photos.count-3 { grid-template-columns: 1fr 1fr; max-width: none; }
+  .case-photos.count-1 { max-width: 280px; }
+  .case-photos { gap: 14px; }
+  .case-photo { padding: 8px 8px 0; }
+  .case-photo figcaption { font-size: 11px; padding: 10px 2px 12px; min-height: 48px; }
+  .case-photo figcaption .credit { font-size: 10.5px; }
 }
