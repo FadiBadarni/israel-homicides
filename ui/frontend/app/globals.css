@@ -738,14 +738,65 @@ footer.bottom p { margin: 4px 0; }
 
 .rule { width: 48px; height: 1px; background: var(--hair-strong); margin: 72px auto; }
 .section-label { text-align: center; font-size: 13px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 32px; }
-.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--hair); }
-.fact { padding: 22px 4px; border-bottom: 1px solid var(--hair); }
-.fact:nth-child(odd) { padding-left: 24px; border-left: 1px solid var(--hair); }
-.fact:nth-child(even) { padding-right: 24px; }
-.fact .k { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.fact .v { font-size: 19px; color: var(--ink); line-height: 1.45; }
-.fact .v.small { font-size: 16px; }
-.fact .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+/* Incident particulars — laid out as a vertical inscription column
+   rather than a 2×2 data grid. Each fact is a centered entry with a
+   small-caps label above an Amiri serif value at display size; entries
+   are separated by a centered three-dot motif in --blood-pale, which
+   threads the same red signal we use elsewhere (region bars, tapestry
+   dots, documenting badge) into the case detail. Reads as a memorial
+   register entry, not a structured data table. */
+.facts {
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  border: 0;
+}
+.fact {
+  position: relative;
+  padding: 22px 0;
+  border: 0;
+  text-align: center;
+}
+/* Override the old 2-column nth-child paddings/borders */
+.fact:nth-child(odd),
+.fact:nth-child(even) {
+  padding-left: 0;
+  padding-right: 0;
+  border-left: 0;
+}
+.fact:not(:last-child)::after {
+  content: "· · ·";
+  display: block;
+  text-align: center;
+  font-size: 16px;
+  letter-spacing: 0.4em;
+  color: var(--blood-pale);
+  margin-top: 22px;
+}
+.fact .k {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.fact .v {
+  font-family: var(--amiri);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.35;
+}
+html[lang="he"] .fact .v { font-family: var(--rashi); }
+.fact .v.small { font-size: 22px; }
+.fact .sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 8px;
+  letter-spacing: 0.02em;
+}
 .note { margin-top: 36px; background: var(--surface); border: 1px solid var(--hair); border-right: 3px solid var(--accent); padding: 18px 22px; font-size: 16px; color: var(--ink-2); line-height: 1.7; }
 .note .note-label { display: block; font-size: 12px; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.04em; }
 .timeline { border-right: 1px solid var(--hair-strong); padding-right: 28px; margin-right: 8px; }
@@ -960,9 +1011,13 @@ footer.bottom p { margin: 4px 0; }
   .case-page { padding: 24px 22px 64px; }
   .case-name { font-size: 48px; }
   .case-summary { font-size: 19px; margin-top: 36px; }
-  .facts { grid-template-columns: 1fr; }
-  .fact:nth-child(odd) { padding-left: 4px; border-left: 0; }
-  .fact:nth-child(even) { padding-right: 4px; }
+  /* Inscription column — scale the serif value down and tighten
+     padding so the rhythm holds on a narrow viewport. */
+  .fact { padding: 16px 0; }
+  .fact .v { font-size: 22px; line-height: 1.35; }
+  .fact .v.small { font-size: 18px; }
+  .fact .k { font-size: 10.5px; margin-bottom: 10px; }
+  .fact:not(:last-child)::after { margin-top: 16px; font-size: 14px; }
   .rule { margin: 56px auto; }
   /* Keep 2-col on phone — single-column would render each plate at
      ~330×413px which dominates the page on mobile. 2-col gives
