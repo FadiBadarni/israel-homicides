@@ -134,7 +134,9 @@ export interface CaseDetail {
   case_narrative_he?: string | null;
   case_narrative_en?: string | null;
   sources: Source[];
+  media?: MediaItem[];
   media_evidence: MediaItem[];
+  aliases?: string[];
   conflicts?: Record<string, unknown> | null;
   conflict_map?: Record<string, unknown> | null;
 }
