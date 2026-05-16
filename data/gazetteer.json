@@ -222,7 +222,8 @@
       "مغار"
     ],
     "aliases_he": [
-      "מגאר"
+      "מגאר",
+      "מרר"
     ],
     "lat": 32.8889,
     "lng": 35.4083
@@ -322,7 +323,9 @@
     ],
     "aliases_he": [
       "אום אל פאחם",
-      "אום אלפחם"
+      "אום אלפחם",
+      "אום אל פחם",
+      "אום אל-פחם"
     ],
     "lat": 32.5167,
     "lng": 35.15
@@ -1304,7 +1307,10 @@
     "name_he": "זרזיר",
     "district": "Northern",
     "lat": 32.7167,
-    "lng": 35.2333
+    "lng": 35.2333,
+    "aliases_ar": [
+      "الزرازير"
+    ]
   },
   {
     "name_en": "Kiryat Ata",
@@ -1315,6 +1321,10 @@
     "lng": 35.1033,
     "aliases_he": [
       "קרית אתא"
+    ],
+    "aliases_ar": [
+      "كريات آتا",
+      "كريات أتا"
     ]
   },
   {
@@ -1414,5 +1424,808 @@
     ],
     "lat": 32.5167,
     "lng": 35.3833
+  },
+  {
+    "name_en": "I'blin",
+    "name_ar": "عبلين",
+    "name_he": "אעבלין",
+    "district": "Northern",
+    "lat": 32.8242,
+    "lng": 35.2003,
+    "region": "Galilee",
+    "aliases_ar": [
+      "إبلين"
+    ],
+    "aliases_he": [
+      "איבלין",
+      "עיבלין"
+    ],
+    "aliases_en": [
+      "Iblin",
+      "Ibillin"
+    ]
+  },
+  {
+    "name_en": "Musmus",
+    "name_ar": "مصمص",
+    "name_he": "מוסמוס",
+    "district": "Haifa",
+    "lat": 32.5283,
+    "lng": 35.0908,
+    "region": "Wadi Ara",
+    "aliases_ar": [
+      "مصمصة"
+    ],
+    "aliases_he": [
+      "מסמס"
+    ]
+  },
+  {
+    "name_en": "Majdal Shams",
+    "name_ar": "مجدل شمس",
+    "name_he": "מג'דל שמס",
+    "district": "Northern",
+    "lat": 33.2683,
+    "lng": 35.78,
+    "region": "Golan Heights",
+    "aliases_he": [
+      "מג'דל שאמס",
+      "מג'דל אל שמס"
+    ],
+    "aliases_en": [
+      "Majdal al-Shams"
+    ]
+  },
+  {
+    "name_en": "Nof HaGalil",
+    "name_ar": "نوف هجليل",
+    "name_he": "נוף הגליל",
+    "district": "Northern",
+    "lat": 32.7172,
+    "lng": 35.3128,
+    "region": "Galilee",
+    "aliases_ar": [
+      "نوف هغليل",
+      "نوف الجليل"
+    ],
+    "aliases_he": [
+      "נוף-הגליל",
+      "נצרת עילית"
+    ],
+    "aliases_en": [
+      "Nof Hagalil",
+      "Nazareth Illit"
+    ]
+  },
+  {
+    "name_en": "Tuba-Zangariyye",
+    "name_ar": "طوبا الزنغرية",
+    "name_he": "טובא-זנגרייה",
+    "district": "Northern",
+    "lat": 32.9883,
+    "lng": 35.5564,
+    "region": "Galilee",
+    "aliases_ar": [
+      "طوبا الزنغريّة",
+      "الزنغرية"
+    ],
+    "aliases_he": [
+      "טובא זנגריה",
+      "טובה זנגריה"
+    ],
+    "aliases_en": [
+      "Tuba",
+      "Tuba Zangariyye"
+    ]
+  },
+  {
+    "name_en": "Arab al-Khawalid",
+    "name_ar": "عرب الخوالد",
+    "name_he": "ערב אל-ח'ואלד",
+    "district": "Northern",
+    "lat": 32.7456,
+    "lng": 35.0817,
+    "region": "Galilee",
+    "aliases_ar": [
+      "الخوالد",
+      "عرب الخوالدة"
+    ],
+    "aliases_he": [
+      "ח'ואלד",
+      "אל ח'ואלד"
+    ],
+    "aliases_en": [
+      "Khawalid",
+      "Khawaled"
+    ]
+  },
+  {
+    "name_en": "Nahariya",
+    "name_ar": "نهريا",
+    "name_he": "נהריה",
+    "district": "Northern",
+    "lat": 33.0079,
+    "lng": 35.095,
+    "region": "Western Galilee",
+    "aliases_ar": [
+      "نهاريا"
+    ]
+  },
+  {
+    "name_en": "Daburiyya",
+    "name_ar": "دبورية",
+    "name_he": "דבוריה",
+    "district": "Northern",
+    "lat": 32.7028,
+    "lng": 35.3839,
+    "region": "Galilee",
+    "aliases_ar": [
+      "دبّورية"
+    ],
+    "aliases_he": [
+      "דבוריא"
+    ],
+    "aliases_en": [
+      "Dabburiya"
+    ]
+  },
+  {
+    "name_en": "al-Mazra'a",
+    "name_ar": "المزرعة",
+    "name_he": "מזרעה",
+    "district": "Northern",
+    "lat": 33.0028,
+    "lng": 35.1419,
+    "region": "Western Galilee",
+    "aliases_ar": [
+      "مزرعة"
+    ],
+    "aliases_he": [
+      "מזרעא"
+    ],
+    "aliases_en": [
+      "Mazra'a",
+      "Mazraa"
+    ]
+  },
+  {
+    "name_en": "Wadi al-Na'am",
+    "name_ar": "وادي النعم",
+    "name_he": "ואדי אל-נעם",
+    "district": "Southern",
+    "lat": 31.2342,
+    "lng": 34.8503,
+    "region": "Negev",
+    "aliases_ar": [
+      "وادي النعام"
+    ],
+    "aliases_he": [
+      "ואדי נעם"
+    ],
+    "aliases_en": [
+      "Wadi an-Na'am",
+      "Wadi al-Naam"
+    ]
+  },
+  {
+    "name_en": "Dahamash",
+    "name_ar": "دهمش",
+    "name_he": "דהמש",
+    "district": "Central",
+    "lat": 31.9853,
+    "lng": 34.8728,
+    "region": "Lod area",
+    "aliases_ar": [
+      "دهامش",
+      "دحمش"
+    ],
+    "aliases_he": [
+      "דהאמש"
+    ],
+    "aliases_en": [
+      "Dahmash",
+      "Daheishe"
+    ]
+  },
+  {
+    "name_en": "Tirat Carmel",
+    "name_ar": "طيرة الكرمل",
+    "name_he": "טירת כרמל",
+    "district": "Haifa",
+    "lat": 32.7639,
+    "lng": 35.0064,
+    "region": "Haifa",
+    "aliases_ar": [
+      "طيرة كرمل"
+    ],
+    "aliases_he": [
+      "טירת הכרמל"
+    ],
+    "aliases_en": [
+      "Tirat HaKarmel"
+    ]
+  },
+  {
+    "name_en": "Beit Jann",
+    "name_ar": "بيت جن",
+    "name_he": "בית ג'ן",
+    "district": "Northern",
+    "lat": 32.9669,
+    "lng": 35.3792,
+    "region": "Galilee",
+    "aliases_ar": [
+      "بيت جان"
+    ],
+    "aliases_he": [
+      "בית ג'אן"
+    ],
+    "aliases_en": [
+      "Beit Jan"
+    ]
+  },
+  {
+    "name_en": "Hurfeish",
+    "name_ar": "حرفيش",
+    "name_he": "חורפיש",
+    "district": "Northern",
+    "lat": 33.0386,
+    "lng": 35.3464,
+    "region": "Galilee",
+    "aliases_ar": [
+      "حرفيش"
+    ],
+    "aliases_en": [
+      "Khurfeish"
+    ]
+  },
+  {
+    "name_en": "Ein Mahil",
+    "name_ar": "عين ماهل",
+    "name_he": "עין מאהל",
+    "district": "Northern",
+    "lat": 32.7253,
+    "lng": 35.3614,
+    "region": "Galilee",
+    "aliases_he": [
+      "עין-מאהל"
+    ],
+    "aliases_en": [
+      "Ein Mahel"
+    ]
+  },
+  {
+    "name_en": "Yokneam",
+    "name_ar": "يوكنعام",
+    "name_he": "יקנעם",
+    "district": "Haifa",
+    "lat": 32.6594,
+    "lng": 35.1067,
+    "region": "Jezreel Valley",
+    "aliases_ar": [
+      "يوقنعام"
+    ],
+    "aliases_he": [
+      "יוקנעם"
+    ],
+    "aliases_en": [
+      "Yokneam Illit"
+    ]
+  },
+  {
+    "name_en": "Nahalal",
+    "name_ar": "نهلال",
+    "name_he": "נהלל",
+    "district": "Northern",
+    "lat": 32.6961,
+    "lng": 35.1981,
+    "region": "Jezreel Valley"
+  },
+  {
+    "name_en": "Eilabun",
+    "name_ar": "عيلبون",
+    "name_he": "עילבון",
+    "district": "Northern",
+    "lat": 32.8261,
+    "lng": 35.3936,
+    "region": "Galilee",
+    "aliases_ar": [
+      "إيلبون"
+    ],
+    "aliases_he": [
+      "איילבון"
+    ],
+    "aliases_en": [
+      "Aylabun",
+      "Ailabun"
+    ]
+  },
+  {
+    "name_en": "Sajur",
+    "name_ar": "ساجور",
+    "name_he": "סאג'ור",
+    "district": "Northern",
+    "lat": 32.9272,
+    "lng": 35.3678,
+    "region": "Galilee",
+    "aliases_he": [
+      "סאג׳ור"
+    ],
+    "aliases_en": [
+      "Sajour"
+    ]
+  },
+  {
+    "name_en": "Tarshiha",
+    "name_ar": "ترشيحا",
+    "name_he": "תרשיחא",
+    "district": "Northern",
+    "lat": 33.025,
+    "lng": 35.2853,
+    "region": "Western Galilee",
+    "aliases_he": [
+      "מעלות-תרשיחא"
+    ],
+    "aliases_en": [
+      "Tarshiha",
+      "Ma'alot-Tarshiha"
+    ]
+  },
+  {
+    "name_en": "Kafr Bara",
+    "name_ar": "كفر برا",
+    "name_he": "כפר ברא",
+    "district": "Central",
+    "lat": 32.1308,
+    "lng": 34.9528,
+    "region": "Triangle",
+    "aliases_he": [
+      "כפר ברה"
+    ]
+  },
+  {
+    "name_en": "al-Mash'had",
+    "name_ar": "المشهد",
+    "name_he": "אל-משהד",
+    "district": "Northern",
+    "lat": 32.7414,
+    "lng": 35.3303,
+    "region": "Galilee",
+    "aliases_ar": [
+      "مشهد"
+    ],
+    "aliases_he": [
+      "משהד",
+      "משחד"
+    ],
+    "aliases_en": [
+      "Mashhad",
+      "Meshhed"
+    ]
+  },
+  {
+    "name_en": "Wadi al-Hamam",
+    "name_ar": "وادي الحمام",
+    "name_he": "ואדי חמאם",
+    "district": "Northern",
+    "lat": 32.8367,
+    "lng": 35.4953,
+    "region": "Galilee",
+    "aliases_he": [
+      "ואדי אל-חמאם"
+    ]
+  },
+  {
+    "name_en": "Shtula",
+    "name_ar": "شتولا",
+    "name_he": "שתולה",
+    "district": "Northern",
+    "lat": 33.0617,
+    "lng": 35.2811,
+    "region": "Western Galilee"
+  },
+  {
+    "name_en": "Karmiel",
+    "name_ar": "كرميئيل",
+    "name_he": "כרמיאל",
+    "district": "Northern",
+    "lat": 32.9192,
+    "lng": 35.3038,
+    "region": "Galilee",
+    "aliases_ar": [
+      "كرمئيل"
+    ]
+  },
+  {
+    "name_en": "Nesher",
+    "name_ar": "نيشر",
+    "name_he": "נשר",
+    "district": "Haifa",
+    "lat": 32.7681,
+    "lng": 35.0408,
+    "region": "Haifa"
+  },
+  {
+    "name_en": "Mu'awiya",
+    "name_ar": "معاوية",
+    "name_he": "מועאויה",
+    "district": "Haifa",
+    "lat": 32.5667,
+    "lng": 35.1283,
+    "region": "Wadi Ara",
+    "aliases_he": [
+      "מעוויה"
+    ],
+    "aliases_en": [
+      "Muawiya"
+    ]
+  },
+  {
+    "name_en": "Kisra-Sumei",
+    "name_ar": "كسرى سميع",
+    "name_he": "כסרא-סמיע",
+    "district": "Northern",
+    "lat": 32.9794,
+    "lng": 35.3431,
+    "region": "Galilee",
+    "aliases_ar": [
+      "كسرى-سميع"
+    ],
+    "aliases_he": [
+      "כיסרא-סומיע"
+    ],
+    "aliases_en": [
+      "Kisra Sumei"
+    ]
+  },
+  {
+    "name_en": "Tamra al-Zu'biyya",
+    "name_ar": "طمرة الزعبية",
+    "name_he": "טמרה הזעבייה",
+    "district": "Northern",
+    "lat": 32.6442,
+    "lng": 35.4072,
+    "region": "Lower Galilee",
+    "aliases_he": [
+      "טמרה זעביה"
+    ]
+  },
+  {
+    "name_en": "Sulam",
+    "name_ar": "سولم",
+    "name_he": "סולם",
+    "district": "Northern",
+    "lat": 32.6058,
+    "lng": 35.3358,
+    "region": "Jezreel Valley"
+  },
+  {
+    "name_en": "Rosh Pina",
+    "name_ar": "روش بينا",
+    "name_he": "ראש פינה",
+    "district": "Northern",
+    "lat": 32.9686,
+    "lng": 35.5419,
+    "region": "Galilee",
+    "aliases_he": [
+      "ראש פנה"
+    ],
+    "aliases_en": [
+      "Rosh Pinna"
+    ]
+  },
+  {
+    "name_en": "Herzliya",
+    "name_ar": "هرتسليا",
+    "name_he": "הרצליה",
+    "district": "Tel Aviv",
+    "lat": 32.1633,
+    "lng": 34.8442,
+    "region": "Coastal",
+    "aliases_ar": [
+      "هرتزليا",
+      "هرتسليه"
+    ]
+  },
+  {
+    "name_en": "Ka'abiyya",
+    "name_ar": "الكعبية",
+    "name_he": "כעבייה",
+    "district": "Northern",
+    "lat": 32.7392,
+    "lng": 35.1808,
+    "region": "Galilee",
+    "aliases_ar": [
+      "كعبية"
+    ],
+    "aliases_he": [
+      "כעבייה-טבאש-חג'אג'רה"
+    ],
+    "aliases_en": [
+      "Ka'abiyya-Tabbash-Hajajre"
+    ]
+  },
+  {
+    "name_en": "Bir Hadaj",
+    "name_ar": "بئر هداج",
+    "name_he": "ביר הדאג'",
+    "district": "Southern",
+    "lat": 30.9181,
+    "lng": 34.7639,
+    "region": "Negev",
+    "aliases_ar": [
+      "بئر هدّاج",
+      "بير هداج"
+    ],
+    "aliases_he": [
+      "ביר הדאג"
+    ],
+    "aliases_en": [
+      "Bir al-Hadaj"
+    ]
+  },
+  {
+    "name_en": "Umm Batin",
+    "name_ar": "أم بطين",
+    "name_he": "אום בטין",
+    "district": "Southern",
+    "lat": 31.2706,
+    "lng": 34.8919,
+    "region": "Negev",
+    "aliases_ar": [
+      "أم بطين (أبو كف)"
+    ],
+    "aliases_he": [
+      "אום בטין"
+    ],
+    "aliases_en": [
+      "Umm Batin"
+    ]
+  },
+  {
+    "name_en": "Abu Qrenat",
+    "name_ar": "أبو قرينات",
+    "name_he": "אבו קוידר",
+    "district": "Southern",
+    "lat": 31.1864,
+    "lng": 34.9889,
+    "region": "Negev",
+    "aliases_en": [
+      "Abu Krinat"
+    ]
+  },
+  {
+    "name_en": "Abu Tlul",
+    "name_ar": "أبو تلول",
+    "name_he": "אבו תלול",
+    "district": "Southern",
+    "lat": 31.1842,
+    "lng": 34.8331,
+    "region": "Negev",
+    "aliases_en": [
+      "Abu Talul"
+    ]
+  },
+  {
+    "name_en": "Drijat",
+    "name_ar": "الدريجات",
+    "name_he": "דריג'את",
+    "district": "Southern",
+    "lat": 31.2792,
+    "lng": 34.9319,
+    "region": "Negev",
+    "aliases_ar": [
+      "دريجات"
+    ]
+  },
+  {
+    "name_en": "Tel Arad",
+    "name_ar": "تل عراد",
+    "name_he": "תל ערד",
+    "district": "Southern",
+    "lat": 31.2861,
+    "lng": 35.1492,
+    "region": "Negev"
+  },
+  {
+    "name_en": "Arad",
+    "name_ar": "عراد",
+    "name_he": "ערד",
+    "district": "Southern",
+    "lat": 31.2589,
+    "lng": 35.2125,
+    "region": "Negev"
+  },
+  {
+    "name_en": "Eilat",
+    "name_ar": "إيلات",
+    "name_he": "אילת",
+    "district": "Southern",
+    "lat": 29.5577,
+    "lng": 34.9519,
+    "region": "Negev",
+    "aliases_ar": [
+      "ايلات"
+    ]
+  },
+  {
+    "name_en": "Re'im",
+    "name_ar": "رعيم",
+    "name_he": "רעים",
+    "district": "Southern",
+    "lat": 31.3225,
+    "lng": 34.4664,
+    "region": "Western Negev"
+  },
+  {
+    "name_en": "Tel Mond",
+    "name_ar": "تل موند",
+    "name_he": "תל מונד",
+    "district": "Central",
+    "lat": 32.2528,
+    "lng": 34.9128,
+    "region": "Sharon"
+  },
+  {
+    "name_en": "Tiberias",
+    "name_ar": "طبرية",
+    "name_he": "טבריה",
+    "district": "Northern",
+    "lat": 32.7959,
+    "lng": 35.5311,
+    "region": "Galilee"
+  },
+  {
+    "name_en": "Kiryat Haim",
+    "name_ar": "كريات حاييم",
+    "name_he": "קריית חיים",
+    "district": "Haifa",
+    "lat": 32.8242,
+    "lng": 35.0489,
+    "region": "Haifa",
+    "aliases_he": [
+      "קרית חיים"
+    ]
+  },
+  {
+    "name_en": "Kiryat Yam",
+    "name_ar": "كريات يام",
+    "name_he": "קריית ים",
+    "district": "Haifa",
+    "lat": 32.8456,
+    "lng": 35.0681,
+    "region": "Haifa",
+    "aliases_he": [
+      "קרית ים"
+    ]
+  },
+  {
+    "name_en": "Pisgat Ze'ev",
+    "name_ar": "بسغات زئيف",
+    "name_he": "פסגת זאב",
+    "district": "Jerusalem",
+    "lat": 31.8253,
+    "lng": 35.2533,
+    "region": "Jerusalem",
+    "aliases_ar": [
+      "بسغات זאב"
+    ]
+  },
+  {
+    "name_en": "Shu'fat Camp",
+    "name_ar": "مخيم شعفاط",
+    "name_he": "מחנה שועפט",
+    "district": "Jerusalem",
+    "lat": 31.8147,
+    "lng": 35.2375,
+    "region": "Jerusalem",
+    "aliases_ar": [
+      "شعفاط"
+    ],
+    "aliases_he": [
+      "שועפאט"
+    ],
+    "aliases_en": [
+      "Shuafat",
+      "Shu'afat"
+    ]
+  },
+  {
+    "name_en": "East Jerusalem",
+    "name_ar": "القدس الشرقية",
+    "name_he": "מזרח ירושלים",
+    "district": "Jerusalem",
+    "lat": 31.7833,
+    "lng": 35.2367,
+    "region": "Jerusalem"
+  },
+  {
+    "name_en": "Neot Hovav",
+    "name_ar": "نيؤوت حوفاف",
+    "name_he": "נאות חובב",
+    "district": "Southern",
+    "lat": 31.1417,
+    "lng": 34.8417,
+    "region": "Negev"
+  },
+  {
+    "name_en": "Tel Dan",
+    "name_ar": "تل دان",
+    "name_he": "תל דן",
+    "district": "Northern",
+    "lat": 33.2467,
+    "lng": 35.6536,
+    "region": "Galilee Panhandle"
+  },
+  {
+    "name_en": "Nitzanei Oz",
+    "name_ar": "ניצני עוז",
+    "name_he": "ניצני עוז",
+    "district": "Central",
+    "lat": 32.3225,
+    "lng": 34.9747,
+    "region": "Sharon"
+  },
+  {
+    "name_en": "Qalqilya",
+    "name_ar": "قلقيلية",
+    "name_he": "קלקיליה",
+    "district": "West Bank",
+    "lat": 32.1903,
+    "lng": 34.9719,
+    "region": "West Bank"
+  },
+  {
+    "name_en": "Ness Ziona",
+    "name_ar": "نس تسيونا",
+    "name_he": "נס ציונה",
+    "district": "Central",
+    "lat": 31.93,
+    "lng": 34.8,
+    "region": "Coastal",
+    "aliases_en": [
+      "Nes Ziona"
+    ]
+  },
+  {
+    "name_en": "Modi'in",
+    "name_ar": "موديعين",
+    "name_he": "מודיעין",
+    "district": "Central",
+    "lat": 31.8989,
+    "lng": 35.0089,
+    "region": "Central",
+    "aliases_ar": [
+      "مودعين"
+    ],
+    "aliases_he": [
+      "מודיעין-מכבים-רעות"
+    ],
+    "aliases_en": [
+      "Modiin"
+    ]
+  },
+  {
+    "name_en": "Wadi Salama",
+    "name_ar": "وادي سلامة",
+    "name_he": "ואדי סלמה",
+    "district": "Northern",
+    "lat": 32.79,
+    "lng": 35.27,
+    "region": "Galilee",
+    "aliases_ar": [
+      "وادي سلّامة"
+    ]
+  },
+  {
+    "name_en": "Wadi Ara",
+    "name_ar": "وادي عارة",
+    "name_he": "ואדי עארה",
+    "district": "Haifa",
+    "lat": 32.5018,
+    "lng": 35.0986,
+    "region": "Wadi Ara",
+    "aliases_he": [
+      "ואדי ערה"
+    ]
   }
 ]
