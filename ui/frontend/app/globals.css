@@ -154,7 +154,7 @@ nav.top .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted);
 nav.top .links a:hover { color: var(--ink); }
 
 /* hero */
-.hero { padding: 80px 0 64px; border-bottom: 1px solid var(--hair); text-align: center; position: relative; overflow: hidden; }
+.hero { padding: 80px 0 64px; border-bottom: 1px solid var(--hair); text-align: center; position: relative; overflow: hidden; z-index: 1; }
 .hero .wrap { position: relative; z-index: 1; }
 .hero .eyebrow { font-size: 13px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 24px; }
 .hero h1 { font-family: var(--amiri); font-weight: 700; font-size: 56px; line-height: 1.55; color: var(--ink); margin: 0 auto 24px; max-width: 800px; text-wrap: balance; }
@@ -183,23 +183,23 @@ nav.top .links a:hover { color: var(--ink); }
   .hero-flower { max-width: 720px; opacity: 0.32; }
 }
 @media (max-width: 520px) {
-  /* Phone: vertical sprig "grows" from the top of the stats section
-     up into the hero. The hero allows vertical overflow at this size
-     so the flower's base can sit a hair below the hero/stats border —
-     reads as planted in the stats and rising into the hero, instead
-     of floating cleanly above the divider line. */
-  .hero { overflow: visible; }
+  /* Phone: full-size vertical sprig planted in the stats section, rising
+     up into the hero. The image's natural height is greater than the
+     hero's, so we use clip-path to define an asymmetric clip region —
+     the top edge is clipped at the hero's top (so the branch can never
+     reach into the nav above) while the bottom inset is negative,
+     leaving generous room for the base to bleed into the stats below. */
+  .hero {
+    overflow: visible;
+    clip-path: inset(0 0 -300px 0);
+  }
   .hero-flower {
     top: auto;
-    bottom: -40px;
+    bottom: -80px;
     left: 0;
     right: auto;
-    /* Smaller width keeps the natural image height short enough that
-       the top of the branch can't reach into the nav. Combined with
-       the lower bottom anchor, the whole flower sits in the bottom
-       third of the hero. */
-    width: 38%;
-    max-width: 160px;
+    width: 50%;
+    max-width: 210px;
     opacity: 0.45;
   }
 }
