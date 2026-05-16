@@ -181,6 +181,19 @@ class MediaHarvester:
         page_names_case = self._ctx_identity_match(page_text, ctx)
 
         if page_names_case:
+            # Arab48 renders the real lead-image caption in a sibling
+            # <p class="category-img-text"> element, not in og:image:alt
+            # (which is the article headline). Capture it once so the
+            # classifier sees "من مكان الجريمة في {city}" instead of
+            # falling back to a CLIP guess on the watermarked banner.
+            lead_caption_tag = soup.find(
+                "p", class_=re.compile(r"\bcategory-img-text\b", re.I)
+            )
+            lead_caption = (
+                lead_caption_tag.get_text(" ", strip=True)
+                if lead_caption_tag
+                else None
+            )
             for cand in self._extract_meta_tags(soup, base_url):
                 if self._arab48_url_allowed(cand.source_url):
                     # Arab48 meta alt text is often the article headline, not an
@@ -191,6 +204,8 @@ class MediaHarvester:
                         cand.alt_text = None
                     cand.surrounding_text = None
                     cand.discovery_selector = "arab48:case_named_lead"
+                    if lead_caption:
+                        cand.caption = lead_caption
                     yield cand
 
         content_root = self._find_arab48_content_root(soup)

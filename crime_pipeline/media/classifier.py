@@ -131,6 +131,7 @@ _KEYWORDS_BY_CATEGORY: dict[MediaCategory, list[str]] = {
         "scene", "crime scene", "shooting site", "location of",
         "זירה", "זירת הרצח", "זירת הירי", "מקום האירוע",
         "موقع الجريمة", "مكان الحادث", "موقع إطلاق النار",
+        "مكان الجريمة", "مسرح الجريمة", "من مكان",
     ],
     "weapon": [
         "weapon", "firearm", "gun", "handgun", "pistol", "knife",
