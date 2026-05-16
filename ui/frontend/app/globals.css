@@ -150,8 +150,15 @@ nav.top .brand-mark {
   /* mix-blend-multiply removes the white png margin against the cream paper */
   mix-blend-mode: multiply;
 }
-nav.top .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
+nav.top .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted); align-items: center; flex-wrap: wrap; row-gap: 6px; }
 nav.top .links a:hover { color: var(--ink); }
+
+/* Hebrew "רישום הקרבנות" in Frank Ruhl Libre measures wider than the
+   Arabic brand in Amiri at the same font-size, which used to push the
+   nav row past the wrap point on narrower desktops. Tighten the Hebrew
+   brand + link gap so the row stays on a single line. */
+html[lang="he"] nav.top .brand { font-size: 18px; }
+html[lang="he"] nav.top .links { gap: 20px; }
 
 /* hero */
 .hero { padding: 80px 0 64px; border-bottom: 1px solid var(--hair); text-align: center; position: relative; overflow: hidden; z-index: 1; }
@@ -671,6 +678,11 @@ footer.bottom p { margin: 4px 0; }
 /* responsive */
 @media (max-width: 880px) {
   .wrap { padding: 0 24px; }
+  /* nav row gracefully wraps if Hebrew (or any longer brand) pushes the
+     brand+links beyond the content area — links drop to a second line
+     under the brand instead of overflowing the viewport. AR content
+     stays single-line at this width because nothing actually overflows. */
+  nav.top .row { flex-wrap: wrap; row-gap: 10px; }
   .hero { padding: 64px 0 52px; }
   .hero h1 { font-size: 44px; line-height: 1.5; }
   .hero .lede { font-size: 18px; line-height: 1.75; }
