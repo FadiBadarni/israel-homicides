@@ -767,13 +767,16 @@ footer.bottom p { margin: 4px 0; }
   .filter { padding: 11px 14px; font-size: 13px; flex-shrink: 0; white-space: nowrap; }
   .filter .count { font-size: 11px; }
 
-  /* cases — single column on phone */
-  .cases { grid-template-columns: 1fr; }
-  .case { padding: 20px 16px 22px; border-left: 0 !important; }
-  .case:nth-child(3n) { border-left: 0; }
-  .case .name { font-size: 24px; line-height: 1.5; }
-  .case .summary { font-size: 13.5px; }
-  .case .footer { padding-top: 12px; }
+  /* cases — keep the tablet 2-column layout on phone too; tighten
+     padding and shrink the name so longer victim names fit the
+     narrower columns without ugly wrapping. */
+  .case { padding: 18px 14px 20px; }
+  .case .name { font-size: 19px; line-height: 1.45; }
+  .case .meta { font-size: 13px; }
+  .case .meta .sep { margin: 0 6px; }
+  .case .summary { font-size: 13px; }
+  .case .footer { padding-top: 12px; font-size: 11px; }
+  .case .badge { padding: 1px 6px; font-size: 10.5px; }
 
   /* regions — keep tablet 2×2 layout; tighten sizing for phone widths */
   .region { padding: 18px 12px; }
