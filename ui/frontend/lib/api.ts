@@ -1,4 +1,12 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+// Data source. Defaults to static JSON files baked into the build by
+// scripts/export_static_data.py. Set NEXT_PUBLIC_API_URL to point at a
+// live FastAPI backend if you're iterating on the API itself.
+//
+// Static layout:
+//   /data/memorial.json
+//   /data/cases/{runId}/{caseIndex}.json
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+const USE_STATIC = !API_BASE;
 
 export interface DeathSummary {
   case_index: number;
@@ -132,15 +140,17 @@ export interface CaseDetail {
 }
 
 export async function fetchMemorial(): Promise<MemorialResponse> {
-  const res = await fetch(`${API_BASE}/api/memorial`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const url = USE_STATIC ? "/data/memorial.json" : `${API_BASE}/api/memorial`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetch error ${res.status} (${url})`);
   return res.json();
 }
 
 export async function fetchCase(runId: string, caseIndex: number): Promise<CaseDetail> {
-  const res = await fetch(`${API_BASE}/api/cases/${runId}/${caseIndex}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const url = USE_STATIC
+    ? `/data/cases/${runId}/${caseIndex}.json`
+    : `${API_BASE}/api/cases/${runId}/${caseIndex}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetch error ${res.status} (${url})`);
   return res.json();
 }
