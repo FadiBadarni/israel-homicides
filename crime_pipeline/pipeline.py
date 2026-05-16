@@ -293,26 +293,34 @@ class Pipeline:
             cases = await asyncio.to_thread(self._run_cleanup, cases, stages)
 
         # ── Narrate ───────────────────────────────────────────────────
-        # LLM-generated 2-3 sentence memorial summary per case (ar/he/en).
-        # Cached per (canonical_case_id, sources_hash) so re-runs are free.
-        # Skipped when ``narrate`` is not in the requested stages or when
-        # --no-narrate disabled the stage at the CLI.
-        if cases and self.run_narration and "narrate" in stages:
-            from crime_pipeline.enrichment.narrator import narrate_cases
+        # Two parts: (1) attach existing cached narratives (free, always
+        # safe — runs even with --no-narrate so rebuilds don't regress
+        # already-populated UI text); (2) generate fresh narratives for
+        # cache misses (paid, gated by --narrate). Without (1), the gated
+        # generator never reads the cache and previously narrated cases
+        # roll out with empty narrative_* fields.
+        if cases and "narrate" in stages:
+            from crime_pipeline.enrichment.narrator import (
+                attach_cached_narrations,
+                narrate_cases,
+            )
             from crime_pipeline.models import CanonicalCaseSchema
             case_dicts = [c.model_dump(mode="json") for c in cases]
-            try:
-                counter = await narrate_cases(
-                    case_dicts,
-                    api_key=self.settings.gemini_api_key,
-                    session_factory=db_module.SessionLocal,
-                    model=self.settings.llm_model,
-                )
-                self.stats["narration"] = counter
-                cases = [CanonicalCaseSchema(**d) for d in case_dicts]
-            except Exception as exc:  # noqa: BLE001
-                log.warning("narration_stage_failed", error=str(exc))
-                self.stats["narration_error"] = str(exc)
+            attached = attach_cached_narrations(case_dicts, db_module.SessionLocal)
+            self.stats["narration_cache_hits"] = attached
+            if self.run_narration:
+                try:
+                    counter = await narrate_cases(
+                        case_dicts,
+                        api_key=self.settings.gemini_api_key,
+                        session_factory=db_module.SessionLocal,
+                        model=self.settings.llm_model,
+                    )
+                    self.stats["narration"] = counter
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("narration_stage_failed", error=str(exc))
+                    self.stats["narration_error"] = str(exc)
+            cases = [CanonicalCaseSchema(**d) for d in case_dicts]
 
         # Persist the final canonical representation after deterministic cleanup
         # so SQLite and exported JSON describe the same cases.
@@ -482,28 +490,33 @@ class Pipeline:
         )
 
         # ── Stage I: Narrate ──────────────────────────────────────────
-        # 2-3 sentence memorial summary per case in ar/he/en. Cached by
-        # (canonical_case_id, sources_hash) so re-runs only spend API
-        # calls on new or source-changed cases. Mutates ``cases`` (which
-        # are pydantic models) by populating case_narrative_{ar,he,en}.
-        if cases and self.run_narration:
-            from crime_pipeline.enrichment.narrator import narrate_cases
+        # Two parts: (1) attach existing cached narratives (free, always
+        # runs — without this, --no-narrate rebuilds silently drop
+        # previously generated narrative_* text from canonical_cases);
+        # (2) generate fresh narratives for cache misses (paid, opt-in).
+        if cases:
+            from crime_pipeline.enrichment.narrator import (
+                attach_cached_narrations,
+                narrate_cases,
+            )
             case_dicts = [c.model_dump(mode="json") for c in cases]
-            try:
-                counter = await narrate_cases(
-                    case_dicts,
-                    api_key=self.settings.gemini_api_key,
-                    session_factory=db_module.SessionLocal,
-                    model=self.settings.llm_model,
-                )
-                self.stats["narration"] = counter
-            except Exception as exc:  # noqa: BLE001
-                log.warning("narration_stage_failed", error=str(exc))
-                self.stats["narration_error"] = str(exc)
+            attached = attach_cached_narrations(case_dicts, db_module.SessionLocal)
+            self.stats["narration_cache_hits"] = attached
+            if self.run_narration:
+                try:
+                    counter = await narrate_cases(
+                        case_dicts,
+                        api_key=self.settings.gemini_api_key,
+                        session_factory=db_module.SessionLocal,
+                        model=self.settings.llm_model,
+                    )
+                    self.stats["narration"] = counter
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("narration_stage_failed", error=str(exc))
+                    self.stats["narration_error"] = str(exc)
             # Reconstruct from the (potentially partially mutated) dicts
-            # whether or not the stage succeeded — any narratives that
-            # were generated before an error are still present on the
-            # dicts and must not be dropped.
+            # whether or not generation ran — cached attachments above
+            # must be preserved.
             cases = [CanonicalCaseSchema(**d) for d in case_dicts]
 
         # ── Persist + export ──────────────────────────────────────────

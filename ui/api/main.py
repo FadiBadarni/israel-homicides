@@ -8,7 +8,6 @@ Start with:
     uvicorn ui.api.main:app --reload --port 8001
 """
 
-
 from __future__ import annotations
 
 import json
