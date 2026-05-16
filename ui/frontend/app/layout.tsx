@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/language-context";
 import { PageTransition } from "@/components/page-transition";
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <PageTransition>{children}</PageTransition>
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
