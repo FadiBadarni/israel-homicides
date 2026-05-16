@@ -2239,5 +2239,42 @@
     "aliases_he": [
       "ואדי ערה"
     ]
+  },
+  {
+    "name_en": "Ibtin",
+    "name_ar": "إبتين",
+    "name_he": "איבטין",
+    "district": "Northern",
+    "region": "Lower Galilee",
+    "lat": 32.7167,
+    "lng": 35.1417,
+    "aliases_ar": [
+      "إبثان",
+      "إبثين"
+    ]
+  },
+  {
+    "name_en": "Tal-Ad",
+    "name_ar": "تلعد",
+    "name_he": "תלעד",
+    "district": "Southern",
+    "region": "Negev",
+    "lat": 31.15,
+    "lng": 34.85,
+    "aliases_ar": [
+      "تل عاد"
+    ]
+  },
+  {
+    "name_en": "Awjan",
+    "name_ar": "عوجان",
+    "name_he": "אווג'אן",
+    "district": "Southern",
+    "region": "Negev",
+    "lat": 31.22,
+    "lng": 34.9,
+    "aliases_ar": [
+      "الأوجان"
+    ]
   }
 ]
