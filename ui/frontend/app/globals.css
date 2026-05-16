@@ -191,11 +191,15 @@ nav.top .links a:hover { color: var(--ink); }
   .hero { overflow: visible; }
   .hero-flower {
     top: auto;
-    bottom: -24px;
+    bottom: -40px;
     left: 0;
     right: auto;
-    width: 50%;
-    max-width: 210px;
+    /* Smaller width keeps the natural image height short enough that
+       the top of the branch can't reach into the nav. Combined with
+       the lower bottom anchor, the whole flower sits in the bottom
+       third of the hero. */
+    width: 38%;
+    max-width: 160px;
     opacity: 0.45;
   }
 }
