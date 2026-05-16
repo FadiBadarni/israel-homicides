@@ -121,6 +121,9 @@ _KEYWORDS_BY_CATEGORY: dict[MediaCategory, list[str]] = {
         "victim", "deceased", "killed", "the late",
         "קרבן", "ז\"ל", "המנוח", "הנרצח", "הצעיר שנרצח",
         "الضحية", "المرحوم", "القتيل", "الراحل",
+        # Bare forms (without definite article ال) — captions often say
+        # "ضحية الجريمة X" (victim of the crime) rather than "الضحية X".
+        "ضحية", "قتيل", "شهيد", "مغدور",
     ],
     "suspect_portrait": [
         "suspect", "accused", "alleged",
@@ -164,6 +167,35 @@ _KEYWORDS_BY_CATEGORY: dict[MediaCategory, list[str]] = {
         "للتوضيح", "أرشيف", "صورة من الأرشيف",
     ],
 }
+
+
+# Family-relation phrases that, when followed by a victim/suspect keyword,
+# indicate the IMAGE depicts a relative — not the victim themselves.
+# e.g. "جد القتيل خالد" = "the grandfather of the deceased Khaled" → the
+# photo is of the grandfather, not Khaled. Without this guard the keyword
+# scorer matches "القتيل" and falsely classifies relatives as victim_portrait.
+_FAMILY_RELATIONS_AR = (
+    "جد", "جدة", "والد", "والدة", "أب", "أم",
+    "أخ", "أخت", "شقيق", "شقيقة",
+    "ابن", "ابنة", "نجل", "نجلة",
+    "زوج", "زوجة", "أرملة",
+    "عم", "عمة", "خال", "خالة",
+)
+_VICTIM_KEYWORDS_FOR_RELATION_AR = (
+    "القتيل", "الضحية", "المرحوم", "الراحل", "الشهيد",
+    "قتيل", "ضحية", "شهيد", "مغدور",
+)
+_FAMILY_RELATION_PHRASES_AR = tuple(
+    f"{rel} {kw}"
+    for rel in _FAMILY_RELATIONS_AR
+    for kw in _VICTIM_KEYWORDS_FOR_RELATION_AR
+)
+
+
+def _caption_is_relative_of_victim(text: str) -> bool:
+    """Return True when the caption names the image subject as a family
+    member OF the victim (rather than the victim themselves)."""
+    return any(phrase in text for phrase in _FAMILY_RELATION_PHRASES_AR)
 
 
 @dataclass
@@ -240,6 +272,18 @@ class MediaClassifier:
             cand.classifier_tier = "keyword"
             cand.classification_confidence = 0.2
             cand.classification_evidence.append("keyword:no_text_signal")
+            return
+
+        # Family-relation guard: captions like "جد القتيل خالد عاصلة" name
+        # the victim possessively but the IMAGE is of the relative. Skip
+        # the victim/suspect classifiers entirely so neither the name-match
+        # nor the keyword-match falsely promote the photo to victim_portrait.
+        if _caption_is_relative_of_victim(text):
+            cand.classification = "other"
+            cand.classifier_tier = "keyword"
+            cand.classification_confidence = 0.3
+            cand.classification_evidence.append("keyword:family_relation_of_victim")
+            self._mark_stock_signals(cand, text)
             return
 
         # Caption-name match → strongest signal.
