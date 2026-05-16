@@ -1373,5 +1373,46 @@
     "aliases_ar": [
       "أسقلان"
     ]
+  },
+  {
+    "name_en": "Ara",
+    "name_ar": "عارة",
+    "name_he": "עארה",
+    "district": "Haifa",
+    "region": "Wadi Ara",
+    "aliases_ar": [
+      "عاره"
+    ],
+    "aliases_he": [
+      "ערה"
+    ],
+    "aliases_en": [
+      "'Ara",
+      "Arah"
+    ],
+    "lat": 32.5018,
+    "lng": 35.0986
+  },
+  {
+    "name_en": "Al-Muqeibila",
+    "name_ar": "المقيبلة",
+    "name_he": "מוקייבלה",
+    "district": "Northern",
+    "region": "Jezreel Valley",
+    "aliases_ar": [
+      "مقيبلة",
+      "المقيبله"
+    ],
+    "aliases_he": [
+      "מוקיבלה",
+      "מקיבלה"
+    ],
+    "aliases_en": [
+      "Muqeibila",
+      "Al Muqeibila",
+      "Mukeible"
+    ],
+    "lat": 32.5167,
+    "lng": 35.3833
   }
 ]
