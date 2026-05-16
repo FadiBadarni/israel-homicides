@@ -279,7 +279,8 @@ export default function CaseDetailPage({ params }: PageProps) {
             <div className="section-label">{t(lang, "case.sources_label")}</div>
             <div className="sources-list">
               {c.sources.map((s, i) => {
-                const publisher =
+                const label =
+                  s.title ||
                   s.source_name ||
                   s.actual_publisher ||
                   s.domain ||
@@ -290,19 +291,10 @@ export default function CaseDetailPage({ params }: PageProps) {
                       return s.url;
                     }
                   })();
-                // Show the article title only when it adds information
-                // beyond the publisher name (avoids "Ynet — Ynet" rows).
-                const title = s.title && s.title !== publisher ? s.title : null;
                 return (
                   <div className="source-item" key={i}>
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="source-link"
-                    >
-                      <span className="source-pub">{publisher}</span>
-                      {title && <span className="source-title">{title}</span>}
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="source-pub">
+                      {label}
                     </a>
                     <span className="source-date">{formatDate(s.published_at, lang)}</span>
                   </div>

@@ -811,91 +811,11 @@ html[lang="he"] .fact .v { font-family: var(--rashi); }
 .tl-date { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 .tl-title { font-size: 18px; color: var(--ink); font-weight: 500; }
 .tl-text { font-size: 15px; color: var(--ink-2); margin-top: 4px; line-height: 1.6; }
-/* Sources — rendered as a vertical reporting thread. A hairline runs
-   down the leading edge, with a small dot pinning each source onto
-   the thread. Reads as a documentary timeline of how the case was
-   covered rather than a list of links. Hover marks the dot in blood
-   and the title's underline in blood — the same red signal that
-   threads through the rest of the page. */
-.sources-list {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding-right: 36px;
-}
-.sources-list::before {
-  content: "";
-  position: absolute;
-  top: 22px;
-  bottom: 22px;
-  right: 8px;
-  width: 1px;
-  background: var(--hair-strong);
-}
-.source-item {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 20px;
-  align-items: baseline;
-  padding: 18px 0;
-}
-.source-item:not(:first-child) { border-top: 1px solid var(--hair); }
-.source-item::before {
-  content: "";
-  position: absolute;
-  right: -33px;
-  top: 26px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--paper);
-  border: 1.5px solid var(--ink-2);
-  transition: background 200ms, border-color 200ms, transform 200ms;
-}
-.source-item:hover::before {
-  background: var(--blood);
-  border-color: var(--blood);
-  transform: scale(1.15);
-}
-.source-link {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-decoration: none;
-  color: inherit;
-  min-width: 0;
-}
-.source-pub {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
-  transition: color 150ms;
-}
-.source-link:hover .source-pub { color: var(--blood); }
-.source-title {
-  font-family: var(--amiri);
-  font-size: 17px;
-  font-weight: 400;
-  color: var(--ink);
-  line-height: 1.5;
-  text-decoration: underline;
-  text-decoration-color: var(--hair-strong);
-  text-underline-offset: 4px;
-  transition: text-decoration-color 150ms;
-}
-html[lang="he"] .source-title { font-family: var(--rashi); }
-.source-link:hover .source-title { text-decoration-color: var(--blood); }
-.source-date {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  padding-top: 3px;
-}
+.sources-list { display: flex; flex-direction: column; }
+.source-item { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 16px 0; border-top: 1px solid var(--hair); }
+.source-item:last-child { border-bottom: 1px solid var(--hair); }
+.source-pub { font-size: 17px; color: var(--ink); }
+.source-date { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .case-footer { margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--hair); text-align: center; font-size: 13px; color: var(--muted); line-height: 1.8; }
 .case-footer p { margin: 6px 0; }
 
