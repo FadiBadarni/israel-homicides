@@ -209,15 +209,33 @@ class MediaHarvester:
                 part for part in (cand.figcaption, cand.caption, cand.alt_text)
                 if part
             )
-            if not text:
-                continue
-            text_norm = self._normalise(text)
-            if self._ctx_identity_match(text_norm, ctx):
+            text_norm = self._normalise(text) if text else ""
+            if text_norm and self._ctx_identity_match(text_norm, ctx):
                 cand.discovery_selector = f"arab48:body:{cand.discovery_selector}"
                 yield cand
                 continue
-            if self._ctx_city_match(text_norm, ctx) and self._has_arab48_context_marker(text_norm):
+            if (
+                text_norm
+                and self._ctx_city_match(text_norm, ctx)
+                and self._has_arab48_context_marker(text_norm)
+            ):
                 cand.discovery_selector = f"arab48:body:{cand.discovery_selector}"
+                yield cand
+                continue
+            # Captionless body image in a verified-relevant article. Arab48
+            # places editorial body photos under /bodyImages/images/ and
+            # related-news thumbnails under /280-211/ (already rejected by
+            # _arab48_url_allowed). When the page itself names the case,
+            # trust the captionless body image and let the classifier label
+            # it crime_scene/portrait/other downstream.
+            if (
+                not text
+                and page_names_case
+                and "/bodyimages/images/" in cand.source_url.lower()
+            ):
+                cand.discovery_selector = (
+                    f"arab48:body:captionless:{cand.discovery_selector}"
+                )
                 yield cand
 
     def _find_arab48_content_root(self, soup: BeautifulSoup) -> Optional[Tag]:
