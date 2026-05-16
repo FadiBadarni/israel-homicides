@@ -171,7 +171,7 @@ nav.top .links a:hover { color: var(--ink); }
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   opacity: 0.35;
   z-index: 0;
@@ -181,6 +181,13 @@ nav.top .links a:hover { color: var(--ink); }
 .hero-flower img { display: block; width: 100%; height: auto; }
 @media (max-width: 880px) {
   .hero-flower { max-width: 720px; opacity: 0.32; }
+}
+/* Ultra-wide displays (21:9 / 32:9 / 4K with no zoom): the page content
+   is centered in ~1080px while the viewport spans 2000px+. A flower
+   capped at 1600px on a 3000px-wide screen reads as an isolated
+   artifact rather than a watermark. Hide it cleanly past this width. */
+@media (min-width: 2000px) {
+  .hero-flower { display: none; }
 }
 @media (max-width: 520px) {
   /* Phone: full-size vertical sprig planted in the stats section, rising
