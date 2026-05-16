@@ -264,6 +264,15 @@ class MediaHarvester:
             parts.append(h1.get_text(" ", strip=True))
         if soup.title:
             parts.append(soup.title.get_text(" ", strip=True))
+        # Include article body so roundup pieces (where URL/title cover
+        # multiple incidents but the body names each victim) still
+        # resolve as case-named for the specific victim being processed.
+        # Per-case precision filters in media/pipeline.py reject lead
+        # images whose own caption points at a different victim/city,
+        # so leniency here is safe.
+        root = self._find_arab48_content_root(soup)
+        if root is not None:
+            parts.append(root.get_text(" ", strip=True))
         return self._normalise(" ".join(parts))
 
     @staticmethod
