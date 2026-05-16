@@ -226,8 +226,39 @@ async def _generate_one(
 
 
 # ---------------------------------------------------------------------------
-# Public entrypoint
+# Public entrypoints
 # ---------------------------------------------------------------------------
+
+
+def attach_cached_narrations(
+    cases: list[dict[str, Any]],
+    session_factory: Any,
+) -> int:
+    """Populate ``case_narrative_{ar,he,en}`` from the cache only — no API.
+
+    Counterpart to ``narrate_cases`` for cost-sensitive paths (e.g. a
+    ``--build-canonical --no-narrate`` rebuild). Cached entries are zero-
+    cost; without this hook, rebuilds silently drop previously generated
+    narratives because the gated generator never reads the cache.
+
+    Returns the number of cases that received cached narratives.
+    """
+    if not cases:
+        return 0
+    attached = 0
+    with session_factory() as session:
+        for case in cases:
+            case_id = case.get("canonical_case_id") or ""
+            if not case_id:
+                continue
+            h = _sources_hash(case)
+            cached = _read_cache(session, case_id, h)
+            if cached and any(cached.values()):
+                case["case_narrative_ar"] = cached.get("ar")
+                case["case_narrative_he"] = cached.get("he")
+                case["case_narrative_en"] = cached.get("en")
+                attached += 1
+    return attached
 
 
 async def narrate_cases(

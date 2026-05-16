@@ -635,29 +635,57 @@ footer.bottom p { margin: 4px 0; }
 .case-summary { font-family: var(--amiri); font-size: 22px; line-height: 1.85; color: var(--ink-2); text-align: center; max-width: 580px; margin: 48px auto 0; text-wrap: pretty; }
 .case-summary strong { color: var(--ink); font-weight: 700; }
 
-/* Victim photos pulled from source articles. Rendered as uniform-sized
-   "specimen plates" — each photo cover-fitted into a 4:5 aspect window
-   with a cream paper mat around it and a fixed-height caption strip
-   below. Source images differ wildly in aspect (portraits, crime
-   scenes, courtroom shots), so the plate is the unit of consistency,
-   not the raw image. Reads as a curated archive rather than a ragged
-   gallery. */
+/* Victim photos pulled from source articles. Each image is rendered as
+   a printed photograph mounted on a cream paper mat — subtle diagonal
+   paper grain, a thin shadow under the print itself so it floats above
+   the mat, and a hairline-divided caption strip below. For 3+ photos
+   the layout breaks from a uniform grid into an asymmetric editorial
+   spread: the first photo becomes a tall feature, supporting photos
+   stack beside it in landscape orientation. Source aspect ratios vary
+   wildly (portraits, crime scenes, courtroom shots) so the *plate* is
+   the unit of consistency, not the raw image. */
 .case-photos {
   margin: 0 auto;
   display: grid;
   gap: 20px;
 }
-.case-photos.count-1 { grid-template-columns: 1fr; max-width: 360px; }
-.case-photos.count-2 { grid-template-columns: 1fr 1fr; max-width: 620px; }
-.case-photos.count-3 { grid-template-columns: repeat(3, 1fr); }
+.case-photos.count-1 { grid-template-columns: 1fr; max-width: 380px; }
+.case-photos.count-2 { grid-template-columns: 1fr 1fr; max-width: 640px; }
+/* Asymmetric triptych — first image is the feature (1.6× wider, spans
+   two rows), supporting images stack on the trailing side. Reads as a
+   magazine spread rather than a uniform 3-cell row. */
+.case-photos.count-3 {
+  grid-template-columns: 1.6fr 1fr;
+  max-width: 720px;
+  align-items: stretch;
+}
+.case-photos.count-3 .case-photo:first-child { grid-row: span 2; }
+.case-photos.count-3 .case-photo:first-child img { aspect-ratio: 4 / 5; }
+.case-photos.count-3 .case-photo:not(:first-child) img { aspect-ratio: 4 / 3; }
+
 .case-photo {
   margin: 0;
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--hair);
-  padding: 10px 10px 0;
+  padding: 14px 14px 0;
   display: flex;
   flex-direction: column;
   transition: border-color 200ms, background 200ms;
+}
+/* Extremely faint diagonal paper grain across the entire mat. The
+   stripes are too subtle to register as a pattern but give the cream
+   fill the impression of real paper texture rather than a flat color. */
+.case-photo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 6px,
+    rgba(117, 109, 95, 0.025) 6px 7px
+  );
 }
 .case-photo:hover {
   border-color: var(--hair-strong);
@@ -673,10 +701,17 @@ footer.bottom p { margin: 4px 0; }
   object-position: center top;
   filter: grayscale(0.08);
   background: var(--paper-2);
+  /* Hair-thin shadow so the image reads as a printed photograph
+     mounted on the mat, not a CSS rectangle on a CSS background */
+  box-shadow: 0 1px 3px rgba(28, 26, 22, 0.14);
+  position: relative;
+  z-index: 1;
 }
 .case-photo figcaption {
+  position: relative;
+  z-index: 1;
   padding: 12px 4px 14px;
-  margin-top: 10px;
+  margin-top: 12px;
   border-top: 1px solid var(--hair);
   font-size: 12px;
   color: var(--muted);
@@ -684,8 +719,8 @@ footer.bottom p { margin: 4px 0; }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Fixed minimum so all caption strips align across a row even when
-     some have just a credit and others have a credit + caption */
+  /* Fixed minimum so caption strips align across a row even when some
+     have just a credit and others have a credit + caption */
   min-height: 54px;
 }
 .case-photo figcaption .cap {
@@ -931,12 +966,18 @@ footer.bottom p { margin: 4px 0; }
   .rule { margin: 56px auto; }
   /* Keep 2-col on phone — single-column would render each plate at
      ~330×413px which dominates the page on mobile. 2-col gives
-     ~150×188 plates that read as a contact-sheet. */
+     ~150×188 plates that read as a contact-sheet. The asymmetric
+     triptych for count-3 collapses back to a uniform grid here too:
+     the feature/supporting ratio doesn't have room to breathe at
+     narrow widths. */
   .case-photos.count-2,
   .case-photos.count-3 { grid-template-columns: 1fr 1fr; max-width: none; }
   .case-photos.count-1 { max-width: 280px; }
+  .case-photos.count-3 .case-photo:first-child { grid-row: auto; }
+  .case-photos.count-3 .case-photo:first-child img,
+  .case-photos.count-3 .case-photo:not(:first-child) img { aspect-ratio: 4 / 5; }
   .case-photos { gap: 14px; }
-  .case-photo { padding: 8px 8px 0; }
+  .case-photo { padding: 10px 10px 0; }
   .case-photo figcaption { font-size: 11px; padding: 10px 2px 12px; min-height: 48px; }
   .case-photo figcaption .credit { font-size: 10.5px; }
 }
