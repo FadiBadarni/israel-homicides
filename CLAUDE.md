@@ -337,19 +337,41 @@ Key files:
 - `components/year-scrubber.tsx`, `components/death-count.tsx` — peripheral chrome.
 - `lib/project.ts` — equirectangular projection + the Israel-outline polygon coordinates.
 
-Backend dependency:
-- `GET /api/memorial` aggregates the latest run's `died` cases by locality, attaching
-  `lat`/`lng` from the gazetteer. Cases without a gazetteer match are counted in
-  `unresolved_count` and excluded.
+Data flow:
+- In production the frontend reads static JSON from `ui/frontend/public/data/`:
+  - `memorial.json` (~250 KB) — the locality+deaths aggregation
+  - `cases/canonical/{idx}.json` (~6 KB each, ~870 files) — one per case
+- `scripts/export_static_data.py` mirrors the FastAPI logic and writes these files
+  from the canonical_cases table. Run it after any data change, then `git add ui/frontend/public/data && git push`.
+- `lib/api.ts` defaults to static paths; set `NEXT_PUBLIC_API_URL=http://localhost:8001`
+  in `ui/frontend/.env.local` to point at the FastAPI backend instead (only needed
+  when iterating on the API surface itself).
+
+Backend (FastAPI at `ui/api/main.py`) is **optional for production** — kept as a
+dev convenience for live data without re-exporting. Vercel deploys frontend-only.
 
 Tests:
 - Backend: `pytest tests/test_memorial_endpoint.py tests/test_gazetteer_coords.py`
 - Frontend smoke: `cd ui/frontend && npm run test:e2e` (Playwright; auto-starts dev server, stubs the API)
 
-Start order:
+Local dev (pick one):
 ```bash
-uvicorn ui.api.main:app --reload --port 8001   # backend
-cd ui/frontend && npm run dev                  # frontend (port 3000)
+# Static-data mode (no backend; what production runs):
+cd ui/frontend && npm run export-data    # regenerate public/data/ from SQLite
+cd ui/frontend && npm run dev            # frontend on port 3000
+
+# Live-API mode (when iterating on the API):
+uvicorn ui.api.main:app --reload --port 8001
+echo "NEXT_PUBLIC_API_URL=http://localhost:8001" > ui/frontend/.env.local
+cd ui/frontend && npm run dev
+```
+
+Deploy:
+```bash
+python scripts/export_static_data.py     # refresh public/data/ JSON
+git add ui/frontend/public/data
+git commit -m "data: refresh memorial export"
+git push                                  # Vercel auto-rebuilds
 ```
 
 ---

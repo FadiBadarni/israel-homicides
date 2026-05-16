@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib tests --ext .ts,.tsx",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "export-data": "cd ../.. && python scripts/export_static_data.py"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.2",
