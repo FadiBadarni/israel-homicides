@@ -242,6 +242,10 @@ class TestHarvester:
     def test_arab48_source_harvester_is_case_aware(self, settings):
         """Arab48 uses a source-specific path before generic classification."""
         lead = "https://data.arab48.com/data/news/2026/01/03/facebook_waterMark/bakr.png"
+        # The arab48 lead extractor rewrites /facebook_waterMark/X.png to /X.jpg
+        # (canonical un-watermarked variant) so the case page doesn't show the
+        # fake-play-button overlay arab48 bakes into the share image.
+        lead_rewritten = "https://data.arab48.com/data/news/2026/01/03/bakr.jpg"
         scene = "https://data.arab48.com/data/news/2026/01/03/bodyImages/images/scene.jpg"
         wrong_victim = (
             "https://data.arab48.com/data/news/2026/01/05/bodyImages/images/"
@@ -279,7 +283,7 @@ class TestHarvester:
         h = MediaHarvester(settings)
         cands = h.harvest(html, ctx.article_url, ctx)
         urls = {c.source_url for c in cands}
-        assert urls == {lead, scene}
+        assert urls == {lead_rewritten, scene}
         assert all(c.discovery_selector.startswith("arab48:") for c in cands)
 
 

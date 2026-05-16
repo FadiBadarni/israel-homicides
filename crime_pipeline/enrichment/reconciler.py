@@ -226,7 +226,7 @@ def _merge_pair(
 
 def reconcile_cases(
     cases: list[dict[str, Any]],
-    jaro_threshold: float = 0.85,
+    jaro_threshold: float = 0.90,
 ) -> ReconcileResult:
     """
     Pure in-memory reconciliation. No file I/O, no module-level state.
@@ -264,6 +264,37 @@ def reconcile_cases(
             if v and v not in names:
                 names.append(v)
         return names
+
+    def _primary_names(case: dict) -> list[str]:
+        """Primary name fields only — excludes aliases. Used for cross-case
+        merge decisions where polluted aliases (from past over-merges) would
+        otherwise enable runaway re-merging into the same mega-cluster."""
+        names: list[str] = []
+        for k in ("victim_name", "victim_name_ar", "victim_name_he", "victim_name_en"):
+            v = (case.get(k) or "").strip()
+            if v and v not in names:
+                names.append(v)
+        return names
+
+    def _surname_jaro_pass(names_a: list[str], names_b: list[str]) -> bool:
+        """Surname guard for the uncertain Jaro zone. When two names share a
+        common given name (Muhammed/Ahmed/Ali) the full-name Jaro can hit
+        0.88–0.94 purely on the prefix even though the families are
+        unrelated. Require the surname tokens to also match before merging."""
+        SURNAME_JARO_MIN = 0.85
+        for na in names_a:
+            ta = _name_tokens(na)
+            if len(ta) < 2:
+                continue
+            sa = " ".join(ta[1:])
+            for nb in names_b:
+                tb = _name_tokens(nb)
+                if len(tb) < 2:
+                    continue
+                sb = " ".join(tb[1:])
+                if _jaro(sa, sb) >= SURNAME_JARO_MIN:
+                    return True
+        return False
 
     def _best_jaro(names_a: list[str], names_b: list[str]) -> float:
         """Best Jaro-Winkler score across all cross-product name pairs."""
@@ -418,13 +449,33 @@ def reconcile_cases(
                 # Rule 2 below if city+date align).
                 continue
 
-            # Rule 1: both have at least one name → best alias-aware Jaro match
-            # OR token-containment match (catches inserted-middle-name cases
-            # where Jaro can fall below threshold for longer middle names).
-            if names_a and names_b:
-                score = _best_jaro(names_a, names_b)
+            # Rule 1: PRIMARY-NAME match (aliases excluded). Polluted aliases
+            # from past over-merges bootstrap further runaway merges if used
+            # here. Token-containment still considers aliases since it has
+            # its own first+last anchor guards. Surname guard rejects pairs
+            # where full-name Jaro is in the uncertain [0.90, 0.95) zone but
+            # the surnames don't actually match (the Muhammed/Ahmed common-
+            # given-name trap).
+            primaries_a = _primary_names(a)
+            primaries_b = _primary_names(b)
+            if primaries_a and primaries_b:
+                score = _best_jaro(primaries_a, primaries_b)
                 containment = _token_containment_match(names_a, names_b)
                 if score >= jaro_threshold or containment:
+                    # Surname guard for the uncertain zone — only when the
+                    # match came from Jaro (containment has its own anchor).
+                    SURNAME_GUARD_UPPER = 0.95
+                    if (
+                        not containment
+                        and jaro_threshold <= score < SURNAME_GUARD_UPPER
+                        and not _surname_jaro_pass(primaries_a, primaries_b)
+                    ):
+                        log.info(
+                            "reconciler_surname_guard_rejected",
+                            name_a=primaries_a[0], name_b=primaries_b[0],
+                            jaro=round(score, 3),
+                        )
+                        continue
                     union(i, j)
                     rule = (
                         "name_match"
@@ -433,15 +484,15 @@ def reconcile_cases(
                     )
                     merged_pairs.append({
                         "i": i, "j": j,
-                        "name_a": a.get("victim_name") or names_a[0],
-                        "name_b": b.get("victim_name") or names_b[0],
+                        "name_a": a.get("victim_name") or primaries_a[0],
+                        "name_b": b.get("victim_name") or primaries_b[0],
                         "jaro": round(score, 3),
                         "rule": rule,
                     })
                     log.info(
                         "reconciler_merge",
-                        name_a=names_a[0], name_b=names_b[0], jaro=round(score, 3),
-                        rule=rule,
+                        name_a=primaries_a[0], name_b=primaries_b[0],
+                        jaro=round(score, 3), rule=rule,
                         city_a=a.get("city"), city_b=b.get("city"),
                     )
                     continue
@@ -546,7 +597,7 @@ def reconcile_cases(
 
 def reconcile_file(
     path: str | Path,
-    jaro_threshold: float = 0.85,
+    jaro_threshold: float = 0.90,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """
