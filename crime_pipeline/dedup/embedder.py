@@ -6,11 +6,19 @@ log = structlog.get_logger()
 
 MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
+# Process-level cache. The MiniLM model is ~500 MB; instantiating one
+# per Pipeline.run() means 4-way parallel sweeps allocate 2 GB just for
+# embedders. Cache by model name so concurrent Deduplicator instances
+# in the same process share one underlying model.
+_MODEL_CACHE: dict[str, SentenceTransformer] = {}
+
 
 class ArticleEmbedder:
     def __init__(self, model_name: str = MODEL_NAME):
-        log.info("loading_embedding_model", model=model_name)
-        self.model = SentenceTransformer(model_name)
+        if model_name not in _MODEL_CACHE:
+            log.info("loading_embedding_model", model=model_name)
+            _MODEL_CACHE[model_name] = SentenceTransformer(model_name)
+        self.model = _MODEL_CACHE[model_name]
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Batch encode texts. Returns float32 array of shape (n, embedding_dim)."""
