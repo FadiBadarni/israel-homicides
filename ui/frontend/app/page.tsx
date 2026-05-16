@@ -174,6 +174,10 @@ export default function HomePage() {
       </nav>
 
       <header className="hero">
+        <picture className="hero-flower" aria-hidden="true">
+          <source media="(max-width: 520px)" srcSet="/hero-flower-vertical.png" />
+          <img src="/hero-flower-horizontal.png" alt="" />
+        </picture>
         <div className="wrap">
           <div className="eyebrow">{t(lang, "hero.eyebrow")}</div>
           <h1>{t(lang, "hero.h1").split("\n").map((line, i, arr) => (

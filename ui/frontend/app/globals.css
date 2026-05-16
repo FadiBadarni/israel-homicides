@@ -154,10 +154,47 @@ nav.top .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted);
 nav.top .links a:hover { color: var(--ink); }
 
 /* hero */
-.hero { padding: 80px 0 64px; border-bottom: 1px solid var(--hair); text-align: center; }
+.hero { padding: 80px 0 64px; border-bottom: 1px solid var(--hair); text-align: center; position: relative; overflow: hidden; }
+.hero .wrap { position: relative; z-index: 1; }
 .hero .eyebrow { font-size: 13px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 24px; }
 .hero h1 { font-family: var(--amiri); font-weight: 700; font-size: 56px; line-height: 1.55; color: var(--ink); margin: 0 auto 24px; max-width: 800px; text-wrap: balance; }
 .hero .lede { font-family: var(--amiri); font-size: 22px; line-height: 1.8; color: var(--ink-2); max-width: 640px; margin: 0 auto; text-wrap: pretty; }
+
+/* hero flower — watercolor sprig. Desktop: a delicate banner above the
+   eyebrow, centered. Phone (≤520px): the vertical variant anchored to
+   the bottom-left of the hero, rising behind the type. The <picture>
+   element selects the right asset by media query so only one image
+   gets downloaded. */
+.hero-flower {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 36px;
+  line-height: 0;
+  opacity: 0.9;
+}
+.hero-flower img { display: block; width: 100%; height: auto; }
+@media (max-width: 880px) {
+  .hero-flower { max-width: 520px; margin-bottom: 28px; }
+}
+@media (max-width: 520px) {
+  /* Phone: switch from top banner to side accent. The picture element
+     resolves to the vertical asset at this breakpoint, and the absolute
+     positioning + bottom anchor reads as a branch growing up the side
+     of the hero. Slightly reduced opacity so the type stays the focus. */
+  .hero { padding-top: 56px; padding-bottom: 72px; }
+  .hero-flower {
+    position: absolute;
+    bottom: 0;
+    left: -12px;
+    width: 42%;
+    max-width: 180px;
+    margin: 0;
+    opacity: 0.7;
+    z-index: 0;
+    pointer-events: none;
+  }
+}
 
 /* big number row */
 .stats { padding: 64px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 0; }
