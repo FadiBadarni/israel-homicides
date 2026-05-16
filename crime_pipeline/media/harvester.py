@@ -196,6 +196,14 @@ class MediaHarvester:
             )
             for cand in self._extract_meta_tags(soup, base_url):
                 if self._arab48_url_allowed(cand.source_url):
+                    # Arab48 og:image is a /facebook_waterMark/ PNG with a
+                    # fake play-button overlay baked in (Facebook engagement
+                    # hack). The canonical un-watermarked JPG lives at the
+                    # same path without the prefix and is always present.
+                    if "/facebook_waterMark/" in cand.source_url:
+                        cand.source_url = cand.source_url.replace(
+                            "/facebook_waterMark/", "/"
+                        ).replace(".png", ".jpg")
                     # Arab48 meta alt text is often the article headline, not an
                     # image caption. Keep the candidate as a lead image but do
                     # not feed headline text into the portrait classifier. A
