@@ -1,37 +1,88 @@
-# israel-homicides
+# سجل ضحايا الجريمة في المجتمع العربي
 
-Multi-source Arabic/Hebrew crime news scraping and AI extraction pipeline. Discovers homicide news articles across the currently enabled Hebrew and Arabic news sources, runs LLM-based structured extraction, deduplicates across sources, and produces one canonical case record per incident.
+A public register documenting homicide victims in Arab society in Israel — name by name.
 
-## Overview
+The project has two parts: a **data pipeline** that discovers, extracts, deduplicates, and merges case information from Arabic and Hebrew news sources, and a **memorial frontend** that presents the data as a bilingual (Arabic / Hebrew) interactive register.
 
-The pipeline runs as six checkpointed stages, each persisting to SQLite so any stage can be skipped or resumed:
+---
+
+## Memorial Frontend
+
+Next.js app deployed on Vercel. No backend required in production — reads pre-exported static JSON.
+
+**Pages:**
+
+| Route | Description |
+|-------|-------------|
+| `/` | Hero with animated stats, year timeline, searchable victim cards, contact strip |
+| `/cases/[runId]/[caseIndex]` | Victim memorial — photo gallery, incident facts, source citations |
+| `/contribute` | Call to action for data contributions |
+
+**Features:**
+- Bilingual Arabic / Hebrew with full RTL support and language toggle
+- Victim search across all name scripts and transliterations
+- Animated count-up stats (respects `prefers-reduced-motion`)
+- Smooth page transitions
+- Responsive: desktop, tablet, and 2-column phone layouts
+- Vercel Analytics
+
+### Run the frontend locally
+
+```bash
+cd ui/frontend
+npm install
+npm run dev          # http://localhost:3000
+```
+
+### Refresh data and deploy
+
+```bash
+python scripts/export_static_data.py     # regenerate public/data/ from SQLite
+cd ui/frontend && git add public/data
+git commit -m "data: refresh memorial export"
+git push                                  # Vercel auto-rebuilds
+```
+
+---
+
+## Data Pipeline
+
+Ten-stage async pipeline. Stages 1–4 and 10 are checkpointed to SQLite; stages 5–9 are deterministic in-memory transforms.
 
 ```
-Discover → Fetch → Extract → Dedup → Merge → Export
+Discover → Fetch → Triage → Extract → Dedup → Merge → Sanity → Quality → Reconcile → Export
 ```
 
-| Stage     | What it does                                                              |
-| --------- | ------------------------------------------------------------------------- |
-| Discover  | Query each source for candidate URLs                                       |
-| Fetch     | Pull HTML + clean text (Playwright for JS-rendered sources)                |
-| Extract   | Gemini structured extraction → `ExtractedArticleData`                      |
-| Dedup     | Blocking on `(city, YYYY-MM)` → Jaro-Winkler name pre-filter → multilingual cosine gate |
-| Merge     | Fold cluster of articles into one `CanonicalCaseSchema` with conflict tracking |
-| Export    | Schema 2.0 single-run JSON (`output/{run_id}.json`) + backward-compat manifest + summary |
+| Stage | What it does |
+|-------|-------------|
+| Discover | Query each source for candidate URLs |
+| Fetch | Pull HTML + clean text (Playwright for JS-rendered sources) |
+| Triage | Cheap LLM pre-filter — classifies articles as homicide/attempted/other before full extraction |
+| Extract | Gemini structured extraction → `ExtractedArticleData` (incl. multi-victim explode) |
+| Dedup | Blocking on `(city, YYYY-MM)` → Jaro-Winkler pre-filter → multilingual cosine gate |
+| Merge | Fold cluster into one `CanonicalCaseSchema` with conflict tracking |
+| Sanity | Date clamping, script purity, three-axis legal status, per-category confidence |
+| Quality | Status synonyms, name conflict → aliases, evidence dedup, canonical ID |
+| Reconcile | Cross-case consistency and provenance attribution |
+| Export | Schema 2.0 single-run JSON (`output/{run_id}.json`) |
 
-Side subsystems:
+**Side subsystems:**
 
 - **Media pipeline** — per-case image harvest, download, classification (keyword → CLIP → Gemini cascade), perceptual-hash dedup across sources, and split into decorative `media` vs evidentiary `media_evidence`.
-- **Enrichment** — second-pass over an existing canonical case: generates targeted multilingual queries (victim names in Arabic/Hebrew/English, neighborhood, suspect relation) and additively merges new findings.
+- **Enrichment** — second-pass over an existing canonical case: generates targeted multilingual queries and additively merges new findings.
 
 ## Sources
 
-| Source       | Language | Priority | Notes                                  |
-| ------------ | -------- | -------- | -------------------------------------- |
-| `ynet`       | Hebrew   | 1        | Mainstream Israeli news                |
-| `arab48`     | Arabic   | 2        | Arabic local press                     |
+| Source | Language | Priority | Notes |
+|--------|----------|----------|-------|
+| `police` | Hebrew | 0 | police.gov.il press releases |
+| `ynet` | Hebrew | 1 | Mainstream Israeli news |
+| `walla` | Hebrew | 1 | Commercial news — closes Bedouin coverage gap |
+| `makan` | Arabic | 2 | Kan-affiliated Arabic public broadcaster |
+| `panet` | Arabic | 2 | Arabic SPA — requires Playwright |
+| `google_news` | Mixed | — | Google News RSS aggregator with language detection |
 
-Source priority is used both as a tie-breaker when selecting a canonical record within a cluster and as a confidence weight during merge.
+Source priority is used as a tie-breaker when selecting a canonical record within a cluster and as a confidence weight during merge.
 
 ## Data Model
 
@@ -45,8 +96,9 @@ ORM tables (`RawArticle`, `ExtractedRecord`, `CanonicalCase`) checkpoint each st
 ## Requirements
 
 - Python ≥ 3.11
-- A Google Gemini API key
-- Playwright browsers are only needed for legacy/local experiments that use Playwright-based scrapers.
+- Node.js ≥ 18 (for the frontend)
+- A Google Gemini API key (for the pipeline)
+- Playwright Chromium (only needed for the Panet scraper)
 
 ## Setup
 
@@ -55,36 +107,44 @@ ORM tables (`RawArticle`, `ExtractedRecord`, `CanonicalCase`) checkpoint each st
 git clone git@github.com:FadiBadarni/israel-homicides.git
 cd israel-homicides
 
-# 2. Create venv + install
+# 2. Pipeline
 python -m venv .venv
-. .venv/Scripts/activate          # Windows
-# . .venv/bin/activate              # Linux/macOS
+. .venv/Scripts/activate          # Windows  (Linux/macOS: . .venv/bin/activate)
 pip install -e .
+pip install -e ".[vision]"        # optional: CLIP classifier (~1 GB)
+playwright install chromium       # optional: needed for Panet scraper
 
-# Optional: CLIP vision classifier (~1 GB: torch + ViT-B-32 weights)
-pip install -e ".[vision]"
+# 3. Configure secrets
+cp .env.example .env              # set GEMINI_API_KEY=...
 
-# 3. Install Playwright browsers
-playwright install chromium
-
-# 4. Configure secrets
-cp .env.example .env
-# edit .env and set GEMINI_API_KEY=...
+# 4. Frontend
+cd ui/frontend
+npm install
 ```
 
 ## Usage
 
-### Full pipeline run
+### Canonical build (production)
+
+```bash
+# Re-extract if prompts changed
+python -m crime_pipeline --reextract-all
+
+# Build the canonical dataset for a date window
+python -m crime_pipeline --build-canonical \
+    --date-from 2026-01-01 --date-to 2026-12-31
+# → writes output/canonical_2026-01-01_2026-12-31.json
+```
+
+### Full pipeline run (discover new articles)
 
 ```bash
 python -m crime_pipeline \
     --query "Arraba 2026" \
-    --sources ynet,arab48 \
+    --sources ynet,police,panet \
     --date-from 2026-01-01 \
     --date-to 2026-12-31
 ```
-
-Exit codes: `0` if any cases or extractions were produced, `2` if the run completed but produced nothing usable, `130` on Ctrl-C.
 
 ### Run only specific stages
 
@@ -95,19 +155,19 @@ python -m crime_pipeline --query "Arraba 2026" \
     --stage extract --stage dedup --stage merge --stage export
 ```
 
-### Second-pass enrichment
-
-Run targeted enrichment on an existing canonical case JSON:
+### Pipeline funnel diagnostic
 
 ```bash
-# Default mixed locale
-python -m crime_pipeline --enrich-case output/arraba_real_002_canonical.json
+python -m crime_pipeline --show-pipeline-funnel kw_ar_    # by prefix
+python -m crime_pipeline --show-pipeline-funnel all        # everything
+```
 
-# Arabic-only queries
-python -m crime_pipeline --enrich-case output/arraba_real_002_canonical.json --arabic-only
+### Second-pass enrichment
 
-# Tier-2 Arabic local press only
-python -m crime_pipeline --enrich-case output/arraba_real_002_canonical.json --tier 2
+```bash
+python -m crime_pipeline --enrich-case output/case.json
+python -m crime_pipeline --enrich-case output/case.json --arabic-only
+python -m crime_pipeline --enrich-case output/case.json --tier 2
 ```
 
 Enrichment is **additive** — it never overwrites high-confidence existing data; it fills gaps and accumulates corroborating sources.
@@ -115,14 +175,17 @@ Enrichment is **additive** — it never overwrites high-confidence existing data
 ### CLI flags
 
 ```
---query                          Search query (required unless --enrich-case)
+--query                          Search query (required unless --build-canonical / --enrich-case)
+--build-canonical                Build canonical dataset from existing DB state
+--reextract-all                  Re-extract every triage-passed article
 --enrich-case <path>             Run enricher against an existing canonical JSON
---sources                        Comma-separated: ynet,arab48 (default)
+--sources                        Comma-separated: ynet,police,panet,walla,makan
 --date-from / --date-to          ISO dates
 --max-per-source                 Per-source discovery cap (default: 50)
 --stage <name>                   Repeatable. Limits run to listed stages.
 --jaro-threshold                 Override name-similarity gate (default: 0.88)
 --cosine-threshold               Override embedding-similarity gate (default: 0.82)
+--show-pipeline-funnel <prefix>  Diagnostic: show article drop-off per stage
 --tier 1|2|3                     Enrichment-only: target source tier
 --arabic-only                    Enrichment-only: Arabic locale + queries
 --log-level                      DEBUG|INFO|WARNING|ERROR
@@ -131,12 +194,13 @@ Enrichment is **additive** — it never overwrites high-confidence existing data
 
 ## Post-processing passes
 
-Two cleanup passes run automatically after enrichment, inside the enricher:
+Three deterministic, zero-API-cost cleanup stages run inline after merge:
 
-- **`sanity_pass`** — fixes systemic extraction bugs: clamps dates to publication-year ± 2, enforces script purity (Arabic/Hebrew/Latin fields), normalises `googlenews` discovery sources to real publishers + tier, splits the legacy single-axis `police_status` into the three-axis model, and computes per-category confidence scores.
-- **`quality_pass`** — semantic cleanup: collapses status synonyms (`arrested` ≡ `in_custody`), promotes name conflicts that are just script variants to `aliases`, deduplicates evidence items reported in two languages into one multilingual record, and generates a phonetic `canonical_case_id` via romanization.
+- **Sanity** — clamps dates to publication-year ± 2, enforces script purity (Arabic/Hebrew/Latin name fields), normalises discovery sources to real publishers, splits legacy single-axis `police_status` into the three-axis model, and computes per-category confidence scores.
+- **Quality** — collapses status synonyms (`arrested` ≡ `in_custody`), promotes mixed-script name conflicts to `aliases`, deduplicates evidence items, and generates a phonetic `canonical_case_id`.
+- **Reconcile** — cross-case consistency and per-field provenance attribution.
 
-Neither pass discards data — they correct field placement and improve signal clarity.
+None of these passes discard data — they correct field placement and improve signal clarity.
 
 ## Configuration
 
@@ -159,51 +223,63 @@ All settings live in `.env` (loaded via `pydantic-settings`). Defaults in [`crim
 ```
 crime_pipeline/
 ├── __main__.py            # Click CLI entry point
-├── pipeline.py            # Six-stage orchestrator
+├── pipeline.py            # Ten-stage async orchestrator
 ├── config.py              # Settings (pydantic-settings)
 ├── models.py              # SQLAlchemy ORM + Pydantic schemas
 ├── scrapers/              # Source-specific discover/fetch
-│   ├── base.py
-│   ├── ynet.py
-│   ├── arab48.py
-│   └── tier_registry.py
-├── extraction/            # LLM extraction + JSON-schema validation
+│   ├── base.py            # Abstract scraper + robots.txt
+│   ├── ynet.py, walla.py, makan.py, panet.py, police.py
+│   ├── google_news.py     # Google News RSS aggregator
+│   └── tier_registry.py   # Three-tier source classification
+├── extraction/            # LLM extraction + multi-victim explode
 ├── dedup/                 # Embeddings + Jaro + DuckDB graph
 ├── merging/               # Cluster → canonical case + conflict resolution
-├── enrichment/            # Second-pass query gen + additive merge
-├── media/                 # Image harvest + classify + phash dedup
-├── export/                # JSON + manifest + human summary
+├── enrichment/            # Sanity, quality, reconcile + second-pass enricher
+├── media/                 # Harvest → download → classify → dedup
+├── export/                # Schema 2.0 JSON export
 ├── storage/               # SQLAlchemy engine + repository helpers
 └── utils/                 # Gazetteer, hashing, retry
+ui/
+├── frontend/              # Next.js memorial frontend
+│   ├── app/               # App Router pages (home, case detail, contribute)
+│   ├── components/        # React components (count-up, language toggle, etc.)
+│   ├── lib/               # API client, i18n, regions, formatting
+│   └── public/data/       # Static JSON exported from pipeline
+└── api/                   # FastAPI backend (dev convenience only)
+scripts/                   # Data export, sweeps, maintenance
 data/
-├── gazetteer.json         # Static city/region reference
+├── gazetteer.json         # City/region reference (3-script + coords)
 └── pipeline.db            # (gitignored) SQLite checkpoint DB
-output/                    # (gitignored) per-run cases + manifests
+output/                    # (gitignored) per-run canonical JSON
 tests/
 ```
 
 ## Development
 
+### Pipeline
+
 ```bash
-# Install with dev tools
 pip install -e . pytest ruff mypy
 
-# Run tests
-pytest
-pytest tests/test_media_pipeline.py -v   # media subsystem only
+pytest                                    # all tests
+pytest tests/test_media_pipeline.py -v    # media subsystem only
+ruff check crime_pipeline                 # lint
+mypy crime_pipeline                       # type check
 
-# Lint
-ruff check crime_pipeline
-
-# Type check
-mypy crime_pipeline
-
-# Media demo (real Channel 13 + Mako + Ynet HTML — no DB or API key needed)
-python scripts/demo_media_real.py
+python scripts/demo_media_real.py         # media demo — no DB or API key needed
 ```
 
-`tests/test_media_pipeline.py` contains 30+ unit and integration tests covering Harvester, Classifier, Dedup, Splitter, and the Pipeline orchestrator end-to-end. No network I/O — `MediaDownloader` is monkeypatched with deterministic hashes. No `pytest-asyncio` required; `tests/conftest.py` wraps async tests with an `asyncio.run` fallback.
+Tests cover Harvester, Classifier, Dedup, Splitter, and the Pipeline orchestrator end-to-end. No network I/O — `MediaDownloader` is monkeypatched with deterministic hashes. No `pytest-asyncio` required.
+
+### Frontend
+
+```bash
+cd ui/frontend
+npm run dev                               # dev server on port 3000
+npm run build                             # production build
+python scripts/export_static_data.py      # refresh public/data/ from SQLite
+```
 
 ## License
 
-[MIT](LICENSE)
+This project documents publicly reported information for memorial purposes.
